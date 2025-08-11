@@ -5,7 +5,7 @@ package goframework_debug
 import (
 	"sync"
 
-	fwcommon "goframework/common"
+	fwcommon "github.com/sbamboo/goframework/common"
 )
 
 const W_ProtocolVersion = 1

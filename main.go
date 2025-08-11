@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	fwcommon "goframework/common"
-	fwdebug "goframework/debug"
-	fwlog "goframework/log"
-	fwnet "goframework/net"
-	fwupdate "goframework/update"
+
+	fwcommon "github.com/sbamboo/goframework/common"
+	fwdebug "github.com/sbamboo/goframework/debug"
+	fwlog "github.com/sbamboo/goframework/log"
+	fwnet "github.com/sbamboo/goframework/net"
+	fwupdate "github.com/sbamboo/goframework/update"
 )
 
 type Framework struct {

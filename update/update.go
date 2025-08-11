@@ -1,6 +1,6 @@
 package goframework_update
 
-import fwcommon "goframework/common"
+import fwcommon "github.com/sbamboo/goframework/common"
 
 type NetUpdater struct {
 	config  *fwcommon.FrameworkConfig

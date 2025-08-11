@@ -1,6 +1,6 @@
 package goframework_net
 
-import fwcommon "goframework/common"
+import fwcommon "github.com/sbamboo/goframework/common"
 
 type Net struct {
 	config *fwcommon.FrameworkConfig

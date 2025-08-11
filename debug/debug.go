@@ -5,10 +5,11 @@ package goframework_debug
 import (
 	"encoding/json"
 	"fmt"
-	fwcommon "goframework/common"
 	"net"
 	"sync"
 	"time"
+
+	fwcommon "github.com/sbamboo/goframework/common"
 )
 
 const W_ProtocolVersion = 1

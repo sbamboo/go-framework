@@ -1,6 +1,6 @@
 package goframework_log
 
-import fwcommon "goframework/common"
+import fwcommon "github.com/sbamboo/goframework/common"
 
 type Logger struct {
 	config *fwcommon.FrameworkConfig
