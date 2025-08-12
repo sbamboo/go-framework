@@ -12,8 +12,8 @@ import (
 
 type Framework struct {
 	Config   *fwcommon.FrameworkConfig
-	Net      *fwnet.Net
-	Logger   *fwlog.Logger
+	Net      *fwnet.NetHandler
+	Log      *fwlog.Logger
 	Debugger *fwdebug.DebugEmitter
 	Update   *fwupdate.NetUpdater
 }
@@ -26,14 +26,21 @@ func NewFramework(config *fwcommon.FrameworkConfig) *Framework {
 	return &Framework{
 		Config:   config,
 		Net:      net,
-		Logger:   log,
+		Log:      log,
 		Debugger: deb,
 		Update:   update,
 	}
 }
 
 func main() {
-	config := &fwcommon.FrameworkConfig{DebugSendPort: 9000, DebugListenPort: 9001}
+	config := &fwcommon.FrameworkConfig{
+		DebugSendPort:   9000,
+		DebugListenPort: 9001,
+
+		LoggerFile:     nil,
+		LoggerFormat:   nil,
+		LoggerCallable: nil,
+	}
 	fw := NewFramework(config)
 
 	fmt.Println(fw)

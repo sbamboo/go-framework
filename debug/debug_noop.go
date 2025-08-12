@@ -10,6 +10,7 @@ import (
 
 const W_ProtocolVersion = 1
 
+// Implements: fwcommon.DebuggerInterface
 type DebugEmitter struct {
 	// Config
 	ProtocolVersion int
@@ -29,6 +30,14 @@ func NewDebugEmitter(config *fwcommon.FrameworkConfig) *DebugEmitter {
 		Active:           false,
 		LastKnownLatency: -1,
 	}
+}
+
+// Functions for fullfilling the fwcommon.DebuggerInterface
+func (e *DebugEmitter) IsActive() bool {
+	return e.Active
+}
+func (e *DebugEmitter) GetProtocolVersion() int {
+	return e.ProtocolVersion
 }
 
 // Activate establishes the UDP connections for sending and receiving.
@@ -68,8 +77,10 @@ func (e *DebugEmitter) OnPing(_ fwcommon.JSONObject) {}
 
 // --- Specific signals ---
 
-func (e *DebugEmitter) ConsoleLog(logType, text string, object fwcommon.JSONObject) error { return nil }
-func (e *DebugEmitter) ElementsTree(tree fwcommon.Tree) error                             { return nil }
+func (e *DebugEmitter) ConsoleLog(logType fwcommon.LogLevel, text string, object fwcommon.JSONObject) error {
+	return nil
+}
+func (e *DebugEmitter) ElementsTree(tree fwcommon.Tree) error { return nil }
 func (e *DebugEmitter) ElementsUpdate(element fwcommon.ElementIdentifier, props fwcommon.JSONObject) error {
 	return nil
 }

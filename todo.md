@@ -1,0 +1,1 @@
+- .net.Fetch takes optiions as pointer and if nil use options from config

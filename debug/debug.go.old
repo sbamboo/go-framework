@@ -23,7 +23,7 @@ type DebugEmitter struct {
 
 	// State and concurrency control
 	Active         bool
-	stateMutex     sync.RWMutex // Protects 'active', 'signalOutConn', 'signalInConn'
+	stateMutex     sync.RWMutex // Protects 'active', 'sendPort', 'listenPort'
 	activateOnce   sync.Once    // Ensures activation logic runs only once initially
 	deactivateOnce sync.Once    // Ensures deactivation logic runs only once per deactivation cycle
 
@@ -35,8 +35,8 @@ type DebugEmitter struct {
 	signalOutWg       sync.WaitGroup           // To wait for the sender goroutine to exit
 
 	// For receiving signals (listen)
-	signalInConn     *net.UDPConn
-	signalInStopChan chan struct{} // To signal the listener goroutine to stop
+	signalInConn     *net.UDPConn  // To signal the listener goroutine to stop
+	signalInStopChan chan struct{} // To wait for the listener goroutine to exit
 	signalInWg       sync.WaitGroup
 
 	// Handlers for incoming signals
@@ -60,14 +60,6 @@ func NewDebugEmitter(config *fwcommon.FrameworkConfig) *DebugEmitter {
 
 		LastKnownLatency: -1,
 	}
-}
-
-// Functions for fullfilling the fwcommon.DebuggerInterface
-func (e *DebugEmitter) IsActive() bool {
-	return e.Active
-}
-func (e *DebugEmitter) GetProtocolVersion() int {
-	return e.ProtocolVersion
 }
 
 // activateInternal is the core logic for setting up network connections.
@@ -107,16 +99,9 @@ func (e *DebugEmitter) activateInternal() {
 	e.signalOutAddr = signalOutAddr
 	e.signalInConn = signalInConn
 	e.Active = true
+	e.signalInStopChan = make(chan struct{}) // Reset stop channel
 
-	// Initialize and start send queue and goroutine
-	e.signalOutChan = make(chan fwcommon.JSONObject, 100) // Buffered channel to prevent blocking 'Send'
-	e.signalOutStopChan = make(chan struct{})
-	e.signalOutWg.Add(1)
-	go e.sendLoop()
-
-	// Initialize and start listener goroutine
-	e.signalInStopChan = make(chan struct{})
-	e.signalInWg.Add(1)
+	e.signalInWg.Add(1) // Increment wait group for the new goroutine
 	go e.listenForIncomming()
 }
 
@@ -134,17 +119,9 @@ func (e *DebugEmitter) deactivateInternal() {
 	// Signal the listener goroutine to stop
 	if e.signalInStopChan != nil {
 		close(e.signalInStopChan)
-		e.signalInWg.Wait() // Wait for the listener goroutine to finish
-		e.signalInStopChan = nil
-	}
-
-	// Signal the sender goroutine to stop
-	if e.signalOutStopChan != nil {
-		close(e.signalOutStopChan)
-		e.signalOutWg.Wait()   // Wait for the sender goroutine to finish
-		close(e.signalOutChan) // Close the send queue after the sender goroutine has stopped processing
-		e.signalOutChan = nil
-		e.signalOutStopChan = nil
+		// Wait for the goroutine to finish before closing connections
+		e.signalInWg.Wait()
+		e.signalInStopChan = nil // Mark as closed
 	}
 
 	if e.signalOutConn != nil {
@@ -173,17 +150,8 @@ func (e *DebugEmitter) listenForIncomming() {
 		default:
 			// Set a read deadline to allow checking signalInStopChan periodically
 			// or after a read error.
-			e.stateMutex.RLock() // Lock to safely access signalInConn
-			conn := e.signalInConn
-			isActive := e.Active
-			e.stateMutex.RUnlock()
-
-			if !isActive || conn == nil {
-				return // Emitter deactivated or connection is nil
-			}
-
-			conn.SetReadDeadline(time.Now().Add(time.Second))
-			n, _, err := conn.ReadFromUDP(buffer)
+			e.signalInConn.SetReadDeadline(time.Now().Add(time.Second))
+			n, _, err := e.signalInConn.ReadFromUDP(buffer)
 			if err != nil {
 				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 					continue // Timeout, check stop channel again
@@ -234,65 +202,12 @@ func (e *DebugEmitter) listenForIncomming() {
 	}
 }
 
-// sendLoop is a goroutine that reads messages from the signalOutChan and sends them.
-func (e *DebugEmitter) sendLoop() {
-	defer e.signalOutWg.Done()
-
-	for {
-		select {
-		case <-e.signalOutStopChan:
-			// Drain the queue before exiting to send any remaining messages
-			for msg := range e.signalOutChan {
-				e.doSend(msg)
-			}
-			return
-		case msg, ok := <-e.signalOutChan:
-			if !ok {
-				// Channel was closed and is empty, exit
-				return
-			}
-			e.doSend(msg)
-		}
-	}
-}
-
-// doSend performs the actual UDP send operation.
-// This function is called by the sendLoop goroutine.
-func (e *DebugEmitter) doSend(msg fwcommon.JSONObject) {
-	e.stateMutex.RLock()
-	signalOutConn := e.signalOutConn
-	signalOutAddr := e.signalOutAddr
-	e.stateMutex.RUnlock()
-
-	if signalOutConn == nil || signalOutAddr == nil {
-		// This can happen if the emitter is deactivated while messages are still in the queue.
-		// fmt.Printf("DebugEmitter is not active or connections are nil, dropping message.\n")
-		return
-	}
-
-	msg["protocol"] = e.ProtocolVersion
-	msg["sent"] = time.Now().UnixMilli()
-
-	data, err := json.Marshal(msg)
-	if err != nil {
-		// fmt.Errorf("failed to marshal message: %w", err)
-		return
-	}
-
-	// UDP is connectionless, we just send to the target address without caring if there is a debugger connected
-	_, err = signalOutConn.WriteToUDP(data, signalOutAddr)
-	if err != nil {
-		// fmt.Errorf("failed to send UDP datagram: %w", err)
-		return
-	}
-}
-
 // Activate establishes the UDP connections for sending and receiving.
 // It can be called multiple times but will only perform the activation logic once until Deactivate is called.
 func (e *DebugEmitter) Activate() {
 	e.stateMutex.Lock()
 	defer e.stateMutex.Unlock()
-	e.activateOnce.Do(e.activateInternal)
+	e.activateInternal()
 }
 
 // Deactivate closes the UDP connections.
@@ -300,30 +215,36 @@ func (e *DebugEmitter) Activate() {
 func (e *DebugEmitter) Deactivate() {
 	e.stateMutex.Lock()
 	defer e.stateMutex.Unlock()
-	e.deactivateOnce.Do(e.deactivateInternal)
+	e.deactivateInternal()
 }
 
-// Send a message to the debugger via UDP by pushing it onto the send queue.
-// This operation is non-blocking.
+// Send a raw message to the debugger via UDP.
+// Returns an error if the Emitter is not active.
 func (e *DebugEmitter) Send(msg fwcommon.JSONObject) error {
 	e.stateMutex.RLock()
 	isActive := e.Active
-	signalOutChan := e.signalOutChan
+	signalOutConn := e.signalOutConn
+	signalOutAddr := e.signalOutAddr
 	e.stateMutex.RUnlock()
 
-	if !isActive || signalOutChan == nil {
-		return fmt.Errorf("emitter is not active or send queue is not initialized, message dropped")
+	if !isActive || signalOutConn == nil || signalOutAddr == nil {
+		return fmt.Errorf("emitter is not active, cannot send signal")
 	}
 
-	// Non-blocking send to the channel
-	select {
-	case signalOutChan <- msg:
-		return nil
-	default:
-		// This means the signalOutChan is full.
-		// You might want to log this or increase the channel buffer size.
-		return fmt.Errorf("send queue is full, message dropped")
+	msg["protocol"] = e.ProtocolVersion
+	msg["sent"] = time.Now().UnixMilli()
+
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
 	}
+
+	// UDP is connectionless, we just send to the target address without caring if there is a debugger connected
+	_, err = signalOutConn.WriteToUDP(data, signalOutAddr)
+	if err != nil {
+		return fmt.Errorf("failed to send UDP datagram: %w", err)
+	}
+	return nil
 }
 
 // Register handler for incoming signal
@@ -345,7 +266,7 @@ func (e *DebugEmitter) OnPing(_ fwcommon.JSONObject) {
 
 // --- Specific signals ---
 
-func (e *DebugEmitter) ConsoleLog(logType fwcommon.LogLevel, text string, object fwcommon.JSONObject) error {
+func (e *DebugEmitter) ConsoleLog(logType, text string, object fwcommon.JSONObject) error {
 	return e.Send(fwcommon.JSONObject{
 		"signal": "console:log",
 		"type":   logType,
