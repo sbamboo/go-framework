@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -21,15 +20,17 @@ import (
 // GithubUpdateFetcher encapsulates the logic for fetching and processing Github Releases
 // Implements: fwcommon.GithubUpdateFetcherInterface
 type GithubUpdateFetcher struct {
-	Owner string
-	Repo  string
+	Owner   string
+	Repo    string
+	fetcher fwcommon.FetcherInterface
 }
 
 // NewGithubUpdateFetcher creates a new instance of GithubUpdateFetcher.
-func NewGithubUpdateFetcher(owner, repo string) *GithubUpdateFetcher {
+func NewGithubUpdateFetcher(owner, repo string, fetcher fwcommon.FetcherInterface) *GithubUpdateFetcher {
 	return &GithubUpdateFetcher{
-		Owner: owner,
-		Repo:  repo,
+		Owner:   owner,
+		Repo:    repo,
+		fetcher: fetcher,
 	}
 }
 
@@ -261,24 +262,21 @@ func (ghup *GithubUpdateFetcher) fetchReleases() ([]fwcommon.GithubReleaseAssets
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", ghup.Owner, ghup.Repo)
 	fmt.Println("Fetching releases from:", url)
 
-	resp, err := http.Get(url)
+	report, err := ghup.fetcher.GET(url, false, false, nil)
 	if err != nil {
-		return nil, fmt.Errorf("http.Get failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("HTTP status %d: %s", resp.StatusCode, string(bodyBytes))
+		return nil, fmt.Errorf("fetcher.GET failed for %s: %w", url, err)
 	}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response body failed: %w", err)
+	if report.GetResponse().StatusCode != http.StatusOK {
+		content := "No body"
+		if report.GetNonStreamContent() != nil {
+			content = *report.GetNonStreamContent()
+		}
+		return nil, fmt.Errorf("HTTP status %d: %s", report.GetResponse().StatusCode, content)
 	}
 
 	var releases []fwcommon.GithubReleaseAssets
-	err = json.Unmarshal(bodyBytes, &releases)
+	err = json.Unmarshal([]byte(*report.GetNonStreamContent()), &releases)
 	if err != nil {
 		return nil, fmt.Errorf("json.Unmarshal failed: %w", err)
 	}
@@ -287,22 +285,20 @@ func (ghup *GithubUpdateFetcher) fetchReleases() ([]fwcommon.GithubReleaseAssets
 
 // fetchFileContent fetches the content of a file from a given URL.
 func (ghup *GithubUpdateFetcher) fetchFileContent(url string) (string, error) {
-	resp, err := http.Get(url)
+	report, err := ghup.fetcher.GET(url, false, false, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch content from %s: %w", url, err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP status %d fetching %s", resp.StatusCode, url)
+	if report.GetResponse().StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP status %d fetching %s", report.GetResponse().StatusCode, url)
 	}
 
-	contentBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read content from %s: %w", url, err)
+	if report.GetNonStreamContent() == nil {
+		return "", fmt.Errorf("received empty content for %s", url)
 	}
 
-	return string(contentBytes), nil
+	return *report.GetNonStreamContent(), nil
 }
 
 // parseReleaseBodyForUpMeta extracts release notes and an optional UpMeta struct
@@ -440,7 +436,8 @@ func NewNetUpdater(config *fwcommon.FrameworkConfig, fetcherPtr fwcommon.Fetcher
 	if config.UpdatorAppConfiguration.GithubUpMetaRepo != nil && strings.Contains(*config.UpdatorAppConfiguration.GithubUpMetaRepo, "/") {
 		parts := strings.SplitN(*config.UpdatorAppConfiguration.GithubUpMetaRepo, "/", 2)
 		if len(parts) == 2 {
-			nu.config.UpdatorAppConfiguration.GhMetaFetcher = NewGithubUpdateFetcher(parts[0], parts[1])
+			// Pass the fetcher to NewGithubUpdateFetcher
+			nu.config.UpdatorAppConfiguration.GhMetaFetcher = NewGithubUpdateFetcher(parts[0], parts[1], nu.fetcher)
 		}
 	}
 
@@ -468,23 +465,21 @@ func (nu *NetUpdater) GetLatestVersion() (*NetUpReleaseInfo, error) {
 // getLatestVersionFromJsonDeploy fetches update metadata from a deploy.json file.
 func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error) {
 	fmt.Println("Fetching deploy.json from:", nu.config.UpdatorAppConfiguration.DeployURL)
-	resp, err := http.Get(nu.config.UpdatorAppConfiguration.DeployURL)
+	report, err := nu.fetcher.GET(nu.config.UpdatorAppConfiguration.DeployURL, false, false, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch deploy.json from %s: %w", nu.config.UpdatorAppConfiguration.DeployURL, err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch deploy.json, status code: %d", resp.StatusCode)
+	if report.GetResponse().StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch deploy.json, status code: %d", report.GetResponse().StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read deploy.json response body: %w", err)
+	if report.GetNonStreamContent() == nil {
+		return nil, fmt.Errorf("received empty content for deploy.json")
 	}
 
 	var deployFile NetUpDeployFile
-	err = json.Unmarshal(body, &deployFile)
+	err = json.Unmarshal([]byte(*report.GetNonStreamContent()), &deployFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal deploy.json: %w", err)
 	}
@@ -661,17 +656,17 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 	opts.Checksum = expectedChecksum
 	opts.Signature = expectedSignature
 
-	// Perform the HTTP GET request
-	resp, err := http.Get(downloadURL)
+	report, err := nu.fetcher.GET(downloadURL, true, false, nil) // Stream the body
 	if err != nil {
 		return fmt.Errorf("failed to download update from %s: %w", downloadURL, err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download update from %s, status code: %d", downloadURL, resp.StatusCode)
+	defer report.Close() // Close the report when done
+
+	if report.GetResponse().StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download update from %s, status code: %d", downloadURL, report.GetResponse().StatusCode)
 	}
 
-	err = update.Apply(resp.Body, opts)
+	err = update.Apply(report, opts) // Pass the NetProgressReport as io.Reader
 	if err != nil {
 		return fmt.Errorf("failed to apply update: %w", err)
 	}
