@@ -1,0 +1,8 @@
+*.key
+*.pem
+testapp/builds
+testapp/signing
+testapp/workspace
+workspace
+signing
+builds
