@@ -1,2 +1,1 @@
-- .net.Fetch takes optiions as pointer and if nil use options from config
 - debug should not enable listen at all unless .ActivateListen() explicetly

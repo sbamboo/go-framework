@@ -10,13 +10,13 @@ import (
 
 type Logger struct {
 	config *fwcommon.FrameworkConfig
-	deb    fwcommon.DebuggerInterface
+	deb    fwcommon.DebuggerInterface // Pointer
 }
 
-func NewLogger(config *fwcommon.FrameworkConfig, deb fwcommon.DebuggerInterface) *Logger {
+func NewLogger(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInterface) *Logger {
 	return &Logger{
 		config: config,
-		deb:    deb,
+		deb:    debPtr,
 	}
 }
 

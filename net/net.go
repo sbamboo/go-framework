@@ -1,6 +1,7 @@
 package goframework_net
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -66,29 +67,41 @@ func (pr *NetProgressReport) Close() error {
 
 // Main network Class-like
 type NetHandler struct {
-	config *fwcommon.FrameworkConfig
-	deb    fwcommon.DebuggerInterface
+	config     *fwcommon.FrameworkConfig
+	deb        fwcommon.DebuggerInterface // Pointer
+	progressor fwcommon.ProgressorFn
 }
 
 // Implements: fwcommon.FetcherInterface
-func NewNetHandler(config *fwcommon.FrameworkConfig, deb fwcommon.DebuggerInterface) *NetHandler {
+func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInterface, progressor fwcommon.ProgressorFn) *NetHandler {
 	return &NetHandler{
-		config: config,
-		deb:    deb,
+		config:     config,
+		deb:        debPtr,
+		progressor: progressor,
 	}
 }
 
-func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, context *string, initiator *fwcommon.ElementIdentifier) (*NetProgressReport, error) {
-	if nh.config.NetFetchOptions.BufferSize < 0 {
-		nh.config.NetFetchOptions.BufferSize = 32 * 1024
+func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
+	// If options is nil set options to point to nh.config.NetFetchOptions
+	if options == nil {
+		options = nh.config.NetFetchOptions
+	}
+
+	// If progressor is nil, set it to nh.progressor
+	if progressor == nil {
+		progressor = nh.progressor
+	}
+
+	if options.BufferSize < 0 {
+		options.BufferSize = 32 * 1024
 	}
 
 	var lastProgress NetProgressReport
 	var lastErr error
 
 	attempts := 1
-	if nh.config.NetFetchOptions.Timeout > 0 && nh.config.NetFetchOptions.RetryTimeouts > 0 {
-		attempts = nh.config.NetFetchOptions.RetryTimeouts + 1 // initial try + retries
+	if options.Timeout > 0 && options.RetryTimeouts > 0 {
+		attempts = options.RetryTimeouts + 1 // initial try + retries
 	}
 
 	for attempt := 1; attempt <= attempts; attempt++ {
@@ -97,13 +110,14 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 		progress := NetProgressReport{
 			Event: &fwcommon.NetworkEvent{
 				ID:        fmt.Sprintf("Fw.Net.Fetch:%d", fwcommon.FrameworkIndexes.GetNewOfIndex("netevent")),
-				Context:   context,
+				Context:   contextID,
 				Initiator: initiator,
 				Method:    method,
+				//Priority: fwcommon.NetPriorityNormal
 
-				NetFetchOptions: nh.config.NetFetchOptions,
+				NetFetchOptions: options,
 
-				MetaBufferSize:      nh.config.NetFetchOptions.BufferSize,
+				MetaBufferSize:      options.BufferSize,
 				MetaIsStream:        stream,
 				MetaAsFile:          file,
 				MetaDirection:       fwcommon.NetOutgoing,
@@ -113,9 +127,15 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 				MetaGotFirstResp:    time.Time{},
 				MetaRetryAttempt:    attempt,
 
-				Status:  0,
-				Remote:  url,
-				Headers: nh.config.NetFetchOptions.Headers,
+				Status: 0,
+				//ClientIP
+				Remote: url,
+				//RemoteIP
+				//Protocol
+				//Scheme
+				//ContentType
+				Headers: options.Headers,
+				//RespHeaders
 
 				Transferred: 0,
 				Size:        -1,
@@ -125,27 +145,15 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 				EventStepCurrent: 0,
 				EventStepMax:     nil,
 			},
-			Response: nil,
-			Content:  nil,
-		}
-
-		_progress := NetProgressReport{
-			Url:          url,
-			IsStream:     stream,
-			AsFile:       file,
-			Current:      0,
-			Total:        -1,
-			Response:     nil,
-			Times:        NetConnectionTimes{},
-			Content:      "",
-			progressor:   progressor,
-			BufferSize:   options.BufferSize,
-			RetryAttempt: attempt,
+			Response:   nil,
+			Content:    nil,
+			progressor: progressor,
 		}
 
 		if attempt > 1 {
 			if progressor != nil {
-				progressor(StateRetry, &progress, nil)
+				progress.Event.EventState = fwcommon.NetStateRetry
+				progressor(&progress, nil)
 			}
 		}
 
@@ -187,7 +195,8 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 		req, err := http.NewRequestWithContext(ctx, string(method), url, body)
 		if err != nil {
 			if progressor != nil {
-				progressor(StateFinished, &progress, err)
+				progress.Event.EventState = fwcommon.NetStateFinished
+				progressor(&progress, nil)
 			}
 			return &progress, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -200,12 +209,12 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 			},
 			ConnectDone: func(_, _ string, err error) {
 				if err == nil {
-					progress.Times.TimeToConnect = time.Since(connectStart)
+					progress.Event.MetaTimeToCon = time.Since(connectStart)
 				}
 			},
 			GotFirstResponseByte: func() {
-				progress.Times.gotFirstResponse = time.Now()
-				progress.Times.TimeToFirstByte = progress.Times.gotFirstResponse.Sub(connectStart)
+				progress.Event.MetaGotFirstResp = time.Now()
+				progress.Event.MetaTimeToFirstByte = progress.Event.MetaGotFirstResp.Sub(connectStart)
 			},
 		}
 
@@ -231,13 +240,15 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 
 			// Other errors or no retries left
 			if progressor != nil {
-				progressor(StateFinished, &progress, err)
+				progress.Event.EventState = fwcommon.NetStateFinished
+				progressor(&progress, err)
 			}
 			return &progress, fmt.Errorf("failed to fetch URL: %w", err)
 		}
 
 		if progressor != nil {
-			progressor(StateEstablished, &progress, nil)
+			progress.Event.EventState = fwcommon.NetStateEstablished
+			progressor(&progress, nil)
 		}
 
 		if !stream {
@@ -248,18 +259,20 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
 			if progressor != nil {
-				progressor(StateFinished, &progress, fmt.Errorf("non-OK status: %s", resp.Status))
+				progress.Event.EventState = fwcommon.NetStateFinished
+				progressor(&progress, fmt.Errorf("non-OK status: %s", resp.Status))
 			}
 			return &progress, fmt.Errorf("received non-OK HTTP status: %s", resp.Status)
 		}
 
-		progress.Total = resp.ContentLength
+		progress.Event.Size = resp.ContentLength
 		if options.TotalSizeOverride != -2 {
-			progress.Total = options.TotalSizeOverride
+			progress.Event.Size = options.TotalSizeOverride
 		}
 
 		if progressor != nil {
-			progressor(StateResponded, &progress, nil)
+			progress.Event.EventState = fwcommon.NetStateResponded
+			progressor(&progress, nil)
 		}
 
 		lastProgress = progress
@@ -294,7 +307,8 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 				wd, err := os.Getwd()
 				if err != nil {
 					if progressor != nil {
-						progressor(StateFinished, &progress, fmt.Errorf("failed to get working directory: %w", err))
+						progress.Event.EventState = fwcommon.NetStateFinished
+						progressor(&progress, fmt.Errorf("failed to get working directory: %w", err))
 					}
 					return &progress, fmt.Errorf("failed to get working directory: %w", err)
 				}
@@ -306,56 +320,176 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, url string, stream bool,
 			outputFile, err := os.Create(outputPath)
 			if err != nil {
 				if progressor != nil {
-					progressor(StateFinished, &progress, fmt.Errorf("failed to create output file %s: %w", outputPath, err))
+					progress.Event.EventState = fwcommon.NetStateFinished
+					progressor(&progress, fmt.Errorf("failed to create output file %s: %w", outputPath, err))
 				}
 				return &progress, fmt.Errorf("failed to create output file %s: %w", outputPath, err)
 			}
 			defer outputFile.Close()
 
 			if stream {
-				err = writeStream(outputFile, &progress, progress.BufferSize)
+				err = writeStream(outputFile, &progress, options.BufferSize)
 				if err != nil {
 					return &progress, err
 				}
 				return &progress, nil
 			} else {
 				bodyBytes, readErr := io.ReadAll(resp.Body)
-				progress.Current = int64(len(bodyBytes))
+				progress.Event.Transferred = int64(len(bodyBytes))
 				if readErr != nil {
 					if progressor != nil {
-						progressor(StateFinished, &progress, fmt.Errorf("failed to read response body: %w", readErr))
+						progress.Event.EventState = fwcommon.NetStateFinished
+						progressor(&progress, fmt.Errorf("failed to read response body: %w", readErr))
 					}
 					return &progress, fmt.Errorf("failed to read response body: %w", readErr)
 				}
 				_, writeErr := outputFile.Write(bodyBytes)
 				if writeErr != nil {
 					if progressor != nil {
-						progressor(StateFinished, &progress, fmt.Errorf("failed to write to file %s: %w", outputPath, writeErr))
+						progress.Event.EventState = fwcommon.NetStateFinished
+						progressor(&progress, fmt.Errorf("failed to write to file %s: %w", outputPath, writeErr))
 					}
 					return &progress, fmt.Errorf("failed to write to file %s: %w", outputPath, writeErr)
 				}
 				if progressor != nil {
-					progressor(StateFinished, &progress, nil)
+					progress.Event.EventState = fwcommon.NetStateFinished
+					progressor(&progress, nil)
 				}
 				return &progress, nil
 			}
 		} else {
 			bodyBytes, readErr := io.ReadAll(resp.Body)
-			progress.Current = int64(len(bodyBytes))
+			progress.Event.Transferred = int64(len(bodyBytes))
 			if readErr != nil {
 				if progressor != nil {
-					progressor(StateFinished, &progress, fmt.Errorf("failed to read response body: %w", readErr))
+					progress.Event.EventState = fwcommon.NetStateFinished
+					progressor(&progress, fmt.Errorf("failed to read response body: %w", readErr))
 				}
 				return &progress, fmt.Errorf("failed to read response body: %w", readErr)
 			}
 			if progressor != nil {
-				progressor(StateFinished, &progress, nil)
+				progress.Event.EventState = fwcommon.NetStateFinished
+				progressor(&progress, nil)
 			}
-			progress.Content = string(bodyBytes)
+			progress.Content = fwcommon.Ptr(string(bodyBytes))
 			return &progress, nil
 		}
 	}
 
 	// If we got here, all retries failed due to timeout
 	return &lastProgress, lastErr
+}
+
+// writeStream helps with writing a stream to a file while reporting progress.
+func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) error {
+	if bufferSize <= 0 {
+		bufferSize = 32 * 1024
+	}
+	buf := make([]byte, bufferSize)
+	var written int64
+
+	for {
+		n, err := progress.Response.Body.Read(buf)
+		if n > 0 {
+			_, writeErr := dst.Write(buf[:n])
+			if writeErr != nil {
+				if progress.progressor != nil {
+					progress.Event.EventState = fwcommon.NetStateFinished
+					progress.progressor(progress, fmt.Errorf("failed to write to destination: %w", writeErr))
+				}
+				return fmt.Errorf("failed to write to destination: %w", writeErr)
+			}
+			written += int64(n)
+
+			progress.Event.Transferred = written
+
+			duration := time.Since(progress.Event.MetaGotFirstResp).Seconds()
+			if duration > 0 {
+				progress.Event.MetaSpeed = float64(int(written)*8) / duration / 1_000_000
+			}
+
+			if progress.progressor != nil {
+				progress.Event.EventState = fwcommon.NetStateTransfer
+				progress.progressor(progress, nil)
+			}
+		}
+
+		if err == io.EOF {
+			if progress.progressor != nil {
+				progress.Event.EventState = fwcommon.NetStateFinished
+				progress.progressor(progress, nil)
+			}
+			break
+		}
+		if err != nil {
+			if progress.progressor != nil {
+				progress.Event.EventState = fwcommon.NetStateFinished
+				progress.progressor(progress, fmt.Errorf("failed to read from source: %w", err))
+			}
+			return fmt.Errorf("failed to read from source: %w", err)
+		}
+	}
+	return nil
+}
+
+// Function wrapping NetHandler.Fetch for with an easier interface
+func (nh *NetHandler) AutoFetch(method fwcommon.HttpMethod, url string, stream bool, file bool, fileout *string, body io.Reader) (fwcommon.NetworkProgressReportInterface, error) {
+	// Options can be nil since NetHandler.Fetch auto's it to NetHandler.Config
+	// progressor can be nil since NetHandler.Fetch auto's it to NetHandler.progressor
+	return nh.Fetch(method, url, stream, file, fileout, nil, body, fwcommon.Ptr(fmt.Sprintf("Fw.Net.AutoFetch.%s", method)), nil, nil)
+}
+
+// Function wrapping NetHandler.Fetch for a GET request
+func (nh *NetHandler) GET(url string, stream bool, file bool, fileout *string) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodGet, url, stream, file, fileout, nil)
+}
+
+// Function wrapping NetHandler.Fetch for a POST request
+func (nh *NetHandler) POST(url string, stream bool, file bool, fileout *string, body io.Reader) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodPost, url, stream, file, fileout, body)
+}
+
+// Function wrapping NetHandler.Fetch for a PUT request
+func (nh *NetHandler) PUT(url string, stream bool, file bool, fileout *string, body io.Reader) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodPut, url, stream, file, fileout, body)
+}
+
+// Function wrapping NetHandler.Fetch for a PATCH request
+func (nh *NetHandler) PATCH(url string, stream bool, file bool, fileout *string, body io.Reader) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodPatch, url, stream, file, fileout, body)
+}
+
+// Function wrapping NetHandler.Fetch for a DELETE request
+func (nh *NetHandler) DELETE(url string, stream bool, file bool, fileout *string, body io.Reader) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodDelete, url, stream, file, fileout, body)
+}
+
+// Function wrapping NetHandler.Fetch for a HEAD request
+func (nh *NetHandler) HEAD(url string, stream bool, file bool, fileout *string) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodHead, url, stream, file, fileout, nil)
+}
+
+// Function wrapping NetHandler.Fetch for a OPTIONS request
+func (nh *NetHandler) OPTIONS(url string, stream bool, file bool, fileout *string, body io.Reader) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodOptions, url, stream, file, fileout, body)
+}
+
+// Function wrapping NetHandler.Fetch for ease of use, fetches a url and returns the content as a string in report.Content
+func (nh *NetHandler) FetchBody(url string) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodGet, url, false, false, nil, nil)
+}
+
+// Function wrapping NetHandler.Fetch for ease of use, fetches a url and returns the content as a stream usable through report
+func (nh *NetHandler) StreamBody(url string) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodGet, url, true, false, nil, nil)
+}
+
+// Function wrapping NetHandler.Fetch for ease of use, fetches a url and saves the content to a file
+func (nh *NetHandler) FetchFile(url string, fileout *string) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodGet, url, false, true, fileout, nil)
+}
+
+// Function wrapping NetHandler.Fetch for ease of use, fetches a url and streams the content to a file
+func (nh *NetHandler) StreamFile(url string, fileout *string) (fwcommon.NetworkProgressReportInterface, error) {
+	return nh.AutoFetch(fwcommon.MethodGet, url, true, true, fileout, nil)
 }

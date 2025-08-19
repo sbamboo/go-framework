@@ -20,7 +20,7 @@ type Framework struct {
 
 func NewFramework(config *fwcommon.FrameworkConfig) *Framework {
 	deb := fwdebug.NewDebugEmitter(config)
-	net := fwnet.NewNetHandler(config, deb)
+	net := fwnet.NewNetHandler(config, deb, nil) // For now nil
 	log := fwlog.NewLogger(config, deb)
 	update := fwupdate.NewNetUpdater(config, net)
 	return &Framework{

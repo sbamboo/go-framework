@@ -2,6 +2,7 @@ package goframework_common
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"time"
 )
@@ -141,7 +142,7 @@ type NetworkEvent struct {
 	EventStepMax     *int
 }
 
-type ProgressorFn func(progress NetworkProgressReportInterface, err error)
+type ProgressorFn func(progressPtr NetworkProgressReportInterface, err error)
 
 type LogLevel int
 
@@ -185,7 +186,22 @@ type DebuggerInterface interface {
 }
 
 type FetcherInterface interface {
-	Fetch(url string) (any, error)
+	Fetch(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions) (NetworkProgressReportInterface, error)
+
+	AutoFetch(method HttpMethod, url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
+
+	GET(url string, stream bool, file bool, fileout *string) (NetworkProgressReportInterface, error)
+	POST(url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
+	PUT(url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
+	PATCH(url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
+	DELETE(url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
+	HEAD(url string, stream bool, file bool, fileout *string) (NetworkProgressReportInterface, error)
+	OPTIONS(url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
+
+	FetchBody(url string) (NetworkProgressReportInterface, error)
+	StreamBody(url string) (NetworkProgressReportInterface, error)
+	FetchFile(url string, fileout *string) (NetworkProgressReportInterface, error)
+	StreamFile(url string, fileout *string) (NetworkProgressReportInterface, error)
 }
 
 type NetworkProgressReportInterface interface {
