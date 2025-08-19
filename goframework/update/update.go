@@ -464,10 +464,13 @@ func (nu *NetUpdater) GetLatestVersion() (*NetUpReleaseInfo, error) {
 
 // getLatestVersionFromJsonDeploy fetches update metadata from a deploy.json file.
 func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error) {
+	if nu.config.UpdatorAppConfiguration.DeployURL == nil || *nu.config.UpdatorAppConfiguration.DeployURL == "" {
+		return nil, fmt.Errorf("deploy.json URL is not configured")
+	}
 	fmt.Println("Fetching deploy.json from:", nu.config.UpdatorAppConfiguration.DeployURL)
-	report, err := nu.fetcher.GET(nu.config.UpdatorAppConfiguration.DeployURL, false, false, nil)
+	report, err := nu.fetcher.GET(*nu.config.UpdatorAppConfiguration.DeployURL, false, false, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch deploy.json from %s: %w", nu.config.UpdatorAppConfiguration.DeployURL, err)
+		return nil, fmt.Errorf("failed to fetch deploy.json from %s: %w", *nu.config.UpdatorAppConfiguration.DeployURL, err)
 	}
 
 	if report.GetResponse().StatusCode != http.StatusOK {

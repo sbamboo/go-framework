@@ -1,0 +1,174 @@
+name: Release on commit tag
+
+on:
+  push:
+    tags:
+      - 'commit_*.*.*'
+
+jobs:
+  build_and_release:
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: "on"
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Parse SEMVER from tag
+      id: parse-semver
+      run: |
+        tag="${GITHUB_REF##refs/tags/}"    # e.g. commit_1.2.3
+        semver="${tag#commit_}"            # strip 'commit_'
+        echo "SEMVER=$semver" >> $GITHUB_OUTPUT
+
+    - name: Set CHANNEL
+      run: echo "CHANNEL=git.commit" >> $GITHUB_OUTPUT
+      id: set-channel
+
+    - name: Determine next UIND from existing releases
+      id: determine-uind
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const releases = await github.rest.repos.listReleases({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+          });
+          let maxUind = 0;
+
+          for (const release of releases.data) {
+            // Check if the tag starts with "ci-"
+            if (release.tag_name.startsWith('ci-')) {
+              // Strip "ci-" prefix
+              const strippedTag = release.tag_name.substring(3); // Remove "ci-"
+
+              // Split by "-"
+              const parts = strippedTag.split('-');
+
+              // Ensure enough parts exist: [channel_part(s), uind, semver]
+              // We need at least 2 parts (uind and semver) after stripping the channel parts
+              if (parts.length >= 2) { 
+                // The UIND is the second to last part of the split result
+                const uindStr = parts[parts.length - 2];
+                
+                const uind = parseInt(uindStr, 10);
+                if (!isNaN(uind) && uind > maxUind) {
+                  maxUind = uind;
+                }
+              }
+            }
+          }
+          return maxUind + 1;
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Construct Release Tag Name (ci-<channel>-<uind>-<semver>)
+      id: construct-release-tag
+      run: |
+        RELEASE_TAG="ci-${{ steps.set-channel.outputs.CHANNEL }}-${{ steps.determine-uind.outputs.result }}-${{ steps.parse-semver.outputs.SEMVER }}"
+        echo "RELEASE_TAG=ci-${{ steps.set-channel.outputs.CHANNEL }}-${{ steps.determine-uind.outputs.result }}-${{ steps.parse-semver.outputs.SEMVER }}" >> $GITHUB_OUTPUT
+        echo "Constructed Release Tag: $RELEASE_TAG"
+
+    - name: Set NOTES
+      id: set-notes
+      run: |
+        notes="Automated github release on commit ${{ github.sha }}, for v${{ steps.parse-semver.outputs.SEMVER }} (uind:${{ steps.determine-uind.outputs.result }})"
+        echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+        echo "$notes" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Set DEPLOY_URL and GH_UPMETA_REPO
+      id: set-deploy-url
+      run: |
+        echo "DEPLOY_URL=https://raw.githubusercontent.com/${{ github.repository }}/refs/heads/main/deploy.json" >> $GITHUB_OUTPUT
+        echo "GH_UPMETA_REPO=${{ github.repository }}" >> $GITHUB_OUTPUT
+
+    - name: Setup dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openssl bsdiff golang-go
+
+    - name: Create signing directory and load private key
+      run: |
+        mkdir -p testapp/signing
+        echo "${{ secrets.NETUPDATE_SIGNING_PRIVATE_PEM }}" | tr -d '\r' > testapp/signing/private.pem
+        chmod 600 testapp/signing/private.pem
+
+    - name: Generate public key from private key
+      run: |
+        openssl ec -in testapp/signing/private.pem -pubout -out testapp/signing/public.pem
+
+    - name: Get build metadata
+      id: build-metadata
+      run: |
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        COMMIT_HASH=${GITHUB_SHA}
+        echo "BUILD_TIME=$BUILD_TIME" >> $GITHUB_OUTPUT
+        echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_OUTPUT
+
+    - name: Create build directory
+      run: mkdir -p testapp/ci_builds
+
+    - name: Build, checksum, sign, and generate release notes metadata
+      id: build-and-sign
+      run: |
+        set -e
+        semver="${{ steps.parse-semver.outputs.SEMVER }}"
+        uind="${{ steps.determine-uind.outputs.result }}"
+        channel="${{ steps.set-channel.outputs.CHANNEL }}"
+        build_time="${{ steps.build-metadata.outputs.BUILD_TIME }}"
+        commit_hash="${{ steps.build-metadata.outputs.COMMIT_HASH }}"
+        deploy_url="${{ steps.set-deploy-url.outputs.DEPLOY_URL }}"
+        gh_upmeta_repo="${{ steps.set-deploy-url.outputs.GH_UPMETA_REPO }}"
+
+        platforms=(
+          "windows/amd64"
+          "windows/arm64"
+          "linux/amd64"
+          "linux/arm64"
+          "darwin/amd64"
+          "darwin/arm64"
+        )
+
+        cd testapp || exit 1
+
+        for platform in "${platforms[@]}"; do
+          goos="${platform%%/*}"
+          goarch="${platform##*/}"
+          filename="go-update-test-${semver}-${goos}-${goarch}"
+          [[ "$goos" == "windows" ]] && filename+=".exe"
+
+          echo "Building $filename..."
+          env GOOS=$goos GOARCH=$goarch go build -ldflags="-s -w \
+            -X 'main.AppVersion=$semver' \
+            -X 'main.AppUIND=$uind' \
+            -X 'main.AppChannel=$channel' \
+            -X 'main.AppBuildTime=$build_time' \
+            -X 'main.AppCommitHash=$commit_hash' \
+            -X 'main.AppDeployURL=$deploy_url' \
+            -X 'main.AppGithubRepo=$gh_upmeta_repo'" \
+            -o ci_builds/$filename .
+
+          echo "Calculating checksum..."
+          checksum=$(sha256sum ci_builds/$filename | cut -d' ' -f1)
+
+          echo "Signing file..."
+          openssl dgst -sha256 -sign signing/private.pem -out "ci_builds/$filename.sig" "ci_builds/$filename"
+          signature=$(base64 -w 0 < "ci_builds/$filename.sig")
+        done
+
+        echo -e "${{ steps.set-notes.outputs.NOTES }}" > release_notes.md
+
+    - name: Create GitHub Release with metadata and assets
+      run: |
+        gh release create "${{ steps.construct-release-tag.outputs.RELEASE_TAG }}" \
+          --title "Release ${{ steps.parse-semver.outputs.SEMVER }}" \
+          --notes-file release_notes.md \
+          --repo "${GITHUB_REPOSITORY}" \
+          --prerelease=true \
+          testapp/ci_builds/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

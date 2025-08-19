@@ -177,10 +177,10 @@ type UpdatorAppConfiguration struct {
 	Released         string
 	Commit           string
 	PublicKeyPEM     []byte
-	DeployURL        string
+	DeployURL        *string
 	GithubUpMetaRepo *string // New field for GitHub repo (e.g., "owner/repo")
 	Target           string
-	GhMetaFetcher    GithubUpdateFetcherInterface
+	GhMetaFetcher    GithubUpdateFetcherInterface // Auto Filled
 }
 
 type UpdateReleaseData struct {

@@ -1,0 +1,4 @@
+- debug should not enable listen at all unless .ActivateListen() explicetly
+- net should log/debug
+- update should log/debug
+- make testapp build tools handle with_debugger

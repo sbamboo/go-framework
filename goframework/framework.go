@@ -1,8 +1,6 @@
-package main
+package libgoframework
 
 import (
-	"fmt"
-
 	fwcommon "github.com/sbamboo/goframework/common"
 	fwdebug "github.com/sbamboo/goframework/debug"
 	fwlog "github.com/sbamboo/goframework/log"
@@ -32,16 +30,6 @@ func NewFramework(config *fwcommon.FrameworkConfig) *Framework {
 	}
 }
 
-func main() {
-	config := &fwcommon.FrameworkConfig{
-		DebugSendPort:   9000,
-		DebugListenPort: 9001,
-
-		LoggerFile:     nil,
-		LoggerFormat:   nil,
-		LoggerCallable: nil,
-	}
-	fw := NewFramework(config)
-
-	fmt.Println(fw)
-}
+type FrameworkConfig = fwcommon.FrameworkConfig
+type UpdatorAppConfiguration = fwcommon.UpdatorAppConfiguration
+type NetFetchOptions = fwcommon.NetFetchOptions
