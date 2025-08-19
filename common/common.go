@@ -20,6 +20,8 @@ type FrameworkConfig struct {
 	LoggerCallable func(LogLevel, string) error // Custom log handler, if set, LoggerFile and LoggerFormat are ignored
 
 	NetFetchOptions *NetFetchOptions // Default options for network fetches, if nil, uses NetFetchOptions{}.Default()
+
+	UpdatorAppConfiguration *UpdatorAppConfiguration
 }
 
 type FrameworkIndexHandler map[string]int
@@ -168,6 +170,67 @@ func (l LogLevel) String() string {
 	}
 }
 
+type UpdatorAppConfiguration struct {
+	SemVer           string
+	UIND             int
+	Channel          string
+	Released         string
+	Commit           string
+	PublicKeyPEM     []byte
+	DeployURL        string
+	GithubUpMetaRepo *string // New field for GitHub repo (e.g., "owner/repo")
+	Target           string
+	GhMetaFetcher    GithubUpdateFetcherInterface
+}
+
+type UpdateReleaseData struct {
+	Tag      string        `json:"tag"`
+	Notes    string        `json:"notes"`
+	Released string        `json:"released"`
+	UpMeta   *UpdateUpMeta `json:"upmeta"` // Pointer to allow for releases without upmeta
+}
+
+// UpMeta represents the __upmeta__ YAML structure found in release bodies.
+type UpdateUpMeta struct {
+	UpMetaVer string                      `yaml:"__upmeta__" json:"__upmeta__"`
+	Format    int                         `yaml:"format" json:"format"`
+	Uind      int                         `yaml:"uind" json:"uind"`
+	Semver    string                      `yaml:"semver" json:"semver"`
+	Channel   string                      `yaml:"channel" json:"channel"`
+	Sources   map[string]UpdateSourceInfo `yaml:"sources" json:"sources"`
+}
+
+// SourceInfo holds details about a specific update source (e.g., a binary for a platform-arch).
+// This struct serves as the single source of truth for update file metadata,
+// used within both UpMeta and NetUpReleaseInfo.
+type UpdateSourceInfo struct {
+	URL            string  `yaml:"url,omitempty" json:"url"`
+	Checksum       string  `yaml:"checksum" json:"checksum"`
+	Signature      *string `yaml:"signature" json:"signature"` // Pointer to allow omitempty/null
+	IsPatch        bool    `yaml:"is_patch" json:"is_patch"`
+	PatchFor       *int    `yaml:"patch_for" json:"patch_for"`
+	PatchChecksum  *string `yaml:"patch_checksum" json:"patch_checksum"`
+	PatchSignature *string `yaml:"patch_signature" json:"patch_signature"`
+	PatchURL       *string `yaml:"patch_url,omitempty" json:"patch_url"`
+	Filename       string  `yaml:"filename,omitempty" json:"filename"`
+	PatchAsset     *string `yaml:"patch_asset,omitempty" json:"patch_asset"` // Only used in UpMeta parsing
+}
+
+// GithubReleaseAssets represents a GitHub release with fields relevant for UpMeta processing.
+type GithubReleaseAssets struct {
+	TagName  string        `json:"tag_name"`
+	Body     string        `json:"body"`
+	Assets   []GithubAsset `json:"assets"`
+	Released string        `json:"published_at"`
+}
+
+// GithubAsset represents a release asset from the GitHub API relevant for UpMeta.
+type GithubAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+	Digest             string `json:"digest"`
+}
+
 //MARK: Interfaces
 
 type DebuggerInterface interface {
@@ -210,6 +273,16 @@ type NetworkProgressReportInterface interface {
 	GetNonStreamContent() *string // Nill if stream
 	Read(p []byte) (n int, err error)
 	Close() error
+}
+
+type GithubUpdateFetcherInterface interface {
+	FetchUpMetaReleases() ([]UpdateReleaseData, error)
+	FetchAssetReleases() ([]UpdateReleaseData, error)
+	//parseAssetReleaseForMeta(tagName string) (*UpdateUpMeta, error)
+	//fetchReleases() ([]GithubReleaseAssets, error)
+	//fetchFileContent(url string) (string, error)
+	//parseReleaseBodyForUpMeta(body string) (string, *UpdateUpMeta, error)
+	//findAssetURL(assets []GithubAsset, name string) *string
 }
 
 //MARK: Full Class-likes
