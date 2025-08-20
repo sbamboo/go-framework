@@ -3,36 +3,36 @@
     "channels": {
         "dev": [
             {
-                "released": "2025-08-20T16:44:28Z",
+                "released": "2025-08-20T17:54:05Z",
                 "notes": "The first commit (dev)",
                 "uind": 1,
                 "semver": "0.0.0",
                 "sources": {
                     "windows-amd64": {
-                        "checksum": "036caa1f57e3e4013b59a0deae106b7b45f245b6ae65c7842edf70b0b7413c59",
+                        "checksum": "7e3b7f2a225d8c786d7ed9266a13a2ef0f07ee04e3d15c6005947b97dcecdc38",
                         "patch_url": null,
                         "is_patch": false,
                         "url": "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/testapp_v0.0.0_dev_windows-amd64.exe",
                         "patch_checksum": null,
-                        "signature": "MEUCIQCJjfKsKIGZyTkruyUuKDrwQCQaIWfc5Po1qyjb++9oPgIgQakC8finuS3DLpNitB/oU0yJOeJ0Bc4L38unCu7NADY=",
+                        "signature": "MEUCIQC22wsOLVPpL3kpAv2X2BMvJHa0I3HWjyfqx4yPU7erYwIgPwA+NLPQBKMge3fEX/QAIEytpIz9pKZ5dA56mI3/H4k=",
                         "patch_signature": null,
                         "patch_for": null
                     }
                 }
             },
             {
-                "released": "2025-08-20T16:44:32Z",
+                "released": "2025-08-20T17:54:09Z",
                 "notes": "The second commit (dev)",
                 "uind": 3,
                 "semver": "0.0.1",
                 "sources": {
                     "windows-amd64": {
-                        "checksum": "5c882e11f4bd8986eb991def1a5f38937a153b675bb5b3d92c2bcdec4872aad5",
+                        "checksum": "7fc949c7db124b8cff10d92bc4380ecbe72322cfee0c9b9594f5a975d7bed79c",
                         "patch_url": null,
                         "is_patch": false,
                         "url": "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/testapp_v0.0.1_dev_windows-amd64.exe",
                         "patch_checksum": null,
-                        "signature": "MEYCIQCjOZcGWgX5MgYrgKRjMRLRIsOACZF4DcmgAVjxn/kGlwIhALtQ4h60GGq2EjX1I69UdrNVnJPnS5QZXaHX7vkSD0IH",
+                        "signature": "MEUCIDZGSWLhZnga+9GIp3HaAdn5GHFeABxFk+X3tnnNG34vAiEAzp0HRIaWyjbIjxLcef/FUE5qTf1iU057Rdt39mVK6D8=",
                         "patch_signature": null,
                         "patch_for": null
                     }
@@ -41,36 +41,36 @@
         ],
         "release": [
             {
-                "released": "2025-08-20T16:44:30Z",
+                "released": "2025-08-20T17:54:07Z",
                 "notes": "The first commit",
                 "uind": 2,
                 "semver": "0.0.0",
                 "sources": {
                     "windows-amd64": {
-                        "checksum": "14add13782cc827519ad862f561bc12f6ef8f97a7a961290b6bdfb6d55fab60e",
+                        "checksum": "24ec4ccbd40535b397a6d53f124d81de141e4872420c6f625717397b60d919ea",
                         "patch_url": null,
                         "is_patch": false,
                         "url": "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/testapp_v0.0.0_release_windows-amd64.exe",
                         "patch_checksum": null,
-                        "signature": "MEQCIFbz17FjyHC34AlJqeuZE3gy1qws2XywEVWRun3fXyI3AiAot7HZLsYSH+d4R7c8lV1N7tqPCArb5UQp8AMnUjc7ZA==",
+                        "signature": "MEYCIQCe7S81CR0hIYOwdZz1o3HjhdmoyKBtUxNmJWjbFhLc9QIhAOpRlL86chxYqqa7P0VNtbSZzhfd/nVA2JaIBdr3BUrD",
                         "patch_signature": null,
                         "patch_for": null
                     }
                 }
             },
             {
-                "released": "2025-08-20T16:44:34Z",
+                "released": "2025-08-20T17:54:11Z",
                 "notes": "The second commit",
                 "uind": 4,
                 "semver": "0.0.1",
                 "sources": {
                     "windows-amd64": {
-                        "checksum": "b7401d4aa3b3428dc2c018af18e39394d721ac5b91304c4a1ae8a88582bc05d6",
+                        "checksum": "2e14c0ad4e19c5f433113131f5e44860cee019c2601a51e87a29ed5e0fa0e6e9",
                         "patch_url": null,
                         "is_patch": false,
                         "url": "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/testapp_v0.0.1_release_windows-amd64.exe",
                         "patch_checksum": null,
-                        "signature": "MEUCIBjyRw8BvbEX0RIdwxlwgiK2z4HOk7Rr4S/5AcEzFZ0oAiEA0ygnpymtEnUb2Ya5WT+HAFDyU9r681ZA7+klgg+HwDg=",
+                        "signature": "MEUCIET+oefQdvj4GYm6MPSAfdfGzGu9RLTJUX6A3BUrPKSqAiEA1fGCNN3QjpL6iJNZNh021Ruu3q1gQRDvdqqlKLbvj1k=",
                         "patch_signature": null,
                         "patch_for": null
                     }

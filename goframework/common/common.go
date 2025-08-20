@@ -204,16 +204,18 @@ type UpdateUpMeta struct {
 // This struct serves as the single source of truth for update file metadata,
 // used within both UpMeta and NetUpReleaseInfo.
 type UpdateSourceInfo struct {
-	URL            string  `yaml:"url,omitempty" json:"url"`
-	Checksum       string  `yaml:"checksum" json:"checksum"`
-	Signature      *string `yaml:"signature" json:"signature"` // Pointer to allow omitempty/null
-	IsPatch        bool    `yaml:"is_patch" json:"is_patch"`
-	PatchFor       *int    `yaml:"patch_for" json:"patch_for"`
-	PatchChecksum  *string `yaml:"patch_checksum" json:"patch_checksum"`
-	PatchSignature *string `yaml:"patch_signature" json:"patch_signature"`
-	PatchURL       *string `yaml:"patch_url,omitempty" json:"patch_url"`
-	Filename       string  `yaml:"filename,omitempty" json:"filename"`
-	PatchAsset     *string `yaml:"patch_asset,omitempty" json:"patch_asset"` // Only used in UpMeta parsing
+	URL                 string  `yaml:"url,omitempty" json:"url"`
+	Checksum            string  `yaml:"checksum" json:"checksum"`
+	Signature           *string `yaml:"signature" json:"signature"` // Pointer to allow omitempty/null
+	SignatureBytes      []byte
+	IsPatch             bool    `yaml:"is_patch" json:"is_patch"`
+	PatchFor            *int    `yaml:"patch_for" json:"patch_for"`
+	PatchChecksum       *string `yaml:"patch_checksum" json:"patch_checksum"`
+	PatchSignature      *string `yaml:"patch_signature" json:"patch_signature"`
+	PatchSignatureBytes []byte
+	PatchURL            *string `yaml:"patch_url,omitempty" json:"patch_url"`
+	Filename            string  `yaml:"filename,omitempty" json:"filename"`
+	PatchAsset          *string `yaml:"patch_asset,omitempty" json:"patch_asset"` // Only used in UpMeta parsing
 }
 
 // GithubReleaseAssets represents a GitHub release with fields relevant for UpMeta processing.

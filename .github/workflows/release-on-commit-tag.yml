@@ -156,10 +156,8 @@ jobs:
           checksum=$(sha256sum ci_builds/$filename | cut -d' ' -f1)
 
           echo "Signing file..."
-          openssl dgst -sha256 -sign signing/private.pem -out "ci_builds/$filename.sig.bin" "ci_builds/$filename"
-          signature=$(base64 -w 0 < "ci_builds/$filename.sig.bin")
-          rm "ci_builds/$filename.sig.bin"
-          echo "$signature" > "ci_builds/$filename.sig"
+          openssl dgst -sha256 -sign signing/private.pem -out "ci_builds/$filename.sig" "ci_builds/$filename"
+          signature=$(base64 -w 0 < "ci_builds/$filename.sig")
         done
 
         echo -e "${{ steps.set-notes.outputs.NOTES }}" > release_notes.md

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -158,12 +159,14 @@ func (ghup *GithubUpdateFetcher) FetchAssetReleases() ([]fwcommon.UpdateReleaseD
 				// Fetch signature content
 				sigAssetName := asset.Name + ".sig"
 				if sigAsset, ok := assetMap[sigAssetName]; ok {
-					sigContent, err := ghup.fetchFileContent(sigAsset.BrowserDownloadURL)
+					sigContent, err := ghup.fetchBinaryFileContent(sigAsset.BrowserDownloadURL)
 					if err != nil {
 						fmt.Printf("ERROR fetching signature for %s: %v\n", asset.Name, err)
 						source.Signature = nil
+						source.SignatureBytes = nil
 					} else {
-						source.Signature = &sigContent
+						source.Signature = nil
+						source.SignatureBytes = sigContent
 					}
 				}
 
@@ -192,12 +195,14 @@ func (ghup *GithubUpdateFetcher) FetchAssetReleases() ([]fwcommon.UpdateReleaseD
 							// Fetch patch signature content
 							patchSigAssetName := patchAssetCandidate.Name + ".sig"
 							if patchSigAsset, ok := assetMap[patchSigAssetName]; ok {
-								patchSigContent, err := ghup.fetchFileContent(patchSigAsset.BrowserDownloadURL)
+								patchSigContent, err := ghup.fetchBinaryFileContent(patchSigAsset.BrowserDownloadURL)
 								if err != nil {
 									fmt.Printf("ERROR fetching patch signature for %s: %v\n", patchAssetCandidate.Name, err)
 									source.PatchSignature = nil
+									source.PatchSignatureBytes = nil
 								} else {
-									source.PatchSignature = &patchSigContent
+									source.PatchSignature = nil
+									source.PatchSignatureBytes = patchSigContent
 								}
 							}
 
@@ -299,6 +304,27 @@ func (ghup *GithubUpdateFetcher) fetchFileContent(url string) (string, error) {
 	}
 
 	return *report.GetNonStreamContent(), nil
+}
+
+// fetchBinaryFileContent fetches the content of a file from a given URL as bytes.
+func (ghup *GithubUpdateFetcher) fetchBinaryFileContent(url string) ([]byte, error) {
+	report, err := ghup.fetcher.GET(url, true, false, nil) // Stream the body
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch content from %s: %w", url, err)
+	}
+
+	if report.GetResponse().StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP status %d fetching %s", report.GetResponse().StatusCode, url)
+	}
+
+	// report works as an io.Reader, so we can read the content directly
+	content, err := io.ReadAll(report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read content from %s: %w", url, err)
+	}
+	defer report.Close()
+
+	return content, nil
 }
 
 // parseReleaseBodyForUpMeta extracts release notes and an optional UpMeta struct
@@ -507,6 +533,7 @@ func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error
 	if latest == nil {
 		return nil, fmt.Errorf("no compatible releases found for channel '%s' on %s", nu.config.UpdatorAppConfiguration.Channel, nu.config.UpdatorAppConfiguration.Target)
 	}
+
 	return latest, nil
 }
 
@@ -599,7 +626,7 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 		latestPlatformSource.PatchURL != nil && *latestPlatformSource.PatchURL != "" &&
 		latestPlatformSource.PatchFor != nil &&
 		latestPlatformSource.PatchChecksum != nil && *latestPlatformSource.PatchChecksum != "" &&
-		latestPlatformSource.PatchSignature != nil && *latestPlatformSource.PatchSignature != ""
+		((latestPlatformSource.PatchSignature != nil && *latestPlatformSource.PatchSignature != "") || latestPlatformSource.PatchSignatureBytes != nil)
 
 	if shouldAttemptPatch {
 		// Is the patch for us?
@@ -613,10 +640,18 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 			if err != nil {
 				return fmt.Errorf("failed to decode patch checksum: %w", err)
 			}
-			expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformSource.PatchSignature)
-			if err != nil {
-				return fmt.Errorf("failed to decode patch signature: %w", err)
+			// If latestPlatformSource.PatchSignature is not nil, we need to do a base64 decode on .PatchSignature
+			if latestPlatformSource.PatchSignature != nil && *latestPlatformSource.PatchSignature != "" {
+				expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformSource.PatchSignature) // Dereference here
+				if err != nil {
+					return fmt.Errorf("failed to decode full binary signature: %w", err)
+				}
+			} else if latestPlatformSource.PatchSignatureBytes != nil {
+				expectedSignature = latestPlatformSource.PatchSignatureBytes
+			} else {
+				return fmt.Errorf("patch signature is missing for %s", nu.config.UpdatorAppConfiguration.Target)
 			}
+			// Mark that we are attempting a patch update
 			isPatchAttempt = true
 		} else {
 			// Warn the user that the patch is not for the current UIND and fallback to a full update
@@ -642,16 +677,21 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 		opts.Patcher = nil // No patcher needed for full binary update
 
 		// Set checksum and signature for the full binary
-		if latestPlatformSource.Signature == nil {
-			return fmt.Errorf("full binary signature is missing for %s", nu.config.UpdatorAppConfiguration.Target)
-		}
 		expectedChecksum, err = hex.DecodeString(latestPlatformSource.Checksum)
 		if err != nil {
 			return fmt.Errorf("failed to decode full binary checksum: %w", err)
 		}
-		expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformSource.Signature) // Dereference here
-		if err != nil {
-			return fmt.Errorf("failed to decode full binary signature: %w", err)
+
+		// If latestPlatformSource.Signature is not nil, we need to do a base64 decode on .Signature
+		if latestPlatformSource.Signature != nil && *latestPlatformSource.Signature != "" {
+			expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformSource.Signature) // Dereference here
+			if err != nil {
+				return fmt.Errorf("failed to decode full binary signature: %w", err)
+			}
+		} else if latestPlatformSource.SignatureBytes != nil {
+			expectedSignature = latestPlatformSource.SignatureBytes
+		} else {
+			return fmt.Errorf("full binary signature is missing for %s", nu.config.UpdatorAppConfiguration.Target)
 		}
 	}
 
