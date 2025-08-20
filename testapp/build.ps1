@@ -426,7 +426,7 @@ if (-not $deployURL) {
 
 # if ghUpMetaRepo is not set and ghUpMetaRepo is not emptystring and channel begins with "ugit."
 if (-not $ghUpMetaRepo -and $ghUpMetaRepo -ne "" -and $channel -like "ugit.*") {
-    $ghUpMetaRepo = Read-Host "Enter the github repository where github release channels are posted. (e.g., sbamboo/go-update-test)"
+    $ghUpMetaRepo = Read-Host "Enter the github repository where github release channels are posted. (e.g., sbamboo/go-framework)"
 }
 
 
@@ -540,7 +540,7 @@ if ($generatePatch) {
     $patchSignature = Sign-Binary $patchFilePath $privateKeyFile
     Write-Host "Patch File Signature: $patchSignature" -ForegroundColor Green
 
-    $patchPublishURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/testapp/builds/$patchFileName"
+    $patchPublishURL = "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/$patchFileName"
 
     #$patchFileName = "$binaryName.patch"
     #$patchFilePath = Join-Path $outputPath $patchFileName
@@ -566,10 +566,10 @@ if ($generatePatch) {
     #}
     #Remove-Item $tempNewBinary # Clean up temp new binary
 
-    #$patchURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/testapp/builds/$patchFileName"
+    #$patchURL = "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/$patchFileName"
 }
 
-$binaryPublishURL = "https://github.com/sbamboo/go-update-test/raw/refs/heads/main/testapp/builds/$binaryName"
+$binaryPublishURL = "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/$binaryName"
 
 # 8. Release notes
 if (-not $notes) {

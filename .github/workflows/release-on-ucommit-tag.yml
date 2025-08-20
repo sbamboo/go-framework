@@ -121,7 +121,7 @@ jobs:
         for platform in "${platforms[@]}"; do
           goos="${platform%%/*}"
           goarch="${platform##*/}"
-          filename="go-update-test-${semver}-${goos}-${goarch}"
+          filename="testapp-${semver}-${goos}-${goarch}"
           [[ "$goos" == "windows" ]] && filename+=".exe"
 
           echo "Building $filename..."
