@@ -467,7 +467,7 @@ func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error
 	if nu.config.UpdatorAppConfiguration.DeployURL == nil || *nu.config.UpdatorAppConfiguration.DeployURL == "" {
 		return nil, fmt.Errorf("deploy.json URL is not configured")
 	}
-	fmt.Println("Fetching deploy.json from:", nu.config.UpdatorAppConfiguration.DeployURL)
+	fmt.Println("Fetching deploy.json from:", *nu.config.UpdatorAppConfiguration.DeployURL)
 	report, err := nu.fetcher.GET(*nu.config.UpdatorAppConfiguration.DeployURL, false, false, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch deploy.json from %s: %w", *nu.config.UpdatorAppConfiguration.DeployURL, err)
@@ -676,4 +676,9 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 
 	fmt.Println("Update applied successfully!")
 	return nil
+}
+
+// General helpers
+func (nu *NetUpdater) GetUpdateConfig() *fwcommon.UpdatorAppConfiguration {
+	return nu.config.UpdatorAppConfiguration
 }

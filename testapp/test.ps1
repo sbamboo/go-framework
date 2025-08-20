@@ -51,9 +51,9 @@ if (Test-Path -Path "./workspace") {
 # Create .\workspace folder
 New-Item -Path "./workspace" -ItemType Directory -Force | Out-Null
 
-# Copy .\builds\updatetest_v0.0.0_dev_windows-amd64.exe and .\builds\updatetest_v0.0.0_release_windows-amd64.exe to .\workspace
-Copy-Item -Path "./builds/updatetest_v0.0.0_dev_windows-amd64.exe" -Destination "./workspace/updatetest_v0.0.0_dev_windows-amd64.exe" -Force
-Copy-Item -Path "./builds/updatetest_v0.0.0_release_windows-amd64.exe" -Destination "./workspace/updatetest_v0.0.0_release_windows-amd64.exe" -Force
+# Copy .\builds\testapp_v0.0.0_dev_windows-amd64.exe and .\builds\testapp_v0.0.0_release_windows-amd64.exe to .\workspace
+Copy-Item -Path "./builds/testapp_v0.0.0_dev_windows-amd64.exe" -Destination "./workspace/testapp_v0.0.0_dev_windows-amd64.exe" -Force
+Copy-Item -Path "./builds/testapp_v0.0.0_release_windows-amd64.exe" -Destination "./workspace/testapp_v0.0.0_release_windows-amd64.exe" -Force
 
 # CD to .\workspace folder based on the current script location (<currentScript>\workspace)
 Set-Location -Path (Join-Path -Path (Split-Path -Parent $MyInvocation.MyCommand.Path) -ChildPath "workspace")

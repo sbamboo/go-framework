@@ -16,6 +16,7 @@ param (
     [string]$addDeploy,
     [string]$deployURL,
     [string]$ghUpMetaRepo,
+    [switch]$withDebugger,
     [switch]$doDebugLdflags,
     [string]$appName = "testapp", # Default app name, can be overridden
     [switch]$help
@@ -45,6 +46,7 @@ Options:
   -addDeploy "<filepath>"        Add this entry to the following deploy.json under its channel
   -deployURL "<string>"          URL for the deploy.json, where most channels fetch updates from
   -ghUpMetaRepo "<owner>/<repo>" GitHub repository for "ugit."/"git." channels to fetch github releases from
+  -withDebugger                  Build with debugger support (default: no)
   -debugLdflags                  Prints debug ldflags for the Go build
   -appName "<string>"            Application name (current: $appName)
   -help                          Show this help message
@@ -285,6 +287,11 @@ function Format-Json
 
 # --- Main Script ---
 
+# 0. Ensure Signing directory exists
+if (-not (Test-Path "./signing")) {
+    New-Item -ItemType Directory -Path "./signing" | Out-Null
+}
+
 # 1. Generate Key Pair if it doesn't exist
 Generate-KeyPair $privateKeyFile $publicKeyFile
 
@@ -474,7 +481,11 @@ try {
         Set-Item -Path Env:GOARCH -Value $targetArch
     }
 
-    go build -ldflags "$ldFlags" -o $outputBinaryPath .
+    if ($withDebugger) {
+        go build -ldflags "$ldFlags" -tags "with_debugger" -o $outputBinaryPath .
+    } else {
+        go build -ldflags "$ldFlags" -o $outputBinaryPath .
+    }
     if ($LASTEXITCODE -ne 0) {
         throw "Go build failed."
     }
