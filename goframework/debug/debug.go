@@ -432,3 +432,11 @@ func (e *DebugEmitter) CustomEnvelope(kind string, body fwcommon.JSONObject) err
 		"body":   body,
 	})
 }
+
+// Function that takes an error console-logs it and returns the error so its a drop in wrap around errors
+func (e *DebugEmitter) LogThroughError(err error) error {
+	if err != nil {
+		e.ConsoleLog(fwcommon.LogLevelError, err.Error(), nil)
+	}
+	return err
+}
