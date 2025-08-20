@@ -162,7 +162,7 @@ jobs:
       run: |
         gh release create "${GITHUB_REF##*/}" \
           --title "Release ${{ steps.parse-semver.outputs.SEMVER }}" \
-          --notes-file release_notes.md \
+          --notes-file testapp/release_notes.md \
           --repo "${GITHUB_REPOSITORY}" \
           --prerelease=true \
           testapp/ci_builds/*
