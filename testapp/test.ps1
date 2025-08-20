@@ -38,10 +38,10 @@ $deployJsonContent = @"
 Set-Content -Path "./deploy.json" -Value $deployJsonContent -Force
 
 # Run builds script for four versions
-.\build.ps1 -semver 0.0.0 -uind 1 -channel dev -notes "The first commit (dev)" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-framework/refs/heads/main/testapp/deploy.json" -ghUpMetaRepo "sbamboo/framework"
-.\build.ps1 -semver 0.0.0 -uind 2 -channel release -notes "The first commit" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-framework/refs/heads/main/testapp/deploy.json" -ghUpMetaRepo "sbamboo/gframework"
-.\build.ps1 -semver 0.0.1 -uind 3 -channel dev -notes "The second commit (dev)" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-framework/refs/heads/main/testapp/deploy.json" -ghUpMetaRepo "sbamboo/framework"
-.\build.ps1 -semver 0.0.1 -uind 4 -channel release -notes "The second commit" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-framework/refs/heads/main/testapp/deploy.json" -ghUpMetaRepo "sbamboo/framework"
+.\build.ps1 -semver 0.0.0 -uind 1 -channel dev -notes "The first commit (dev)" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-framework/refs/heads/main/testapp/deploy.json" -ghUpMetaRepo "sbamboo/go-framework"
+.\build.ps1 -semver 0.0.0 -uind 2 -channel release -notes "The first commit" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-framework/refs/heads/main/testapp/deploy.json" -ghUpMetaRepo "sbamboo/go-framework"
+.\build.ps1 -semver 0.0.1 -uind 3 -channel dev -notes "The second commit (dev)" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-framework/refs/heads/main/testapp/deploy.json" -ghUpMetaRepo "sbamboo/go-framework"
+.\build.ps1 -semver 0.0.1 -uind 4 -channel release -notes "The second commit" -auto -noCrossCompile -addDeploy .\deploy.json -deployURL "https://raw.githubusercontent.com/sbamboo/go-framework/refs/heads/main/testapp/deploy.json" -ghUpMetaRepo "sbamboo/go-framework"
 
 # If exists delete the .\workspace folder
 if (Test-Path -Path "./workspace") {

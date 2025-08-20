@@ -2,3 +2,4 @@
 - net should log/debug
 - update should log/debug
 - make testapp build tools handle with_debugger
+- updates can't fetch on non windows targets (app makes wrong target-key)

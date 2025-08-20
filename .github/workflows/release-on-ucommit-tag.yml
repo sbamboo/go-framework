@@ -64,7 +64,7 @@ jobs:
     - name: Set DEPLOY_URL and GH_UPMETA_REPO
       id: set-deploy-url
       run: |
-        echo "DEPLOY_URL=https://raw.githubusercontent.com/${{ github.repository }}/refs/heads/main/deploy.json" >> $GITHUB_OUTPUT
+        echo "DEPLOY_URL=https://raw.githubusercontent.com/${{ github.repository }}/refs/heads/main/testapp/deploy.json" >> $GITHUB_OUTPUT
         echo "GH_UPMETA_REPO=${{ github.repository }}" >> $GITHUB_OUTPUT
 
     - name: Setup dependencies

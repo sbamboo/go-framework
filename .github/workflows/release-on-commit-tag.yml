@@ -83,7 +83,7 @@ jobs:
     - name: Set DEPLOY_URL and GH_UPMETA_REPO
       id: set-deploy-url
       run: |
-        echo "DEPLOY_URL=https://raw.githubusercontent.com/${{ github.repository }}/refs/heads/main/deploy.json" >> $GITHUB_OUTPUT
+        echo "DEPLOY_URL=https://raw.githubusercontent.com/${{ github.repository }}/refs/heads/main/testapp/deploy.json" >> $GITHUB_OUTPUT
         echo "GH_UPMETA_REPO=${{ github.repository }}" >> $GITHUB_OUTPUT
 
     - name: Setup dependencies
@@ -156,8 +156,10 @@ jobs:
           checksum=$(sha256sum ci_builds/$filename | cut -d' ' -f1)
 
           echo "Signing file..."
-          openssl dgst -sha256 -sign signing/private.pem -out "ci_builds/$filename.sig" "ci_builds/$filename"
-          signature=$(base64 -w 0 < "ci_builds/$filename.sig")
+          openssl dgst -sha256 -sign signing/private.pem -out "ci_builds/$filename.sig.bin" "ci_builds/$filename"
+          signature=$(base64 -w 0 < "ci_builds/$filename.sig.bin")
+          rm "ci_builds/$filename.sig.bin"
+          echo "$signature" > "ci_builds/$filename.sig"
         done
 
         echo -e "${{ steps.set-notes.outputs.NOTES }}" > release_notes.md
