@@ -262,7 +262,20 @@ function populateRow(row, eventData) {
     if (!eventData.event_step_current) eventData.event_step_current = null;
     if (!eventData.event_step_max) eventData.event_step_max = null;
 
-    const [is_stepped, progress] = calculateProgress(eventData);
+    let is_stepped = false;
+    let progress = 0;
+    if (eventData.event_step_current == null || eventData.event_step_max == null) {
+        if (eventData.transferred != null && eventData.size != null) {
+            console.log("CASE.1");
+            progress = Math.min(100, (eventData.transferred / eventData.size) * 100).toFixed(0);
+        } else {
+            console.log("CASE.2");
+        }
+    }
+    console.log("CASE.3");
+    is_stepped = true;
+    progress = Math.min(100, (eventData.event_step_current / eventData.event_step_max) * 100).toFixed(0);
+
     console.log(`PRG: ${is_stepped == true ? "Stepped" : "Not Stepped"} : ${progress}%`);
 
     const cells = row.children;
