@@ -2,14 +2,16 @@
 - updates can't fetch on non windows targets (app makes wrong target-key)
 - add a module to goframework for calculating and verifying checksums and signatures of files and optionally content
 
+
 # TESTAPP
+
 
 # DEBUGGER
 - After two site refresh debugger can no longer content frontend<->server (udp addrinuse?)
 - Sometimes a rebuild or restart of debugger is required to get app<->debugger to connect (udp addrinuse?)
 
+
 # DEBUGGER/FRAMEWORK
-- Ctrl+C app causes a net:start towards deploy (defer?)
 
 
 # RESEARCH / INVESTIGATE
@@ -17,4 +19,4 @@
 
 - In Commit `de2feb8` `populateRow` and `stopNetworkRow` used `switch/case` to determine what color of progressbar to show based on `event_state`, however it always fell through to the default value even when the `event_state` was confirmed a match to the case. Switching to `if in [...] else if in [...] else` also did not work and fell through to `else` however in commit `4a09dab` switching to `if (== a || == b || == c) else if (== d || == e) else` did not fall through and worked?
 
-- In Commit `db498bd`
+- In Commit `db498bd` in net doing an update did defer `report.Close()` but report.Close did not send `net:update` `net:stop` events, trying to use `net:stop.update` did not work until we changed the wrapper of `progressor` to only send `net:update` if report.Close() did not call it (using a FrameworkFlag) and then it worked with `net:stop.update` in commit `2a9d850`
