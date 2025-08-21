@@ -7,3 +7,4 @@
 - Inside /common is a handler for interal flags accessible at `fwcommon.FrameworkFlags`
     - `net.internal_error_log`, default `true`, Enables /net internal logging of errors *(Should be toggled when calling subparts internally and externally handling logging, to avoid double-logged errors)*
     - `update.internal_error_log`, default `true`, Enables /update internal logging of errors *(Should be toggled when calling subparts internally and externally handling logging, to avoid double-logged errors)*
+    - `"net.progressor_netupdate"`, default `true`, Wrapps the progressor with a call to Debug.NetUpdateFull

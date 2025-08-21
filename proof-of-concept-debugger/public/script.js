@@ -346,6 +346,7 @@ function populateRow(row, eventData) {
         "nstms:meta_time_to_con", // NanoSeconds to be displayed as Milliseconds
         "nstms:meta_time_to_first_byte", // NanoSeconds to be displayed as Milliseconds
         "meta_got_first_resp",
+        "id:ID",
     ];
 
     // iterate cell_properties
@@ -393,6 +394,9 @@ function populateRow(row, eventData) {
                 case "exp":
                     createExpandableCell(cells[cell_ind], value || {}, `exp-${eventData.__uniqueId__}-${prop}`);
                     break;
+                case "id":
+                    createExpandableCell(cells[cell_ind], {"id":value || eventData.__preEmptiveId__, "unique":eventData.__uniqueId__}, `exp-${eventData.__uniqueId__}-${prop}`);
+                    break;
                 case "nstms":
                     if (value === null || value === undefined || value === "") {
                         cells[cell_ind].textContent = "N/A";
@@ -413,7 +417,7 @@ function populateRow(row, eventData) {
                     if (value === null || value === undefined) {
                         cells[cell_ind].textContent = "";
                     } else if (typeof value === "object") {
-                        createExpandableCell(cells[cell_ind], value, `obj-${eventData.__uniqueId__}-${prop}`);
+                        createExpandableCell(cells[cell_ind], value, `exp-${eventData.__uniqueId__}-${prop}`);
                     } else {
                         cells[cell_ind].textContent = String(value);
                     }
@@ -438,7 +442,7 @@ function populateRow(row, eventData) {
     cells[cell_ind].dataset.prop = "is_stepped";
 }
 
-function createExpandableCell(cell, data, uniqueId) {
+function _createExpandableCell(cell, data, uniqueId) {
     cell.innerHTML = `<button class="expand-button">...</button>`;
 
     let popup = document.getElementById(`popup-${uniqueId}`);
@@ -485,10 +489,84 @@ function createExpandableCell(cell, data, uniqueId) {
     });
 }
 
+function createExpandableCell(cell, data, uniqueId) {
+    cell.innerHTML = `<button class="expand-button">...</button>`;
+
+    let popup = document.getElementById(`popup-${uniqueId}`);
+    if (popup) popup.remove();
+
+    popup = document.createElement("div");
+    popup.id = `popup-${uniqueId}`;
+    popup.className = "popup";
+    popup.style.position = "absolute";
+    popup.style.zIndex = "9999";
+    popup.style.backgroundColor = "white";
+    popup.style.border = "1px solid #ccc";
+    popup.style.padding = "10px";
+    popup.style.boxShadow = "0px 2px 10px rgba(0,0,0,0.2)";
+    popup.style.display = "none"; // Start with display: none
+    popup.innerHTML = Object.entries(data)
+        .map(([key, val]) => `<div><strong>${key}</strong>: ${val}</div>`)
+        .join("") || "<em>No data</em>";
+
+    document.body.appendChild(popup);
+
+    const button = cell.querySelector("button");
+
+    button.addEventListener("click", (e) => {
+        e.stopPropagation();
+
+        // Hide others
+        document.querySelectorAll(".popup").forEach((p) => {
+            if (p !== popup) p.style.display = "none";
+        });
+
+        const documentWidth = document.documentElement.scrollWidth;
+        const viewportHeight = window.innerHeight;
+        popup.style.display = "block";
+        popup.style.left = `${documentWidth + 100}px`;
+        popup.style.top = "0px";
+
+        const rect = button.getBoundingClientRect();
+        const popupRect = popup.getBoundingClientRect();
+
+        let top = rect.bottom + window.scrollY;
+        let left;
+
+        left = rect.right + window.scrollX - popupRect.width;
+
+        if (left < 0) {
+            left = rect.left + window.scrollX;
+
+            if (left + popupRect.width > window.innerWidth + window.scrollX) {
+                 left = window.scrollX;
+            }
+        }
+
+        if (top + popupRect.height > viewportHeight + window.scrollY) {
+            top = rect.top + window.scrollY - popupRect.height;
+            if (top < 0) {
+                top = 0;
+            }
+        }
+
+        popup.style.top = `${top}px`;
+        popup.style.left = `${left}px`;
+    });
+
+    // Hide popup on outside click
+    document.addEventListener("click", (e) => {
+        if (!popup.contains(e.target) && !button.contains(e.target)) {
+            popup.style.display = "none";
+        }
+    });
+}
+
 debuggerInstance.RegisterFor("net:start", (msg) => {
     const { id, ...eventData } = msg.properties;
     if (!id) return;
 
+    eventData.__preEmptiveId__ = id;
     eventData.__uniqueId__ = `${id}-${Date.now()}`; // DOM identifier
     networkEvents.set(id, eventData)
     createNewDomRow(eventData.__uniqueId__, eventData)

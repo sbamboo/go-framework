@@ -721,13 +721,14 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 	if err != nil {
 		return nu.logThroughError(fmt.Errorf("failed to download update from %s: %w", downloadURL, err))
 	}
-	defer report.Close() // Close the report when done
 
 	if report.GetResponse().StatusCode != http.StatusOK {
+		report.Close()
 		return nu.logThroughError(fmt.Errorf("failed to download update from %s, status code: %d", downloadURL, report.GetResponse().StatusCode))
 	}
 
 	err = update.Apply(report, opts) // Pass the NetProgressReport as io.Reader
+	report.Close()
 	if err != nil {
 		return nu.logThroughError(fmt.Errorf("failed to apply update: %w", err))
 	}

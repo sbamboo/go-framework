@@ -4,10 +4,12 @@
 */signing
 */workspace
 */builds/TEST*
+*/builds/.TEST*
 
 workspace
 signing
 builds/TEST*
+builds/.TEST*
 
 */node_modules
 */package-lock.json

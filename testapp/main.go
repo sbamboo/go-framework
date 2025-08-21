@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strconv"
@@ -110,7 +111,16 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Print("Enter channel name, 'update', or 'exit': ")
-		input, _ := reader.ReadString('\n')
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("Exiting...")
+				break
+			} else {
+				fmt.Printf("Error reading input: %v\n", err)
+				break
+			}
+		}
 		input = strings.TrimSpace(input)
 
 		if input == "exit" {

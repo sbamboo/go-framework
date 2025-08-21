@@ -9,7 +9,6 @@
 - Sometimes a rebuild or restart of debugger is required to get app<->debugger to connect (udp addrinuse?)
 
 # DEBUGGER/FRAMEWORK
-- Update stream never sends net:stop / net:stop.update nor ResolveAdditionalInfo
 - Ctrl+C app causes a net:start towards deploy (defer?)
 
 
