@@ -18,9 +18,12 @@ type Framework struct {
 
 func NewFramework(config *fwcommon.FrameworkConfig) *Framework {
 	deb := fwdebug.NewDebugEmitter(config)
-	net := fwnet.NewNetHandler(config, deb, nil) // For now nil
 	log := fwlog.NewLogger(config, deb)
-	update := fwupdate.NewNetUpdater(config, net)
+	net := fwnet.NewNetHandler(config, deb, log, nil) // For now nil as the progressor(...)
+	var update *fwupdate.NetUpdater
+	if config.UpdatorAppConfiguration != nil {
+		update = fwupdate.NewNetUpdater(config, net, log)
+	}
 	return &Framework{
 		Config:   config,
 		Net:      net,
@@ -30,6 +33,42 @@ func NewFramework(config *fwcommon.FrameworkConfig) *Framework {
 	}
 }
 
+// MARK: Exports
 type FrameworkConfig = fwcommon.FrameworkConfig
 type UpdatorAppConfiguration = fwcommon.UpdatorAppConfiguration
 type NetFetchOptions = fwcommon.NetFetchOptions
+
+type ProgressorFn = fwcommon.ProgressorFn
+type NetworkProgressReportInterface = fwcommon.NetworkProgressReportInterface
+type NetworkEvent = fwcommon.NetworkEvent
+type HttpMethod = fwcommon.HttpMethod
+
+var MethodGet = fwcommon.MethodGet
+var MethodHead = fwcommon.MethodHead
+var MethodPost = fwcommon.MethodPost
+var MethodPut = fwcommon.MethodPut
+var MethodPatch = fwcommon.MethodPatch
+var MethodDelete = fwcommon.MethodDelete
+var MethodConnect = fwcommon.MethodConnect
+var MethodOptions = fwcommon.MethodOptions
+var MethodTrace = fwcommon.MethodTrace
+
+type ElementIdentifier = fwcommon.ElementIdentifier
+type NetPriority = fwcommon.NetPriority
+
+var NetPriorityUnset = fwcommon.NetPriorityUnset
+
+type NetDirection = fwcommon.NetDirection
+
+var NetOutgoing = fwcommon.NetOutgoing
+var NetIncoming = fwcommon.NetIncoming
+
+type NetState = fwcommon.NetState
+
+var NetStateWaiting = fwcommon.NetStateWaiting
+var NetStatePaused = fwcommon.NetStatePaused
+var NetStateRetry = fwcommon.NetStateRetry
+var NetStateEstablished = fwcommon.NetStateEstablished
+var NetStateResponded = fwcommon.NetStateResponded
+var NetStateTransfer = fwcommon.NetStateTransfer
+var NetStateFinished = fwcommon.NetStateFinished

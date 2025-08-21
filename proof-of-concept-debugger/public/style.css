@@ -1,0 +1,192 @@
+body {
+    font-family: monospace;
+    margin: 1rem;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 2rem);
+    /* Full viewport height minus margin */
+}
+
+#status-bar {
+    height: 1.5rem;
+    /* Roughly 1 text row tall */
+    line-height: 1.5rem;
+    background-color: #f0f0f0;
+    padding: 0 0.5rem;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+#tab-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    height: 2rem;
+    /* Roughly 2 text rows tall for the bar */
+    align-items: flex-end;
+    /* Align tabs to the bottom of their area */
+}
+
+.tab {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    background-color: #e0e0e0;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+}
+
+.tab:hover {
+    background-color: #d0d0d0;
+}
+
+.tab.active {
+    background-color: #ffffff;
+    border-bottom: 1px solid #ffffff;
+    /* Hide bottom border when active */
+    z-index: 1;
+    /* Bring active tab to front */
+}
+
+#main-content-area {
+    flex-grow: 1;
+    /* Takes up remaining vertical space */
+    border: 1px solid #ccc;
+    padding: 1rem;
+    background-color: #fff;
+    position: relative;
+    /* For positioning sections */
+}
+
+.tab-content {
+    position: absolute;
+    /* Position content sections absolutely within main-content-area */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 1rem;
+    /* Adjust padding here to avoid double padding */
+    box-sizing: border-box;
+    /* Include padding in width/height */
+    overflow: auto;
+    /* Enable scrolling for content that overflows */
+}
+
+#console-log {
+    width: 100%;
+    height: calc(100% - 6rem);
+    resize: vertical;
+    box-sizing: border-box;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+#console-input,
+#console-input-raw {
+    width: 100%;
+    font-size: 1rem;
+    padding: 0.5rem;
+    margin-top: 0.5rem;
+    box-sizing: border-box;
+}
+
+/* Specific styles for Process & Usage tab */
+#process-and-usage-content pre {
+    white-space: pre-wrap;
+    /* Preserve whitespace and wrap text */
+    word-wrap: break-word;
+    /* Break long words */
+    font-family: monospace;
+}
+
+#network-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8em;
+}
+
+#network-table th, #network-table td {
+    border: 1px solid #ccc;
+    padding: 0.5rem;
+    text-align: left;
+}
+
+.network-row.stopped {
+    opacity: 0.3;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 1rem;
+    background: #eee;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #4caf50;
+}
+
+.expand-button {
+    cursor: pointer;
+    background: none;
+    border: none;
+    color: blue;
+    text-decoration: underline;
+    padding: 0;
+    font-size: 1em;
+}
+
+.popup {
+    max-width: 300px;
+    max-height: 400px;
+    overflow: auto;
+    border-radius: 4px;
+}
+
+.http-status-ok {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.http-status-warn {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.http-status-notok {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.loader-progress-bar {
+    width: 100%;
+    height: 1em;
+    background-color: #f0f0f0;
+    overflow: hidden;
+    position: relative;
+}
+
+.loader-progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 40%;
+    height: 100%;
+    background-color: #fdd835;
+    animation: moveLoader 1.5s infinite linear;
+}
+
+@keyframes moveLoader {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(250%); /* Move past the end to create the continuous effect */
+    }
+}

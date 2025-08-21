@@ -67,13 +67,19 @@ func SetupFramework() *libfw.Framework {
 			GithubUpMetaRepo: _AppGithubRepo,
 			Target:           fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
 		},
+
+		LogFrameworkInternalErrors: true,
 	}
+
 	return libfw.NewFramework(config)
 }
 
 // -- Main Function --
 func main() {
 	fw := SetupFramework()
+
+	fw.Debugger.Activate()
+
 	upconf := fw.Update.GetUpdateConfig()
 
 	// Main code

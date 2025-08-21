@@ -85,3 +85,19 @@ func (log *Logger) Warn(message string) error {
 func (log *Logger) Error(message string) error {
 	return log.Log(fwcommon.ERROR, message)
 }
+
+// Main function for logging errors internally, governed by FrameworkConfig.LogFrameworkInternalErrors
+func (log *Logger) LogThroughError(err error) error {
+	if err != nil {
+		// If logging of internal errors are enabled, log the error (also calls debugger log)
+		if log.config.LogFrameworkInternalErrors {
+			return log.Error(err.Error())
+		} else {
+			// Else just call debugger log
+			if log.deb.IsActive() {
+				log.deb.ConsoleLog(fwcommon.ERROR, err.Error(), nil)
+			}
+		}
+	}
+	return nil
+}

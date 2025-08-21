@@ -267,7 +267,9 @@ func (ghup *GithubUpdateFetcher) fetchReleases() ([]fwcommon.GithubReleaseAssets
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", ghup.Owner, ghup.Repo)
 	fmt.Println("Fetching releases from:", url)
 
+	fwcommon.FrameworkFlags.Disable("net.internal_error_log") // Disable net's debugging since we handle it
 	report, err := ghup.fetcher.GET(url, false, false, nil)
+	fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
 	if err != nil {
 		return nil, fmt.Errorf("fetcher.GET failed for %s: %w", url, err)
 	}
@@ -290,7 +292,9 @@ func (ghup *GithubUpdateFetcher) fetchReleases() ([]fwcommon.GithubReleaseAssets
 
 // fetchFileContent fetches the content of a file from a given URL.
 func (ghup *GithubUpdateFetcher) fetchFileContent(url string) (string, error) {
+	fwcommon.FrameworkFlags.Disable("net.internal_error_log") // Disable net's debugging since we handle it
 	report, err := ghup.fetcher.GET(url, false, false, nil)
+	fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch content from %s: %w", url, err)
 	}
@@ -308,7 +312,10 @@ func (ghup *GithubUpdateFetcher) fetchFileContent(url string) (string, error) {
 
 // fetchBinaryFileContent fetches the content of a file from a given URL as bytes.
 func (ghup *GithubUpdateFetcher) fetchBinaryFileContent(url string) ([]byte, error) {
-	report, err := ghup.fetcher.GET(url, true, false, nil) // Stream the body
+	fwcommon.FrameworkFlags.Disable("net.internal_error_log")      // Disable net's debugging since we handle it
+	report, err := ghup.fetcher.GET(url, true, false, nil)         // Stream the body
+	defer fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch content from %s: %w", url, err)
 	}
@@ -450,13 +457,15 @@ type NetUpDeployFile struct {
 type NetUpdater struct {
 	config  *fwcommon.FrameworkConfig
 	fetcher fwcommon.FetcherInterface
+	log     fwcommon.LoggerInterface
 }
 
 // NewNetUpdater creates and initializes a new NetUpdater instance.
-func NewNetUpdater(config *fwcommon.FrameworkConfig, fetcherPtr fwcommon.FetcherInterface) *NetUpdater {
+func NewNetUpdater(config *fwcommon.FrameworkConfig, fetcherPtr fwcommon.FetcherInterface, logPtr fwcommon.LoggerInterface) *NetUpdater {
 	nu := &NetUpdater{
 		config:  config,
 		fetcher: fetcherPtr,
+		log:     logPtr,
 	}
 
 	if config.UpdatorAppConfiguration.GithubUpMetaRepo != nil && strings.Contains(*config.UpdatorAppConfiguration.GithubUpMetaRepo, "/") {
@@ -470,17 +479,24 @@ func NewNetUpdater(config *fwcommon.FrameworkConfig, fetcherPtr fwcommon.Fetcher
 	return nu
 }
 
+func (nu *NetUpdater) logThroughError(err error) error {
+	if fwcommon.FrameworkFlags.IsEnabled("update.internal_error_log") {
+		return nu.log.LogThroughError(err)
+	}
+	return err
+}
+
 // GetLatestVersion fetches the deploy file or GitHub releases and determines the latest compatible release
 // for the updater's current channel and platform.
 func (nu *NetUpdater) GetLatestVersion() (*NetUpReleaseInfo, error) {
 	if strings.HasPrefix(nu.config.UpdatorAppConfiguration.Channel, "ugit.") {
 		if nu.config.UpdatorAppConfiguration.GhMetaFetcher == nil {
-			return nil, fmt.Errorf("github update meta repo not configured for 'ugit.' channel")
+			return nil, nu.logThroughError(fmt.Errorf("github update meta repo not configured for 'ugit.' channel"))
 		}
 		return nu.getLatestVersionFromGitHub(true)
 	} else if strings.HasPrefix(nu.config.UpdatorAppConfiguration.Channel, "git.") {
 		if nu.config.UpdatorAppConfiguration.GhMetaFetcher == nil {
-			return nil, fmt.Errorf("github update meta repo not configured for 'git.' channel")
+			return nil, nu.logThroughError(fmt.Errorf("github update meta repo not configured for 'git.' channel"))
 		}
 		return nu.getLatestVersionFromGitHub(false)
 	} else {
@@ -491,31 +507,33 @@ func (nu *NetUpdater) GetLatestVersion() (*NetUpReleaseInfo, error) {
 // getLatestVersionFromJsonDeploy fetches update metadata from a deploy.json file.
 func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error) {
 	if nu.config.UpdatorAppConfiguration.DeployURL == nil || *nu.config.UpdatorAppConfiguration.DeployURL == "" {
-		return nil, fmt.Errorf("deploy.json URL is not configured")
+		return nil, nu.logThroughError(fmt.Errorf("deploy.json URL is not configured"))
 	}
 	fmt.Println("Fetching deploy.json from:", *nu.config.UpdatorAppConfiguration.DeployURL)
+	fwcommon.FrameworkFlags.Disable("net.internal_error_log") // Disable net's debugging since we handle it
 	report, err := nu.fetcher.GET(*nu.config.UpdatorAppConfiguration.DeployURL, false, false, nil)
+	fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch deploy.json from %s: %w", *nu.config.UpdatorAppConfiguration.DeployURL, err)
+		return nil, nu.logThroughError(fmt.Errorf("failed to fetch deploy.json from %s: %w", *nu.config.UpdatorAppConfiguration.DeployURL, err))
 	}
 
 	if report.GetResponse().StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch deploy.json, status code: %d", report.GetResponse().StatusCode)
+		return nil, nu.logThroughError(fmt.Errorf("failed to fetch deploy.json, status code: %d", report.GetResponse().StatusCode))
 	}
 
 	if report.GetNonStreamContent() == nil {
-		return nil, fmt.Errorf("received empty content for deploy.json")
+		return nil, nu.logThroughError(fmt.Errorf("received empty content for deploy.json"))
 	}
 
 	var deployFile NetUpDeployFile
 	err = json.Unmarshal([]byte(*report.GetNonStreamContent()), &deployFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal deploy.json: %w", err)
+		return nil, nu.logThroughError(fmt.Errorf("failed to unmarshal deploy.json: %w", err))
 	}
 
 	releases, ok := deployFile.Channels[nu.config.UpdatorAppConfiguration.Channel]
 	if !ok || len(releases) == 0 {
-		return nil, fmt.Errorf("no releases found for channel '%s'", nu.config.UpdatorAppConfiguration.Channel)
+		return nil, nu.logThroughError(fmt.Errorf("no releases found for channel '%s'", nu.config.UpdatorAppConfiguration.Channel))
 	}
 
 	var latest *NetUpReleaseInfo
@@ -531,7 +549,7 @@ func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error
 		}
 	}
 	if latest == nil {
-		return nil, fmt.Errorf("no compatible releases found for channel '%s' on %s", nu.config.UpdatorAppConfiguration.Channel, nu.config.UpdatorAppConfiguration.Target)
+		return nil, nu.logThroughError(fmt.Errorf("no compatible releases found for channel '%s' on %s", nu.config.UpdatorAppConfiguration.Channel, nu.config.UpdatorAppConfiguration.Target))
 	}
 
 	return latest, nil
@@ -549,7 +567,7 @@ func (nu *NetUpdater) getLatestVersionFromGitHub(upMeta bool) (*NetUpReleaseInfo
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch GitHub releases: %w", err)
+		return nil, nu.logThroughError(fmt.Errorf("failed to fetch GitHub releases: %w", err))
 	}
 
 	var latestReleaseInfo *NetUpReleaseInfo
@@ -589,7 +607,7 @@ func (nu *NetUpdater) getLatestVersionFromGitHub(upMeta bool) (*NetUpReleaseInfo
 	}
 
 	if latestReleaseInfo == nil {
-		return nil, fmt.Errorf("no compatible GitHub releases found for channel '%s' on %s", nu.config.UpdatorAppConfiguration.Channel, nu.config.UpdatorAppConfiguration.Target)
+		return nil, nu.logThroughError(fmt.Errorf("no compatible GitHub releases found for channel '%s' on %s", nu.config.UpdatorAppConfiguration.Channel, nu.config.UpdatorAppConfiguration.Target))
 	}
 
 	return latestReleaseInfo, nil
@@ -603,13 +621,13 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 	// Set public key for signature verification
 	err := opts.SetPublicKeyPEM(nu.config.UpdatorAppConfiguration.PublicKeyPEM)
 	if err != nil {
-		return fmt.Errorf("failed to set public key: %w", err)
+		return nu.logThroughError(fmt.Errorf("failed to set public key: %w", err))
 	}
 
 	// Get platform-specific source URLs
 	latestPlatformSource, ok := latestRelease.Sources[nu.config.UpdatorAppConfiguration.Target] // Changed variable name
 	if !ok {
-		return fmt.Errorf("no update source found for current platform: %s", nu.config.UpdatorAppConfiguration.Target)
+		return nu.logThroughError(fmt.Errorf("no update source found for current platform: %s", nu.config.UpdatorAppConfiguration.Target))
 	}
 
 	opts.Hash = crypto.SHA256                 // Default, but good to explicitly set
@@ -638,18 +656,18 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 			// Set checksum and signature for the patch file
 			expectedChecksum, err = hex.DecodeString(*latestPlatformSource.PatchChecksum)
 			if err != nil {
-				return fmt.Errorf("failed to decode patch checksum: %w", err)
+				return nu.logThroughError(fmt.Errorf("failed to decode patch checksum: %w", err))
 			}
 			// If latestPlatformSource.PatchSignature is not nil, we need to do a base64 decode on .PatchSignature
 			if latestPlatformSource.PatchSignature != nil && *latestPlatformSource.PatchSignature != "" {
 				expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformSource.PatchSignature) // Dereference here
 				if err != nil {
-					return fmt.Errorf("failed to decode full binary signature: %w", err)
+					return nu.logThroughError(fmt.Errorf("failed to decode full binary signature: %w", err))
 				}
 			} else if latestPlatformSource.PatchSignatureBytes != nil {
 				expectedSignature = latestPlatformSource.PatchSignatureBytes
 			} else {
-				return fmt.Errorf("patch signature is missing for %s", nu.config.UpdatorAppConfiguration.Target)
+				return nu.logThroughError(fmt.Errorf("patch signature is missing for %s", nu.config.UpdatorAppConfiguration.Target))
 			}
 			// Mark that we are attempting a patch update
 			isPatchAttempt = true
@@ -679,19 +697,19 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 		// Set checksum and signature for the full binary
 		expectedChecksum, err = hex.DecodeString(latestPlatformSource.Checksum)
 		if err != nil {
-			return fmt.Errorf("failed to decode full binary checksum: %w", err)
+			return nu.logThroughError(fmt.Errorf("failed to decode full binary checksum: %w", err))
 		}
 
 		// If latestPlatformSource.Signature is not nil, we need to do a base64 decode on .Signature
 		if latestPlatformSource.Signature != nil && *latestPlatformSource.Signature != "" {
 			expectedSignature, err = base64.StdEncoding.DecodeString(*latestPlatformSource.Signature) // Dereference here
 			if err != nil {
-				return fmt.Errorf("failed to decode full binary signature: %w", err)
+				return nu.logThroughError(fmt.Errorf("failed to decode full binary signature: %w", err))
 			}
 		} else if latestPlatformSource.SignatureBytes != nil {
 			expectedSignature = latestPlatformSource.SignatureBytes
 		} else {
-			return fmt.Errorf("full binary signature is missing for %s", nu.config.UpdatorAppConfiguration.Target)
+			return nu.logThroughError(fmt.Errorf("full binary signature is missing for %s", nu.config.UpdatorAppConfiguration.Target))
 		}
 	}
 
@@ -699,19 +717,22 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 	opts.Checksum = expectedChecksum
 	opts.Signature = expectedSignature
 
-	report, err := nu.fetcher.GET(downloadURL, true, false, nil) // Stream the body
+	fwcommon.FrameworkFlags.Disable("net.internal_error_log")      // Disable net's debugging since we handle it
+	report, err := nu.fetcher.GET(downloadURL, true, false, nil)   // Stream the body
+	defer fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+
 	if err != nil {
-		return fmt.Errorf("failed to download update from %s: %w", downloadURL, err)
+		return nu.logThroughError(fmt.Errorf("failed to download update from %s: %w", downloadURL, err))
 	}
 	defer report.Close() // Close the report when done
 
 	if report.GetResponse().StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download update from %s, status code: %d", downloadURL, report.GetResponse().StatusCode)
+		return nu.logThroughError(fmt.Errorf("failed to download update from %s, status code: %d", downloadURL, report.GetResponse().StatusCode))
 	}
 
 	err = update.Apply(report, opts) // Pass the NetProgressReport as io.Reader
 	if err != nil {
-		return fmt.Errorf("failed to apply update: %w", err)
+		return nu.logThroughError(fmt.Errorf("failed to apply update: %w", err))
 	}
 
 	fmt.Println("Update applied successfully!")

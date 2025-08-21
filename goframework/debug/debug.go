@@ -338,6 +338,19 @@ func (e *DebugEmitter) Close() {
 	e.Deactivate()
 }
 
+// Function that takes an error console-logs it and returns the error so its a drop in wrap around errors
+func (e *DebugEmitter) LogThroughError(err error) error {
+	// If DebugEmitter is not active just return the error
+	if !e.Active || err == nil {
+		return err
+	}
+
+	if err != nil {
+		e.ConsoleLog(fwcommon.ERROR, err.Error(), nil)
+	}
+	return err
+}
+
 // --- Recommended event handlers ---
 func (e *DebugEmitter) OnPing(_ fwcommon.JSONObject) {
 	e.Pong()
@@ -406,6 +419,14 @@ func (e *DebugEmitter) NetStopEvent(netevent fwcommon.NetworkEvent) error {
 	})
 }
 
+func (e *DebugEmitter) NetStopWFUpdate(netevent fwcommon.NetworkEvent) error {
+	return e.Send(fwcommon.JSONObject{
+		"signal":     "net:stop.update",
+		"id":         netevent.ID,
+		"properties": netevent,
+	})
+}
+
 func (e *DebugEmitter) UsageStat(stats fwcommon.JSONObject) error {
 	return e.Send(fwcommon.JSONObject{
 		"signal": "usage:stats",
@@ -431,12 +452,4 @@ func (e *DebugEmitter) CustomEnvelope(kind string, body fwcommon.JSONObject) err
 		"kind":   kind,
 		"body":   body,
 	})
-}
-
-// Function that takes an error console-logs it and returns the error so its a drop in wrap around errors
-func (e *DebugEmitter) LogThroughError(err error) error {
-	if err != nil {
-		e.ConsoleLog(fwcommon.LogLevelError, err.Error(), nil)
-	}
-	return err
 }

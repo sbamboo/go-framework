@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Debugger WebSocket Client</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="status-bar">Debugger Status: Connecting...</div>
+
+    <div id="tab-bar">
+        <div class="tab" id="console-tab" data-tab-target="console-content">
+            Console
+        </div>
+        <div class="tab" id="elements-tab" data-tab-target="elements-content">
+            Elements
+        </div>
+        <div class="tab" id="network-tab" data-tab-target="network-content">
+            Network
+        </div>
+        <div class="tab" id="process-and-usage-tab" data-tab-target="process-and-usage-content">
+            Process & Usage
+        </div>
+        <div class="tab" id="about-tab" data-tab-target="about-content">
+            About
+        </div>
+    </div>
+
+    <main id="main-content-area">
+        <section id="console-content" class="tab-content">
+            <div id="console-log" class="console-log" contenteditable="false"></div>
+            <input type="text" id="console-input" placeholder="Type a command and hit Enter..." />
+            <input type="text" id="console-input-raw" placeholder="Type raw signal-json and hit Enter..." />
+        </section>
+
+        <section id="elements-content" class="tab-content" style="display: none">
+            <h2>Elements Debugger</h2>
+            <p>This area will contain tools for inspecting and modifying elements.</p>
+            <button onclick="debuggerInstance.ElementsMod('someElement', 'style.color', 'red')">Change Element
+                Color</button>
+        </section>
+
+        <section id="network-content" class="tab-content" style="display: none">
+            <h2>Network Inspector</h2>
+            <div>
+                <button id="clear-all">Clear</button>
+                <button id="clear-stopped">Clear Previous</button>
+            </div>
+            <table id="network-table">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Progress</th>
+                        <th>Method</th>
+                        <th>URL/Remote</th>
+                        <th>Scheme</th>
+                        <th>Protocol</th>
+                        <th>ContentType</th>
+                        <th>Direction</th>
+                        <th>Transferred</th>
+                        <th>Size</th>
+                        <th>Speed</th>
+                        <th>Context</th>
+                        <th>Initiator</th>
+                        <th>Is Stream</th>
+                        <th>As File</th>
+                        <th>Headers</th>
+                        <th>Resp. Headers</th>
+                        <th>Client IP</th>
+                        <th>Remote IP</th>
+                        <th>Event State</th>
+                        <th>Event Success</th>
+                        <th>Retry Attempt</th>
+                        <th>Priority</th>
+                        <th>Buffer Size</th>
+                        <th>Time to Connect</th>
+                        <th>Time to First Byte</th>
+                        <th>Got First Response</th>
+                        <th>Is Stepped</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+
+        <section id="process-and-usage-content" class="tab-content" style="display: none">
+            <h2>Process & Usage Statistics</h2>
+            <pre id="process-stats-output"></pre>
+        </section>
+
+        <section id="about-content" class="tab-content" style="display: none">
+            <h2>About This Debugger</h2>
+            <p>
+                This is a frontend for a WebSocket-based debugger. It allows you to
+                send commands and receive debug information from a backend service.
+            </p>
+            <br>
+            <p>ProtocolVersion: <i id="about-value-protocol-ver" class="about-value"></i></p>
+        </section>
+    </main>
+
+    <script src="./debugger_wrapper.js"></script>
+    <script src="./script.js"></script>
+</body>
+
+</html>

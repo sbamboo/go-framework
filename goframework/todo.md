@@ -1,7 +1,0 @@
-- debug should not enable listen at all unless .ActivateListen() explicetly
-- net should log/debug
-- update should log/debug
-- make testapp build tools handle with_debugger
-- updates can't fetch on non windows targets (app makes wrong target-key)
-- add a module to goframework for calculating and verifying checksums and signatures of files and optionally content
-- Use LogThroughError(...) throughout

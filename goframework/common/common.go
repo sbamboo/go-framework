@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// MARK: Helpers
-func Ptr[T any](v T) *T { return &v }
-
 // MARK: Config
 type FrameworkConfig struct {
 	DebugSendPort   int // Only used if compiled with 'with_debugger tag
@@ -22,7 +19,12 @@ type FrameworkConfig struct {
 	NetFetchOptions *NetFetchOptions // Default options for network fetches, if nil, uses NetFetchOptions{}.Default()
 
 	UpdatorAppConfiguration *UpdatorAppConfiguration
+
+	LogFrameworkInternalErrors bool // Toggles log.LogThroughError used by .net and .update
 }
+
+// MARK: Helpers
+func Ptr[T any](v T) *T { return &v }
 
 type FrameworkIndexHandler map[string]int
 
@@ -54,6 +56,26 @@ func (indh *FrameworkIndexHandler) GetNewOfIndex(ctx string) int {
 
 var FrameworkIndexes = FrameworkIndexHandler{
 	"netevent": 0,
+}
+
+type FrameworkFlagHandler map[string]bool
+
+func (flagh *FrameworkFlagHandler) Enable(flag string) {
+	(*flagh)[flag] = true
+}
+func (flagh *FrameworkFlagHandler) Disable(flag string) {
+	(*flagh)[flag] = false
+}
+func (flagh *FrameworkFlagHandler) IsEnabled(flag string) bool {
+	if enabled, ok := (*flagh)[flag]; ok {
+		return enabled
+	}
+	return false // Not found, default to false
+}
+
+var FrameworkFlags = FrameworkFlagHandler{
+	"net.internal_error_log":    true,
+	"update.internal_error_log": true,
 }
 
 // MARK: Types
@@ -102,46 +124,46 @@ const (
 
 type NetworkEvent struct {
 	// Identifier
-	ID        string
-	Context   *string
-	Initiator *ElementIdentifier
-	Method    HttpMethod
-	Priority  NetPriority
+	ID        string             `json:"id"`
+	Context   *string            `json:"context,omitempty"`
+	Initiator *ElementIdentifier `json:"initiator,omitempty"`
+	Method    HttpMethod         `json:"method"`
+	Priority  NetPriority        `json:"priority"`
 
 	// Infra
-	NetFetchOptions *NetFetchOptions
+	NetFetchOptions *NetFetchOptions `json:"-"` // Always omitted from JSON
 
 	// Meta
-	MetaBufferSize      int // <0 for unknown    // Dupe of NetFetchOptions.BufferSize if they are set
-	MetaIsStream        bool
-	MetaAsFile          bool
-	MetaDirection       NetDirection
-	MetaSpeed           float64 // <0 for unknown, in Mbit/s
-	MetaTimeToCon       time.Duration
-	MetaTimeToFirstByte time.Duration
-	MetaGotFirstResp    time.Time
-	MetaRetryAttempt    int
+	MetaBufferSize      int           `json:"meta_buffer_size"` // <0 for unknown    // Dupe of NetFetchOptions.BufferSize if they are set
+	MetaIsStream        bool          `json:"meta_is_stream"`
+	MetaAsFile          bool          `json:"meta_as_file"`
+	MetaDirection       NetDirection  `json:"meta_direction"`
+	MetaSpeed           float64       `json:"meta_speed"` // <0 for unknown, in Mbit/s
+	MetaTimeToCon       time.Duration `json:"meta_time_to_con"`
+	MetaTimeToFirstByte time.Duration `json:"meta_time_to_first_byte"`
+	MetaGotFirstResp    time.Time     `json:"meta_got_first_resp"`
+	MetaRetryAttempt    int           `json:"meta_retry_attempt"`
 
 	// Connection
-	Status      int
-	ClientIP    string
-	Remote      string
-	RemoteIP    string
-	Protocol    string
-	Scheme      string
-	ContentType string
-	Headers     *http.Header // Dupe of NetFetchOptions.Headers if they are set
-	RespHeaders *http.Header
+	Status      int          `json:"status"`
+	ClientIP    string       `json:"client_ip"`
+	Remote      string       `json:"remote"`
+	RemoteIP    string       `json:"remote_ip"`
+	Protocol    string       `json:"protocol"`
+	Scheme      string       `json:"scheme"`
+	ContentType string       `json:"content_type"`
+	Headers     *http.Header `json:"headers,omitempty"` // Dupe of NetFetchOptions.Headers if they are set
+	RespHeaders *http.Header `json:"resp_headers,omitempty"`
 
 	// Status
-	Transferred int64
-	Size        int64
+	Transferred int64 `json:"transferred"`
+	Size        int64 `json:"size"`
 
 	// Event
-	EventState       NetState
-	EventSuccess     bool
-	EventStepCurrent int
-	EventStepMax     *int
+	EventState       NetState `json:"event_state"`
+	EventSuccess     bool     `json:"event_success"`
+	EventStepCurrent *int     `json:"event_step_current,omitempty"`
+	EventStepMax     *int     `json:"event_step_max,omitempty"`
 }
 
 type ProgressorFn func(progressPtr NetworkProgressReportInterface, err error)
@@ -240,6 +262,7 @@ type DebuggerInterface interface {
 	IsActive() bool
 	GetProtocolVersion() int
 	CustomEnvelope(string, JSONObject) error
+	LogThroughError(error) error
 	// FwLog
 	ConsoleLog(LogLevel, string, JSONObject) error
 	// FwNet
@@ -247,7 +270,9 @@ type DebuggerInterface interface {
 	NetUpdate(string, JSONObject) error
 	NetUpdateFull(NetworkEvent) error // Wrapper for NetUpdate taking FwNetworkEvent.* -> props
 	NetStop(string) error
-	NetStopEvent(NetworkEvent) error // Wrapper for NetStop taking FwNetworkEvent.ID
+	NetStopEvent(NetworkEvent) error    // Wrapper for NetStop taking FwNetworkEvent.ID
+	NetStopWFUpdate(NetworkEvent) error // Similar to sending both .NetUpdateFull and .NetStop
+
 }
 
 type FetcherInterface interface {
@@ -287,18 +312,28 @@ type GithubUpdateFetcherInterface interface {
 	//findAssetURL(assets []GithubAsset, name string) *string
 }
 
+type LoggerInterface interface {
+	Log(LogLevel, string) error
+	Debug(string) error
+	Info(string) error
+	Warn(string) error
+	Error(string) error
+	LogThroughError(error) error
+}
+
 //MARK: Full Class-likes
 
 type NetFetchOptions struct {
-	BufferSize         int          // Negative numbers defaults it to 32k
-	TotalSizeOverride  int64        // -2 is "unchanged" -1 is "unknown"
-	Headers            *http.Header // nil to not override
-	Client             *http.Client // nil to not override
-	InsecureSkipVerify bool
-	Timeout            time.Duration // Negative numbers mean no timeout
-	Context            *context.Context
-	RetryTimeouts      int           // The number of times to retry a connection when it timeouts, 0 or less to not
-	DialTimeout        time.Duration // Negative numbers mean no timeout, DialTimeout does not trigger Retry
+	BufferSize            int              `json:"buffersize"`                // Negative numbers defaults it to 32k
+	TotalSizeOverride     int64            `json:"total_size_override"`       // -2 is "unchanged" -1 is "unknown"
+	Headers               *http.Header     `json:"headers,omitempty"`         // nil to not override
+	Client                *http.Client     `json:"_go_http_client,omitempty"` // nil to not override
+	InsecureSkipVerify    bool             `json:"insecure_skip_verify"`
+	Timeout               time.Duration    `json:"duration"` // Negative numbers mean no timeout
+	Context               *context.Context `json:"_go_http_context,omitempty"`
+	RetryTimeouts         int              `json:"retry_timeouts"`          // The number of times to retry a connection when it timeouts, 0 or less to not
+	DialTimeout           time.Duration    `json:"dial_timeout"`            // Negative numbers mean no timeout, DialTimeout does not trigger Retry
+	ResolveAdditionalInfo bool             `json:"resolve_additional_info"` // Also true when a debugger is active
 }
 
 // Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No
