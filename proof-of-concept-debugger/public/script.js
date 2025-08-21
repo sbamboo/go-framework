@@ -266,17 +266,11 @@ function populateRow(row, eventData) {
     let progress = 0;
     if (eventData.event_step_current == null || eventData.event_step_max == null) {
         if (eventData.transferred != null && eventData.size != null) {
-            console.log("CASE.1");
             progress = Math.min(100, (eventData.transferred / eventData.size) * 100).toFixed(0);
-        } else {
-            console.log("CASE.2");
         }
     }
-    console.log("CASE.3");
     is_stepped = true;
     progress = Math.min(100, (eventData.event_step_current / eventData.event_step_max) * 100).toFixed(0);
-
-    console.log(`PRG: ${is_stepped == true ? "Stepped" : "Not Stepped"} : ${progress}%`);
 
     const cells = row.children;
     const statusCell = cells[0];
@@ -300,10 +294,37 @@ function populateRow(row, eventData) {
 
     const progressBarCell = cells[1];
     progressBarCell.innerHTML = '';
+    console.log(`Event state is: ${eventData.event_state}`);
     if (eventData.size === -1) {
-        progressBarCell.innerHTML = `<div class="loader-progress-bar"></div>`;
+        switch (eventData.event_state) {
+            case "finished", "retry", "transfer":
+                progressBarCell.innerHTML = `<div class="loader-progress-bar"></div>`;
+                console.log("Applied loader bar")
+                break;
+            case "established", "responded":
+                progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-blue"></div>`;
+                console.log("Applied loader bar (BLUE)")
+                break;
+            default:
+                progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-gray"></div>`;
+                console.log("Applied loader bar (GRAY)")
+                break;
+        }
     } else {
-        progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>`;
+        switch (eventData.event_state) {
+            case "finished", "retry", "transfer":
+                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>`;
+                console.log("Applied progress bar")
+                break;
+            case "established", "responded":
+                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: ${progress}%"></div></div>`;
+                console.log("Applied progress bar (BLUE)")
+                break;
+            default:
+                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: ${progress}%"></div></div>`;
+                console.log("Applied progress bar (GRAY)")
+                break;
+        }
     }
     progressBarCell.dataset.prop = "progress";
 
@@ -472,20 +493,6 @@ function createExpandableCell(cell, data, uniqueId) {
     });
 }
 
-function calculateProgress(eventData) {
-    if (eventData.event_step_current == null || eventData.event_step_max == null) {
-        if (eventData.transferred != null && eventData.size != null) {
-            console.log("CASE.1")
-            return false, Math.min(100, (eventData.transferred / eventData.size) * 100).toFixed(0);
-        } else {
-            console.log("CASE.2")
-            return false, 0;
-        }
-    }
-    console.log("CASE.3")
-    return true, Math.min(100, (eventData.event_step_current / eventData.event_step_max) * 100).toFixed(0);
-}
-
 debuggerInstance.RegisterFor("net:start", (msg) => {
     const { id, ...eventData } = msg.properties;
     if (!id) return;
@@ -519,6 +526,7 @@ stopNetworkRow = (msg) => {
     const { id } = msg;
     if (!id) return;
     const existingData = networkEvents.get(id) || {};
+
     if (existingData.__uniqueId__) {
         const row = document.querySelector(`tr[data-id="${existingData.__uniqueId__}"]`);
         if (row) {
@@ -527,12 +535,34 @@ stopNetworkRow = (msg) => {
                 const progressCell = row.children[1];
                 if (existingData.size === -1) {
                     if (progressCell) {
-                        progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: 100%;"></div></div>`;
+                        switch (existingData.event_state) {
+                            case "finished", "retry", "transfer":
+                                progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: 100%;"></div></div>`;
+                                break;
+                            case "established", "responded":
+                                progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: 100%;"></div></div>`;
+                                break;
+                            default:
+                                progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: 100%;"></div></div>`;
+                                break;
+                        }
                     }
                 } else {
                     if (progressCell && progressCell.querySelector(".progress-fill")) {
                         const progressFill = progressCell.querySelector(".progress-fill");
                         progressFill.style.width = "100%";
+                        
+                        switch (existingData.event_state) {
+                            case "finished", "retry", "transfer":
+                                progressFill.classList = "progress-fill";
+                                break;
+                            case "established", "responded":
+                                progressFill.classList = "progress-fill progress-fill-blue";
+                                break;
+                            default:
+                                progressFill.classList = "progress-fill progress-fill-gray";
+                                break;
+                        }
                     }
                 }
                 // Set size to transferred
