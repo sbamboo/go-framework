@@ -1,7 +1,6 @@
 # FRAMEWORK
 - updates can't fetch on non windows targets (app makes wrong target-key)
 - add a module to goframework for calculating and verifying checksums and signatures of files and optionally content
-- changing to a git. channel fetches all .sig's 
 
 # TESTAPP
 

@@ -2,5 +2,7 @@
 *.pem
 testapp/signing
 testapp/workspace
+testapp/builds/TEST*
 workspace
 signing
+builds/TEST*

@@ -159,15 +159,8 @@ func (ghup *GithubUpdateFetcher) FetchAssetReleases() ([]fwcommon.UpdateReleaseD
 				// Fetch signature content
 				sigAssetName := asset.Name + ".sig"
 				if sigAsset, ok := assetMap[sigAssetName]; ok {
-					sigContent, err := ghup.fetchBinaryFileContent(sigAsset.BrowserDownloadURL)
-					if err != nil {
-						fmt.Printf("ERROR fetching signature for %s: %v\n", asset.Name, err)
-						source.Signature = nil
-						source.SignatureBytes = nil
-					} else {
-						source.Signature = nil
-						source.SignatureBytes = sigContent
-					}
+					source.Signature = nil
+					source.SignatureURL = fwcommon.Ptr(sigAsset.BrowserDownloadURL)
 				}
 
 				// Check for associated patch file
@@ -195,15 +188,8 @@ func (ghup *GithubUpdateFetcher) FetchAssetReleases() ([]fwcommon.UpdateReleaseD
 							// Fetch patch signature content
 							patchSigAssetName := patchAssetCandidate.Name + ".sig"
 							if patchSigAsset, ok := assetMap[patchSigAssetName]; ok {
-								patchSigContent, err := ghup.fetchBinaryFileContent(patchSigAsset.BrowserDownloadURL)
-								if err != nil {
-									fmt.Printf("ERROR fetching patch signature for %s: %v\n", patchAssetCandidate.Name, err)
-									source.PatchSignature = nil
-									source.PatchSignatureBytes = nil
-								} else {
-									source.PatchSignature = nil
-									source.PatchSignatureBytes = patchSigContent
-								}
+								source.PatchSignature = nil
+								source.PatchSignatureURL = fwcommon.Ptr(patchSigAsset.BrowserDownloadURL)
 							}
 
 							if patchForUind, err := strconv.Atoi(matches[1]); err == nil {
@@ -290,50 +276,6 @@ func (ghup *GithubUpdateFetcher) fetchReleases() ([]fwcommon.GithubReleaseAssets
 	return releases, nil
 }
 
-// fetchFileContent fetches the content of a file from a given URL.
-func (ghup *GithubUpdateFetcher) fetchFileContent(url string) (string, error) {
-	fwcommon.FrameworkFlags.Disable("net.internal_error_log") // Disable net's debugging since we handle it
-	report, err := ghup.fetcher.GET(url, false, false, nil)
-	fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch content from %s: %w", url, err)
-	}
-
-	if report.GetResponse().StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP status %d fetching %s", report.GetResponse().StatusCode, url)
-	}
-
-	if report.GetNonStreamContent() == nil {
-		return "", fmt.Errorf("received empty content for %s", url)
-	}
-
-	return *report.GetNonStreamContent(), nil
-}
-
-// fetchBinaryFileContent fetches the content of a file from a given URL as bytes.
-func (ghup *GithubUpdateFetcher) fetchBinaryFileContent(url string) ([]byte, error) {
-	fwcommon.FrameworkFlags.Disable("net.internal_error_log")      // Disable net's debugging since we handle it
-	report, err := ghup.fetcher.GET(url, true, false, nil)         // Stream the body
-	defer fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch content from %s: %w", url, err)
-	}
-
-	if report.GetResponse().StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP status %d fetching %s", report.GetResponse().StatusCode, url)
-	}
-
-	// report works as an io.Reader, so we can read the content directly
-	content, err := io.ReadAll(report)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read content from %s: %w", url, err)
-	}
-	defer report.Close()
-
-	return content, nil
-}
-
 // parseReleaseBodyForUpMeta extracts release notes and an optional UpMeta struct
 // from a GitHub release body string.
 func (ghup *GithubUpdateFetcher) parseReleaseBodyForUpMeta(body string) (string, *fwcommon.UpdateUpMeta, error) {
@@ -373,6 +315,52 @@ func (ghup *GithubUpdateFetcher) findAssetURL(assets []fwcommon.GithubAsset, nam
 		}
 	}
 	return nil
+}
+
+/*
+// fetchFileContent fetches the content of a file from a given URL.
+func fetchFileContent(fetcher fwcommon.FetcherInterface, url string) (string, error) {
+	fwcommon.FrameworkFlags.Disable("net.internal_error_log") // Disable net's debugging since we handle it
+	report, err := fetcher.GET(url, false, false, nil)
+	fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch content from %s: %w", url, err)
+	}
+
+	if report.GetResponse().StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP status %d fetching %s", report.GetResponse().StatusCode, url)
+	}
+
+	if report.GetNonStreamContent() == nil {
+		return "", fmt.Errorf("received empty content for %s", url)
+	}
+
+	return *report.GetNonStreamContent(), nil
+}
+*/
+
+// fetchBinaryFileContent fetches the content of a file from a given URL as bytes.
+func fetchBinaryFileContent(fetcher fwcommon.FetcherInterface, url string) ([]byte, error) {
+	fwcommon.FrameworkFlags.Disable("net.internal_error_log")      // Disable net's debugging since we handle it
+	report, err := fetcher.GET(url, true, false, nil)              // Stream the body
+	defer fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch content from %s: %w", url, err)
+	}
+
+	if report.GetResponse().StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP status %d fetching %s", report.GetResponse().StatusCode, url)
+	}
+
+	// report works as an io.Reader, so we can read the content directly
+	content, err := io.ReadAll(report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read content from %s: %w", url, err)
+	}
+	defer report.Close()
+
+	return content, nil
 }
 
 // getFileExtension extracts the file extension from a filename.
@@ -644,7 +632,7 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 		latestPlatformSource.PatchURL != nil && *latestPlatformSource.PatchURL != "" &&
 		latestPlatformSource.PatchFor != nil &&
 		latestPlatformSource.PatchChecksum != nil && *latestPlatformSource.PatchChecksum != "" &&
-		((latestPlatformSource.PatchSignature != nil && *latestPlatformSource.PatchSignature != "") || latestPlatformSource.PatchSignatureBytes != nil)
+		((latestPlatformSource.PatchSignature != nil && *latestPlatformSource.PatchSignature != "") || latestPlatformSource.PatchSignatureURL != nil)
 
 	if shouldAttemptPatch {
 		// Is the patch for us?
@@ -664,8 +652,13 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 				if err != nil {
 					return nu.logThroughError(fmt.Errorf("failed to decode full binary signature: %w", err))
 				}
-			} else if latestPlatformSource.PatchSignatureBytes != nil {
-				expectedSignature = latestPlatformSource.PatchSignatureBytes
+			} else if latestPlatformSource.PatchSignatureURL != nil {
+				// Attempt binary fetch of PatchSignatureURL
+				patchSigContent, err := fetchBinaryFileContent(nu.fetcher, *latestPlatformSource.PatchSignatureURL)
+				if err != nil {
+					return nu.logThroughError(fmt.Errorf("failed to fetch patch signature for %s: %v", nu.config.UpdatorAppConfiguration.Target, err))
+				}
+				expectedSignature = patchSigContent
 			} else {
 				return nu.logThroughError(fmt.Errorf("patch signature is missing for %s", nu.config.UpdatorAppConfiguration.Target))
 			}
@@ -706,8 +699,12 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 			if err != nil {
 				return nu.logThroughError(fmt.Errorf("failed to decode full binary signature: %w", err))
 			}
-		} else if latestPlatformSource.SignatureBytes != nil {
-			expectedSignature = latestPlatformSource.SignatureBytes
+		} else if latestPlatformSource.SignatureURL != nil {
+			sigContent, err := fetchBinaryFileContent(nu.fetcher, *latestPlatformSource.SignatureURL)
+			if err != nil {
+				return nu.logThroughError(fmt.Errorf("failed to fetch signature for %s: %v", nu.config.UpdatorAppConfiguration.Target, err))
+			}
+			expectedSignature = sigContent
 		} else {
 			return nu.logThroughError(fmt.Errorf("full binary signature is missing for %s", nu.config.UpdatorAppConfiguration.Target))
 		}
