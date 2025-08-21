@@ -4,6 +4,7 @@
 const logArea = document.getElementById("console-log");
 const input = document.getElementById("console-input");
 const inputRaw = document.getElementById("console-input-raw");
+const conClearBtn = document.getElementById("console-clear");
 const statusBar = document.getElementById("status-bar");
 const processStatsOutput = document.getElementById("process-stats-output");
 const aboutProtocolVer = document.getElementById("about-value-protocol-ver");
@@ -155,6 +156,10 @@ inputRaw.addEventListener("keydown", (e) => {
     }
 });
 
+conClearBtn.addEventListener("click", () => {
+    logArea.innerHTML = "";
+});
+
 debuggerInstance.RegisterFor("console:log", (msg) => {
     // msg.type is "debug", "info", "warn", "error", encoded as string or int: 0, 1, 2, 3
     // type check msg.type
@@ -250,6 +255,15 @@ function createNewDomRow(rowId, props) {
     }
 
     populateRow(row, props);
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    const k = 1024;
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const value = bytes / Math.pow(k, i);
+    return `${value.toFixed(2)} ${units[i]}`;
 }
 
 function populateRow(row, eventData) {
@@ -384,7 +398,7 @@ function populateRow(row, eventData) {
                     if ((typeof value === "number" && value < 0) || (typeof value === "string" && value.startsWith("-"))) {
                         cells[cell_ind].textContent = "N/A";
                     } else {
-                        cells[cell_ind].textContent = value + " b";
+                        cells[cell_ind].textContent = formatBytes(Number(value));
                     }
                     cells[cell_ind].style.whiteSpace = "nowrap";
                     break;
@@ -633,7 +647,7 @@ stopNetworkRow = (msg) => {
                 // Get cell by dataset.prop == "size"
                 const sizeCell = row.querySelector("td[data-prop='size']");
                 if (sizeCell) {
-                    sizeCell.textContent = existingData.transferred + " b";
+                    sizeCell.textContent = formatBytes(Number(existingData.transferred));
                 }
             }
             row.classList.add("stopped");

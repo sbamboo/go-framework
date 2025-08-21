@@ -31,7 +31,10 @@
     <main id="main-content-area">
         <section id="console-content" class="tab-content">
             <div id="console-log" class="console-log" contenteditable="false"></div>
-            <input type="text" id="console-input" placeholder="Type a command and hit Enter..." />
+            <div id="console-input-wrapper">
+                <input type="text" id="console-input" placeholder="Type a command and hit Enter..." />
+                <button id="console-clear">Clear</button>
+            </div>
             <input type="text" id="console-input-raw" placeholder="Type raw signal-json and hit Enter..." />
         </section>
 

@@ -94,6 +94,18 @@ body {
     box-sizing: border-box;
 }
 
+#console-input-wrapper {
+    display: flex;
+    gap: 5px;
+}
+
+#console-clear {
+    border: 1px solid rgb(95, 95, 95);
+    cursor: pointer;
+    margin-top: 0.5rem;
+    box-sizing: border-box;
+}
+
 /* Specific styles for Process & Usage tab */
 #process-and-usage-content pre {
     white-space: pre-wrap;
