@@ -6,3 +6,5 @@ testapp/builds/TEST*
 workspace
 signing
 builds/TEST*
+*/node_modules
+node_modules
