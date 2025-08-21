@@ -29,7 +29,7 @@ type NetProgressReport struct {
 
 	progressor   fwcommon.ProgressorFn
 	errorWrapper ErrorWrapperFn
-	onDestroy    OnDestroyFn
+	debPtr       fwcommon.DebuggerInterface
 }
 
 func (npr *NetProgressReport) GetNetworkEvent() *fwcommon.NetworkEvent {
@@ -75,10 +75,17 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 // It ensures the underlying reader is closed.
 func (pr *NetProgressReport) Close() error {
 	pr.Event.EventState = fwcommon.NetStateFinished
+
 	if pr.progressor != nil {
+		fwcommon.FrameworkFlags.Disable("net.progressor_netupdate")
 		pr.progressor(pr, nil)
+		fwcommon.FrameworkFlags.Enable("net.progressor_netupdate")
 	}
-	pr.onDestroy(pr.Event)
+
+	if pr.debPtr.IsActive() {
+		pr.debPtr.NetStopWFUpdate(*pr.Event)
+	}
+
 	return pr.Response.Body.Close()
 }
 
@@ -129,7 +136,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		originalProgressor := progressor
 		progressor = func(progressPtr fwcommon.NetworkProgressReportInterface, err error) {
 			// Relay progress
-			if nh.deb.IsActive() {
+			if nh.deb.IsActive() && fwcommon.FrameworkFlags.IsEnabled("net.progressor_netupdate") {
 				nh.deb.NetUpdateFull(*progressPtr.GetNetworkEvent())
 			}
 			// Call original progressor
@@ -147,16 +154,6 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 	attempts := 1
 	if options.Timeout > 0 && options.RetryTimeouts > 0 {
 		attempts = options.RetryTimeouts + 1 // initial try + retries
-	}
-
-	// Wrapper for nh.deb.NetStop to ensure IsActive check
-	debuggerOnDestroy := func(netevent *fwcommon.NetworkEvent) error {
-		//fmt.Println("DESTROYING", netevent.ID) //MARK:DEBUG
-		if nh.deb.IsActive() {
-			nh.deb.NetUpdateFull(*netevent)
-			return nh.deb.NetStop(netevent.ID)
-		}
-		return nil
 	}
 
 	for attempt := 1; attempt <= attempts; attempt++ {
@@ -204,7 +201,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			Content:      nil,
 			progressor:   progressor,
 			errorWrapper: nh.logThroughError,
-			onDestroy:    debuggerOnDestroy,
+			debPtr:       nh.deb,
 		}
 
 		// Define Scheme
