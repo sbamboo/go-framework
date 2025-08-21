@@ -296,34 +296,26 @@ function populateRow(row, eventData) {
     progressBarCell.innerHTML = '';
     console.log(`Event state is: ${eventData.event_state}`);
     if (eventData.size === -1) {
-        switch (eventData.event_state) {
-            case "finished", "retry", "transfer":
-                progressBarCell.innerHTML = `<div class="loader-progress-bar"></div>`;
-                console.log("Applied loader bar")
-                break;
-            case "established", "responded":
-                progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-blue"></div>`;
-                console.log("Applied loader bar (BLUE)")
-                break;
-            default:
-                progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-gray"></div>`;
-                console.log("Applied loader bar (GRAY)")
-                break;
+        if (eventData.event_state === "finished" || eventData.event_state === "retry" || eventData.event_state === "transfer") {
+            progressBarCell.innerHTML = `<div class="loader-progress-bar"></div>`;
+            console.log("Applied loader bar")
+        } else if (eventData.event_state === "established" || eventData.event_state === "responded") {
+            progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-blue"></div>`;
+            console.log("Applied loader bar (BLUE)")
+        } else {
+            progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-gray"></div>`;
+            console.log("Applied loader bar (GRAY)")
         }
     } else {
-        switch (eventData.event_state) {
-            case "finished", "retry", "transfer":
-                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>`;
-                console.log("Applied progress bar")
-                break;
-            case "established", "responded":
-                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: ${progress}%"></div></div>`;
-                console.log("Applied progress bar (BLUE)")
-                break;
-            default:
-                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: ${progress}%"></div></div>`;
-                console.log("Applied progress bar (GRAY)")
-                break;
+        if (eventData.event_state === "finished" || eventData.event_state === "retry" || eventData.event_state === "transfer") {
+            progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>`;
+            console.log("Applied progress bar")
+        } else if (eventData.event_state === "established" || eventData.event_state === "responded") {
+            progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: ${progress}%"></div></div>`;
+            console.log("Applied progress bar (BLUE)")
+        } else {
+            progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: ${progress}%"></div></div>`;
+            console.log("Applied progress bar (GRAY)")
         }
     }
     progressBarCell.dataset.prop = "progress";
@@ -535,16 +527,12 @@ stopNetworkRow = (msg) => {
                 const progressCell = row.children[1];
                 if (existingData.size === -1) {
                     if (progressCell) {
-                        switch (existingData.event_state) {
-                            case "finished", "retry", "transfer":
-                                progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: 100%;"></div></div>`;
-                                break;
-                            case "established", "responded":
-                                progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: 100%;"></div></div>`;
-                                break;
-                            default:
-                                progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: 100%;"></div></div>`;
-                                break;
+                        if (existingData.event_state === "finished" || existingData.event_state === "retry" || existingData.event_state === "transfer") {
+                            progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: 100%;"></div></div>`;
+                        } else if (existingData.event_state === "established" || existingData.event_state === "responded") {
+                            progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: 100%;"></div></div>`;
+                        } else {
+                            progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: 100%;"></div></div>`;
                         }
                     }
                 } else {
@@ -552,16 +540,12 @@ stopNetworkRow = (msg) => {
                         const progressFill = progressCell.querySelector(".progress-fill");
                         progressFill.style.width = "100%";
                         
-                        switch (existingData.event_state) {
-                            case "finished", "retry", "transfer":
-                                progressFill.classList = "progress-fill";
-                                break;
-                            case "established", "responded":
-                                progressFill.classList = "progress-fill progress-fill-blue";
-                                break;
-                            default:
-                                progressFill.classList = "progress-fill progress-fill-gray";
-                                break;
+                        if (existingData.event_state === "finished" || existingData.event_state === "retry" || existingData.event_state === "transfer") {
+                            progressFill.classList = "progress-fill";
+                        } else if (existingData.event_state === "established" || existingData.event_state === "responded") {
+                            progressFill.classList = "progress-fill progress-fill-blue";
+                        } else {
+                            progressFill.classList = "progress-fill progress-fill-gray";
                         }
                     }
                 }
