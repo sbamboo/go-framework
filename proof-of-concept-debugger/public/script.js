@@ -4,7 +4,6 @@
 const logArea = document.getElementById("console-log");
 const input = document.getElementById("console-input");
 const inputRaw = document.getElementById("console-input-raw");
-const conClearBtn = document.getElementById("console-clear");
 const statusBar = document.getElementById("status-bar");
 const processStatsOutput = document.getElementById("process-stats-output");
 const aboutProtocolVer = document.getElementById("about-value-protocol-ver");
@@ -40,20 +39,31 @@ tabs.forEach((tab) => {
     });
 });
 
-// Activate the Console tab by default on load
+// Activate a tab based on URL parameter or default to Console
 document.addEventListener("DOMContentLoaded", () => {
-    activateTab("console-tab");
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get("tab");
+    if (tabParam) {
+        const targetTab = document.getElementById(`${tabParam}-tab`);
+        if (targetTab) {
+            activateTab(targetTab.id);
+        } else {
+            activateTab("console-tab"); // Fallback to console if invalid tab in URL
+        }
+    } else {
+        activateTab("console-tab"); // Activate the Console tab by default on load
+    }
 });
 
 // --- Debugger Event Handling ---
 
 // Initial status bar update
 debuggerInstance.ws.addEventListener("open", () => {
-    statusBar.textContent = "Debugger Status: Connected";
+    statusBar.textContent = "Debugger Status: 🟢Connected";
 });
 
 debuggerInstance.ws.addEventListener("close", () => {
-    statusBar.textContent = "Debugger Status: Disconnected";
+    statusBar.textContent = "Debugger Status: 🔴Disconnected";
 });
 
 debuggerInstance.ws.addEventListener("error", (err) => {
@@ -63,35 +73,33 @@ debuggerInstance.ws.addEventListener("error", (err) => {
 debuggerInstance.RegisterFor("misc:ping", debuggerInstance.OnPing);
 
 debuggerInstance.RegisterFor("usage:stats", (msg) => {
-  console.log("[Usage Stats Received]"); // Debug log
-  try {
-    console.log(msg)
-    const statsObject = new UsageStatObject(msg.stats);
-    // Display the formatted report in the Process & Usage tab
-    processStatsOutput.textContent = statsObject.getFormattedReport();
-  } catch (e) {
-    console.error("Error processing usage stats:", e);
-    processStatsOutput.textContent = `Error processing usage stats: ${e.message}`;
-  }
+    console.log("[Usage Stats Received]"); // Debug log
+    try {
+        console.log(msg);
+        const statsObject = new UsageStatObject(msg.stats);
+        // Display the formatted report in the Process & Usage tab
+        processStatsOutput.textContent = statsObject.getFormattedReport();
+    } catch (e) {
+        console.error("Error processing usage stats:", e);
+        processStatsOutput.textContent = `Error processing usage stats: ${e.message}`;
+    }
 });
 
 debuggerInstance.RegisterForIncoming((event) => {
     let logMessage = "";
     switch (event.event) {
         case "receive":
-            toDisp = event.msg
+            toDisp = event.msg;
             if (event.msg.signal) {
                 if (event.msg.signal === "usage:stats") {
                     toDisp = JSON.parse(JSON.stringify(event.msg));
-                    toDisp.stats = "..."
-                }
-                else if (event.msg.signal === "elements:tree") {
+                    toDisp.stats = "...";
+                } else if (event.msg.signal === "elements:tree") {
                     toDisp = JSON.parse(JSON.stringify(event.msg));
-                    toDisp.tree = "..."
-                }
-                else if (event.msg.signal === "console:log") {
+                    toDisp.tree = "...";
+                } else if (event.msg.signal === "console:log") {
                     toDisp = JSON.parse(JSON.stringify(event.msg));
-                    toDisp.text = "..."
+                    toDisp.text = "...";
                 }
             }
             logMessage = `>> [Event:Receive] ${JSON.stringify(toDisp)}\n`;
@@ -113,7 +121,7 @@ debuggerInstance.RegisterForIncoming((event) => {
             break;
     }
     if (logMessage) {
-        logArea.innerHTML += logMessage+"\n";
+        logArea.innerHTML += logMessage + "\n";
         logArea.scrollTop = logArea.scrollHeight;
     }
 });
@@ -149,15 +157,11 @@ inputRaw.addEventListener("keydown", (e) => {
         const text = inputRaw.value.trim();
         if (text) {
             try {
-                debuggerInstance.Send(JSON.parse(text))
+                debuggerInstance.Send(JSON.parse(text));
                 inputRaw.value = "";
             } catch (e) {}
         }
     }
-});
-
-conClearBtn.addEventListener("click", () => {
-    logArea.innerHTML = "";
 });
 
 debuggerInstance.RegisterFor("console:log", (msg) => {
@@ -200,7 +204,7 @@ debuggerInstance.RegisterFor("console:log", (msg) => {
             color = "red";
             break;
         default:
-            break
+            break;
     }
 
     // msg.object is null or should be ensured to be a JSON-string
@@ -210,7 +214,7 @@ debuggerInstance.RegisterFor("console:log", (msg) => {
                 msg.object = JSON.stringify(msg.object, null, 2); // Pretty print JSON
             } catch (e) {
                 console.error("Error stringifying object:", e);
-                msg.object = null
+                msg.object = null;
             }
         } else if (typeof msg.object !== "string") {
             // Pretty print the JSON by string->object->pretty_string
@@ -224,18 +228,139 @@ debuggerInstance.RegisterFor("console:log", (msg) => {
     }
 
     let logMessage = `[Console:Log ${msg.type.toUpperCase()}] ${msg.text} ${msg.object ? `\n${msg.object}` : ""}\n`;
-    if (color) {
-        logMessage = `<span style="color: ${color};">${logMessage}</span>`;
-    }
+    if (color) {logMessage = `<span style="color: ${color};">${logMessage}</span>`;}
     logArea.innerHTML += logMessage;
 });
 
 // --- network tab ---
+const networkTable = document.getElementById("network-table");
+const networkTableHead = document.querySelector("#network-table thead");
 const networkTableBody = document.querySelector("#network-table tbody");
 const clearAllBtn = document.getElementById("clear-all");
 const clearStoppedBtn = document.getElementById("clear-stopped");
+const clearActiveBtn = document.getElementById("clear-active");
 
 const networkEvents = new Map(); // id -> data object
+
+// --- Column Visibility Logic ---
+let hiddenColumns = new Set();
+const columnHeaders = Array.from(
+    networkTableHead.querySelectorAll("th"),
+).map((th) => th.textContent);
+
+function updateURLParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (hiddenColumns.size > 0) {
+        urlParams.set("nethidecolumns", Array.from(hiddenColumns).join(","));
+    } else {
+        urlParams.delete("nethidecolumns");
+    }
+    const newUrl = `${window.location.pathname}?${urlParams.toString()}${
+        window.location.hash
+    }`;
+    window.history.replaceState({ path: newUrl }, "", newUrl);
+}
+
+function applyColumnVisibility() {
+    const headers = networkTableHead.querySelectorAll("th");
+    const rows = networkTableBody.querySelectorAll("tr");
+
+    headers.forEach((header, index) => {
+        const headerText = header.textContent;
+        if (hiddenColumns.has(headerText)) {
+            header.style.display = "none";
+            rows.forEach((row) => {
+                if (row.children[index]) {
+                    row.children[index].style.display = "none";
+                }
+            });
+        } else {
+            header.style.display = "";
+            rows.forEach((row) => {
+                if (row.children[index]) {
+                    row.children[index].style.display = "";
+                }
+            });
+        }
+    });
+}
+
+function initializeColumnVisibility() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hiddenParam = urlParams.get("nethidecolumns");
+    if (hiddenParam) {
+        hiddenColumns = new Set(hiddenParam.split(","));
+    }
+    applyColumnVisibility();
+}
+
+// Context menu for column headers
+networkTableHead.addEventListener("contextmenu", (e) => {
+    e.preventDefault(); // Prevent default browser context menu
+
+    const menu = document.createElement("div");
+    menu.className = "column-context-menu";
+    menu.style.position = "absolute";
+    menu.style.backgroundColor = "white";
+    menu.style.border = "1px solid #ccc";
+    menu.style.padding = "5px";
+    menu.style.boxShadow = "2px 2px 5px rgba(0,0,0,0.2)";
+    menu.style.zIndex = "10000"; // Ensure it's on top
+
+    columnHeaders.forEach((headerText) => {
+        const item = document.createElement("label");
+        item.style.display = "block";
+        item.style.padding = "3px 0";
+        item.innerHTML = `<input type="checkbox" ${
+            !hiddenColumns.has(headerText) ? "checked" : ""
+        }> ${headerText}`;
+        item.querySelector("input").addEventListener("change", (event) => {
+            if (event.target.checked) {
+                hiddenColumns.delete(headerText);
+            } else {
+                hiddenColumns.add(headerText);
+            }
+            updateURLParams();
+            applyColumnVisibility();
+        });
+        menu.appendChild(item);
+    });
+
+    document.body.appendChild(menu);
+
+    // Position the menu
+    const documentWidth = document.documentElement.scrollWidth;
+    const viewportHeight = window.innerHeight;
+
+    let top = e.clientY + window.scrollY;
+    let left = e.clientX + window.scrollX;
+
+    // Adjust if menu goes off screen
+    if (left + menu.offsetWidth > documentWidth + window.scrollX) {
+        left = documentWidth + window.scrollX - menu.offsetWidth - 10;
+    }
+    if (top + menu.offsetHeight > viewportHeight + window.scrollY) {
+        top = viewportHeight + window.scrollY - menu.offsetHeight - 10;
+    }
+
+    menu.style.top = `${top}px`;
+    menu.style.left = `${left}px`;
+
+    // Hide menu on outside click
+    const hideMenu = (event) => {
+        if (!menu.contains(event.target) && event.button !== 2) {
+            menu.remove();
+            document.removeEventListener("click", hideMenu);
+            document.removeEventListener("contextmenu", hideMenu); // Also hide if another right click
+        }
+    };
+    document.addEventListener("click", hideMenu);
+    document.addEventListener("contextmenu", hideMenu); // Hide if another right click happens
+});
+
+// Call this on page load to apply initial column visibility from URL
+document.addEventListener("DOMContentLoaded", initializeColumnVisibility);
+// --- End Column Visibility Logic ---
 
 function createNewDomRow(rowId, props) {
     // Remove existing row with this exact DOM id if any
@@ -246,7 +371,11 @@ function createNewDomRow(rowId, props) {
     row.dataset.id = rowId;
     row.classList.add("network-row");
 
-    for (let i = 0; i < 18; i++) row.appendChild(document.createElement("td"));
+    // Create cells for all columns initially, then hide as needed
+    for (let i = 0; i < columnHeaders.length; i++) {
+        const cell = document.createElement("td");
+        row.appendChild(cell);
+    }
     networkTableBody.appendChild(row);
 
     // Note: Only update networkEvents if rowId == base id (handled in caller)
@@ -255,19 +384,19 @@ function createNewDomRow(rowId, props) {
     }
 
     populateRow(row, props);
+    applyColumnVisibility(); // Apply visibility after creating/populating row
 }
 
 function formatBytes(bytes) {
-    if (bytes === 0) return '0 Bytes';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+    if (bytes === 0) return "0 Bytes";
+    const units = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
     const k = 1024;
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     const value = bytes / Math.pow(k, i);
-    return `${value.toFixed(2)} ${units[i]}`;
+    return `${value.toFixed(2).replace(".00","")} ${units[i]}`;
 }
 
 function populateRow(row, eventData) {
-
     // Ensure omitempty fields by nulling them if not present
     if (!eventData.context) eventData.context = null;
     if (!eventData.initiator) eventData.initiator = null;
@@ -282,9 +411,10 @@ function populateRow(row, eventData) {
         if (eventData.transferred != null && eventData.size != null) {
             progress = Math.min(100, (eventData.transferred / eventData.size) * 100).toFixed(0);
         }
+    } else {
+        is_stepped = true;
+        progress = Math.min(100, (eventData.event_step_current / eventData.event_step_max) * 100).toFixed(0);
     }
-    is_stepped = true;
-    progress = Math.min(100, (eventData.event_step_current / eventData.event_step_max) * 100).toFixed(0);
 
     const cells = row.children;
     const statusCell = cells[0];
@@ -307,29 +437,36 @@ function populateRow(row, eventData) {
     statusCell.dataset.prop = "status";
 
     const progressBarCell = cells[1];
-    progressBarCell.innerHTML = '';
-    console.log(`Event state is: ${eventData.event_state}`);
+    progressBarCell.innerHTML = "";
     if (eventData.size === -1) {
-        if (eventData.event_state === "finished" || eventData.event_state === "retry" || eventData.event_state === "transfer") {
+        if (
+            eventData.event_state === "finished" ||
+            eventData.event_state === "retry" ||
+            eventData.event_state === "transfer"
+        ) {
             progressBarCell.innerHTML = `<div class="loader-progress-bar"></div>`;
-            console.log("Applied loader bar")
-        } else if (eventData.event_state === "established" || eventData.event_state === "responded") {
+        } else if (
+            eventData.event_state === "established" ||
+            eventData.event_state === "responded"
+        ) {
             progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-blue"></div>`;
-            console.log("Applied loader bar (BLUE)")
         } else {
             progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-gray"></div>`;
-            console.log("Applied loader bar (GRAY)")
         }
     } else {
-        if (eventData.event_state === "finished" || eventData.event_state === "retry" || eventData.event_state === "transfer") {
+        if (
+            eventData.event_state === "finished" ||
+            eventData.event_state === "retry" ||
+            eventData.event_state === "transfer"
+        ) {
             progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>`;
-            console.log("Applied progress bar")
-        } else if (eventData.event_state === "established" || eventData.event_state === "responded") {
+        } else if (
+            eventData.event_state === "established" ||
+            eventData.event_state === "responded"
+        ) {
             progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: ${progress}%"></div></div>`;
-            console.log("Applied progress bar (BLUE)")
         } else {
             progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: ${progress}%"></div></div>`;
-            console.log("Applied progress bar (GRAY)")
         }
     }
     progressBarCell.dataset.prop = "progress";
@@ -366,7 +503,7 @@ function populateRow(row, eventData) {
     // iterate cell_properties
     let cell_ind = 0;
     for (let i = 0; i < cell_properties.length; i++) {
-        cell_ind = i + 2;
+        cell_ind = i + 2; // Start from the 3rd cell (index 2) after status and progress
         let prop = cell_properties[i];
         let type = "string";
         // Check if prop contains ":" if so split by ":" into type, prop
@@ -409,13 +546,13 @@ function populateRow(row, eventData) {
                     createExpandableCell(cells[cell_ind], value || {}, `exp-${eventData.__uniqueId__}-${prop}`);
                     break;
                 case "id":
-                    createExpandableCell(cells[cell_ind], {"id":value || eventData.__preEmptiveId__, "unique":eventData.__uniqueId__}, `exp-${eventData.__uniqueId__}-${prop}`);
+                    createExpandableCell(cells[cell_ind], {"id": value || eventData.__preEmptiveId__, "unique": eventData.__uniqueId__ }, `exp-${eventData.__uniqueId__}-${prop}`);
                     break;
                 case "nstms":
                     if (value === null || value === undefined || value === "") {
                         cells[cell_ind].textContent = "N/A";
                     } else {
-                        cells[cell_ind].textContent = (Number(value)/1e6).toFixed(2) + " ms"
+                        cells[cell_ind].textContent = (Number(value) / 1e6).toFixed(2) + " ms";
                     }
                     cells[cell_ind].style.whiteSpace = "nowrap";
                     break;
@@ -447,60 +584,14 @@ function populateRow(row, eventData) {
         }
     }
 
-    // Add is_stepped
-    if (cell_ind+1 >= cells.length) {
+    // Add is_stepped to the last cell
+    const isSteppedCellIndex = cell_properties.length + 2;
+    if (isSteppedCellIndex >= cells.length) {
         const newCell = document.createElement("td");
         row.appendChild(newCell);
     }
-    cells[cell_ind+1].textContent = is_stepped === true ? "True" : "False";
-    cells[cell_ind].dataset.prop = "is_stepped";
-}
-
-function _createExpandableCell(cell, data, uniqueId) {
-    cell.innerHTML = `<button class="expand-button">...</button>`;
-
-    let popup = document.getElementById(`popup-${uniqueId}`);
-    if (popup) popup.remove();
-
-    popup = document.createElement("div");
-    popup.id = `popup-${uniqueId}`;
-    popup.className = "popup";
-    popup.style.display = "none";
-    popup.style.position = "absolute";
-    popup.style.zIndex = "9999";
-    popup.style.backgroundColor = "white";
-    popup.style.border = "1px solid #ccc";
-    popup.style.padding = "10px";
-    popup.style.boxShadow = "0px 2px 10px rgba(0,0,0,0.2)";
-    popup.innerHTML = Object.entries(data)
-        .map(([key, val]) => `<div><strong>${key}</strong>: ${val}</div>`)
-        .join("") || "<em>No data</em>";
-
-    document.body.appendChild(popup);
-
-    const button = cell.querySelector("button");
-
-    button.addEventListener("click", (e) => {
-        e.stopPropagation();
-
-        // Position popup
-        const rect = button.getBoundingClientRect();
-        popup.style.top = `${rect.bottom + window.scrollY}px`;
-        popup.style.left = `${rect.left + window.scrollX}px`;
-        popup.style.display = "block";
-
-        // Hide others
-        document.querySelectorAll(".popup").forEach(p => {
-            if (p !== popup) p.style.display = "none";
-        });
-    });
-
-    // Hide popup on outside click
-    document.addEventListener("click", (e) => {
-        if (!popup.contains(e.target) && !button.contains(e.target)) {
-            popup.style.display = "none";
-        }
-    });
+    cells[isSteppedCellIndex].textContent = is_stepped === true ? "True" : "False";
+    cells[isSteppedCellIndex].dataset.prop = "is_stepped";
 }
 
 function createExpandableCell(cell, data, uniqueId) {
@@ -538,8 +629,8 @@ function createExpandableCell(cell, data, uniqueId) {
         const documentWidth = document.documentElement.scrollWidth;
         const viewportHeight = window.innerHeight;
         popup.style.display = "block";
-        popup.style.left = `${documentWidth + 100}px`;
-        popup.style.top = "0px";
+        popup.style.left = `${documentWidth + 100}px`; // Temporarily position off-screen
+        popup.style.top = "0px"; // Temporarily position at top
 
         const rect = button.getBoundingClientRect();
         const popupRect = popup.getBoundingClientRect();
@@ -547,19 +638,22 @@ function createExpandableCell(cell, data, uniqueId) {
         let top = rect.bottom + window.scrollY;
         let left;
 
-        left = rect.right + window.scrollX - popupRect.width;
-
-        if (left < 0) {
-            left = rect.left + window.scrollX;
-
-            if (left + popupRect.width > window.innerWidth + window.scrollX) {
-                 left = window.scrollX;
+        // Try positioning to the right first
+        left = rect.right + window.scrollX;
+        if (left + popupRect.width > window.innerWidth + window.scrollX) {
+            // If it goes off screen to the right, try positioning to the left
+            left = rect.left + window.scrollX - popupRect.width;
+            if (left < 0) {
+                // If it goes off screen to the left, position at start of viewport
+                left = window.scrollX;
             }
         }
 
+        // Adjust top if it goes off screen to the bottom
         if (top + popupRect.height > viewportHeight + window.scrollY) {
             top = rect.top + window.scrollY - popupRect.height;
             if (top < 0) {
+                // If it goes off screen to the top, position at top of viewport
                 top = 0;
             }
         }
@@ -582,8 +676,8 @@ debuggerInstance.RegisterFor("net:start", (msg) => {
 
     eventData.__preEmptiveId__ = id;
     eventData.__uniqueId__ = `${id}-${Date.now()}`; // DOM identifier
-    networkEvents.set(id, eventData)
-    createNewDomRow(eventData.__uniqueId__, eventData)
+    networkEvents.set(id, eventData);
+    createNewDomRow(eventData.__uniqueId__, eventData);
 });
 
 updateNetworkRow = (msg) => {
@@ -598,13 +692,14 @@ updateNetworkRow = (msg) => {
     const baseRow = document.querySelector(`tr[data-id="${existingData.__uniqueId__}"]`);
     if (baseRow) {
         populateRow(baseRow, existingData);
+        applyColumnVisibility(); // Re-apply visibility after populating
     } else {
         // No base id row exists, create it now with base id
         existingData.__uniqueId__ = `${id}-${Date.now()}`; // DOM identifier
         networkEvents.set(id, existingData);
         createNewDomRow(existingData.__uniqueId__, existingData);
     }
-}
+};
 
 stopNetworkRow = (msg) => {
     const { id } = msg;
@@ -619,9 +714,16 @@ stopNetworkRow = (msg) => {
                 const progressCell = row.children[1];
                 if (existingData.size === -1) {
                     if (progressCell) {
-                        if (existingData.event_state === "finished" || existingData.event_state === "retry" || existingData.event_state === "transfer") {
+                        if (
+                            existingData.event_state === "finished" ||
+                            existingData.event_state === "retry" ||
+                            existingData.event_state === "transfer"
+                        ) {
                             progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: 100%;"></div></div>`;
-                        } else if (existingData.event_state === "established" || existingData.event_state === "responded") {
+                        } else if (
+                            existingData.event_state === "established" ||
+                            existingData.event_state === "responded"
+                        ) {
                             progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: 100%;"></div></div>`;
                         } else {
                             progressCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: 100%;"></div></div>`;
@@ -631,10 +733,17 @@ stopNetworkRow = (msg) => {
                     if (progressCell && progressCell.querySelector(".progress-fill")) {
                         const progressFill = progressCell.querySelector(".progress-fill");
                         progressFill.style.width = "100%";
-                        
-                        if (existingData.event_state === "finished" || existingData.event_state === "retry" || existingData.event_state === "transfer") {
+
+                        if (
+                            existingData.event_state === "finished" ||
+                            existingData.event_state === "retry" ||
+                            existingData.event_state === "transfer"
+                        ) {
                             progressFill.classList = "progress-fill";
-                        } else if (existingData.event_state === "established" || existingData.event_state === "responded") {
+                        } else if (
+                            existingData.event_state === "established" ||
+                            existingData.event_state === "responded"
+                        ) {
                             progressFill.classList = "progress-fill progress-fill-blue";
                         } else {
                             progressFill.classList = "progress-fill progress-fill-gray";
@@ -653,7 +762,7 @@ stopNetworkRow = (msg) => {
             row.classList.add("stopped");
         }
     }
-}
+};
 
 debuggerInstance.RegisterFor("net:update", updateNetworkRow);
 
@@ -670,7 +779,15 @@ clearAllBtn.addEventListener("click", () => {
 });
 
 clearStoppedBtn.addEventListener("click", () => {
-    document.querySelectorAll("tr.stopped").forEach(row => {
+    document.querySelectorAll("tr.stopped").forEach((row) => {
+        const id = row.dataset.id;
+        networkEvents.delete(id);
+        row.remove();
+    });
+});
+
+clearActiveBtn.addEventListener("click", () => {
+    document.querySelectorAll("tbody tr:not(.stopped)").forEach((row) => {
         const id = row.dataset.id;
         networkEvents.delete(id);
         row.remove();

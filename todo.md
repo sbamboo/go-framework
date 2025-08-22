@@ -1,6 +1,9 @@
 # FRAMEWORK
 - updates can't fetch on non windows targets (app makes wrong target-key)
 - add a module to goframework for calculating and verifying checksums and signatures of files and optionally content
+- Send `usage:stats` regularly
+- Handling around services like gdrive,dropbox,sprend
+- include old platform features: simplified debug descriptor, add .Terminal, should sixel be libsixel?, add console and cli with formatting and escape codes, auto escape-code to windows legacy etc...
 
 
 # TESTAPP
@@ -9,9 +12,15 @@
 # DEBUGGER
 - After two site refresh debugger can no longer content frontend<->server (udp addrinuse?)
 - Sometimes a rebuild or restart of debugger is required to get app<->debugger to connect (udp addrinuse?)
+- Status bar should have the avrg. delay calculated based on `sent` as well as delay with debugger-server, maybe if we are connected to the app or the server etc.
 
 
 # DEBUGGER/FRAMEWORK
+- Sometimes `db498bd`>`2a9d850` comes back, adding a time.sleep inside `report.Close()` helps... (Could it be the send queue?)
+
+
+# THOUGHTS?
+- SecondaryStream return instead? or option; i.e when we get request-stream we start our own and handle progress inbetween; or another fix for current way of handing progress apon ProgressReport read 
 
 
 # RESEARCH / INVESTIGATE
