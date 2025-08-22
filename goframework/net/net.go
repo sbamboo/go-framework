@@ -27,9 +27,10 @@ type NetProgressReport struct {
 	Response *http.Response
 	Content  *string // Nil if stream
 
-	progressor   fwcommon.ProgressorFn
-	errorWrapper ErrorWrapperFn
-	debPtr       fwcommon.DebuggerInterface
+	progressor    fwcommon.ProgressorFn
+	orgProgressor fwcommon.ProgressorFn
+	errorWrapper  ErrorWrapperFn
+	debPtr        fwcommon.DebuggerInterface
 }
 
 func (npr *NetProgressReport) GetNetworkEvent() *fwcommon.NetworkEvent {
@@ -77,9 +78,7 @@ func (pr *NetProgressReport) Close() error {
 	pr.Event.EventState = fwcommon.NetStateFinished
 
 	if pr.progressor != nil {
-		fwcommon.FrameworkFlags.Disable("net.progressor_netupdate")
-		pr.progressor(pr, nil)
-		fwcommon.FrameworkFlags.Enable("net.progressor_netupdate")
+		pr.orgProgressor(pr, nil)
 	}
 
 	if pr.debPtr.IsActive() {
@@ -132,15 +131,15 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 	}
 
 	// If debugger is active wrap progressor to call NetUpdate
+	orgProgressor := progressor
 	if progressor != nil {
-		originalProgressor := progressor
 		progressor = func(progressPtr fwcommon.NetworkProgressReportInterface, err error) {
 			// Relay progress
 			if nh.deb.IsActive() && fwcommon.FrameworkFlags.IsEnabled("net.progressor_netupdate") {
 				nh.deb.NetUpdateFull(*progressPtr.GetNetworkEvent())
 			}
 			// Call original progressor
-			originalProgressor(progressPtr, err)
+			orgProgressor(progressPtr, err)
 		}
 	}
 
@@ -197,11 +196,12 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				EventStepCurrent: nil,
 				EventStepMax:     nil,
 			},
-			Response:     nil,
-			Content:      nil,
-			progressor:   progressor,
-			errorWrapper: nh.logThroughError,
-			debPtr:       nh.deb,
+			Response:      nil,
+			Content:       nil,
+			progressor:    progressor,
+			orgProgressor: orgProgressor,
+			errorWrapper:  nh.logThroughError,
+			debPtr:        nh.deb,
 		}
 
 		// Define Scheme

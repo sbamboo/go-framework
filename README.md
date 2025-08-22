@@ -13,4 +13,3 @@ A framework to act as the basis of my golang appliactions, handling network fetc
 - Inside /common is a handler for interal flags accessible at `fwcommon.FrameworkFlags`
     - `net.internal_error_log`, default `true`, Enables /net internal logging of errors *(Should be toggled when calling subparts internally and externally handling logging, to avoid double-logged errors)*
     - `update.internal_error_log`, default `true`, Enables /update internal logging of errors *(Should be toggled when calling subparts internally and externally handling logging, to avoid double-logged errors)*
-    - `net.progressor_netupdate`, default `true`, Wraps the progressor with a call to Debug.NetUpdateFull if enabled. *(Technically always wrapped but won't call if disabled)*
