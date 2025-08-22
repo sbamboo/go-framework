@@ -52,6 +52,7 @@ wss.on("connection", (ws) => {
                 event: "receive",
                 msg: data
             }));
+            //console.log("[DebuggerServer] Forwarded:", data);
         } catch (e) {
             console.warn("[DebuggerServer] Failed to parse UDP message", e);
         }
