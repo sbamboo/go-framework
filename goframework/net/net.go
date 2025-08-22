@@ -77,7 +77,7 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 func (pr *NetProgressReport) Close() error {
 	pr.Event.EventState = fwcommon.NetStateFinished
 
-	if pr.progressor != nil {
+	if pr.orgProgressor != nil {
 		pr.orgProgressor(pr, nil)
 	}
 
