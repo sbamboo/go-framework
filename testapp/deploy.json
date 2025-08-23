@@ -81,13 +81,13 @@
       {
         "uind": 1,
         "semver": "0.0.0",
-        "released": "2025-08-23T14:02:26Z",
-        "notes": "TEST",
+        "released": "2025-08-23T14:13:40Z",
+        "notes": "TEST UPDATE",
         "sources": {
           "linux-amd64": {
             "is_patch": false,
-            "url": "https://github.com/sbamboo/go-framework/raw/refs/heads/main/TEST/builds/TEST_v0.0.0_local-test_linux-amd64",
-            "checksum": "3c008feef78ca46cc06c241b5ec681f9e1051a6a7af9bd65c79c8c60c2c19c73",
+            "url": "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/ATEST_v0.0.0_local-test_linux-amd64",
+            "checksum": "5ca6cb4f8168eed805c3e9a5112f80a04103a77e6bdb546c0d49b54ba3c41652",
             "signature": "",
             "patch_url": "",
             "patch_checksum": "",
