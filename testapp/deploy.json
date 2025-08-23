@@ -76,26 +76,6 @@
           }
         }
       }
-    ],
-    "local-test": [
-      {
-        "uind": 1,
-        "semver": "0.0.0",
-        "released": "2025-08-23T14:13:40Z",
-        "notes": "TEST UPDATE",
-        "sources": {
-          "linux-amd64": {
-            "is_patch": false,
-            "url": "https://github.com/sbamboo/go-framework/raw/refs/heads/main/testapp/builds/ATEST_v0.0.0_local-test_linux-amd64",
-            "checksum": "5ca6cb4f8168eed805c3e9a5112f80a04103a77e6bdb546c0d49b54ba3c41652",
-            "signature": "",
-            "patch_url": "",
-            "patch_checksum": "",
-            "patch_signature": "",
-            "patch_for": null
-          }
-        }
-      }
     ]
   }
 }
