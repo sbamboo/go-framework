@@ -470,7 +470,7 @@ if ($doDebugLdflags) {
     Write-Host "Debug ldflags:`n$ldFlags" -ForegroundColor Cyan
 }
 
-Write-Host "Building Go application..." -ForegroundColor Green
+Write-Host "Building Go application..." -ForegroundColor Cyan
 try {
     # Ensure current directory is the project root where go.mod is
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
