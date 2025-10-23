@@ -103,7 +103,7 @@ func main() {
 		fmt.Printf("\n--- Update Available! ---\n")
 		fmt.Printf("New Version: %s (UIND: %d)\n", latestRelease.Semver, latestRelease.UIND)
 		fmt.Printf("Notes: %s\n", latestRelease.Notes)
-		fmt.Println("-------------------------\n")
+		fmt.Println("-------------------------")
 	} else {
 		fmt.Println("You are running the latest version for your channel.")
 	}
@@ -155,7 +155,7 @@ func main() {
 				fmt.Printf("\n--- Update Available for Channel %s! ---\n", upconf.Channel)
 				fmt.Printf("New Version: %s (UIND: %d)\n", latestRelease.Semver, latestRelease.UIND)
 				fmt.Printf("Notes: %s\n", latestRelease.Notes)
-				fmt.Println("-----------------------------------------\n")
+				fmt.Println("-----------------------------------------")
 			} else {
 				fmt.Printf("No newer version available in channel '%s'.\n", upconf.Channel)
 			}

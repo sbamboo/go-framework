@@ -85,6 +85,11 @@ func (pr *NetProgressReport) Close() error {
 		pr.debPtr.NetStopWFUpdate(*pr.Event)
 	}
 
+	// Ensure pr.Response and pr.Response.Body are not nil
+	if pr.Response == nil || pr.Response.Body == nil {
+		return nil
+	}
+
 	return pr.Response.Body.Close()
 }
 

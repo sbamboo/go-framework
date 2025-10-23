@@ -133,6 +133,12 @@ function Get-BinaryChecksum {
     if (-not (Test-Path $filePath)) {
         throw "File not found: $filePath"
     }
+
+    # If file begins with ./ prepend Get-Location
+    if ($filePath.StartsWith("./") -or $filePath.StartsWith(".\")) {
+        $filePath = Join-Path (Get-Location) $filePath.Substring(2)
+    }
+
     $hasher = [System.Security.Cryptography.SHA256]::Create()
     $fileStream = [System.IO.File]::OpenRead($filePath)
     $hashBytes = $hasher.ComputeHash($fileStream)
@@ -508,7 +514,12 @@ $checksum = Get-BinaryChecksum $outputBinaryPath
 Write-Host "Checksum (SHA256): $checksum" -ForegroundColor Green
 
 # 6. Sign the Binary
+# Ensure absolute paths to avoid directory confusion
+$outputBinaryPath = (Resolve-Path $outputBinaryPath).Path
+$privateKeyFile   = (Resolve-Path $privateKeyFile).Path
+
 $signature = Sign-Binary $outputBinaryPath $privateKeyFile
+
 Write-Host "Signature: $signature" -ForegroundColor Green
 
 # 7. Handle Patch Creation (if applicable)

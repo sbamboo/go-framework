@@ -56,3 +56,7 @@ libfw.UpdatorAppConfiguration{
     Target:           fmt.Sprintf("%s-%s", runtime.GOOS, runtime.GOARCH),
 },
 ```
+
+
+# Testing
+To make the code communicate with debuggers it must be built with the `with_debugger` ldflag, all testapp dev builds have it, when running tests add `-tags with_debugger`
