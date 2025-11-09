@@ -24,14 +24,16 @@ type GithubUpdateFetcher struct {
 	Owner   string
 	Repo    string
 	fetcher fwcommon.FetcherInterface
+	logger  fwcommon.LoggerInterface
 }
 
 // NewGithubUpdateFetcher creates a new instance of GithubUpdateFetcher.
-func NewGithubUpdateFetcher(owner, repo string, fetcher fwcommon.FetcherInterface) *GithubUpdateFetcher {
+func NewGithubUpdateFetcher(owner, repo string, fetcher fwcommon.FetcherInterface, logger fwcommon.LoggerInterface) *GithubUpdateFetcher {
 	return &GithubUpdateFetcher{
 		Owner:   owner,
 		Repo:    repo,
 		fetcher: fetcher,
+		logger:  logger,
 	}
 }
 
@@ -135,6 +137,10 @@ func (ghup *GithubUpdateFetcher) FetchAssetReleases() ([]fwcommon.UpdateReleaseD
 					fmt.Printf("WARNING: Could not determine platform-arch for asset '%s'. Skipping.\n", asset.Name)
 					continue
 				}
+
+				// Debug sourceKey
+				//MARK: DEBUG
+				ghup.logger.Debug(fmt.Sprintf("Processing asset '%s' for source key '%s'", asset.Name, sourceKey))
 
 				source := fwcommon.UpdateSourceInfo{
 					URL:      asset.BrowserDownloadURL,
@@ -383,7 +389,18 @@ func reverseString(s string) string {
 
 // extractPlatformArch parses a filename to extract the "<platform>-<arch>" part.
 func extractPlatformArch(filename string) string {
-	filenameNoExt := strings.TrimSuffix(filename, getFileExtension(filename))
+	// Expected platforms are: linux, windows, darwin; with furture-proofing support for: freebsd, netbsd, openbsd, solaris
+	//   Thus expected binary filenames are: .exe, .bin, .app, (no extension), .sig
+	//   With additional handling for archive filetypes: .zip, .tar.gz, .tgz, .tar.bz2, .tar.xz, .tar, .rar, .7z.
+	// Strip file extensions first according to above ^
+	fileExtensions := []string{".exe", ".bin", ".app", ".sig", ".zip", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz", ".tar", ".rar", ".7z"}
+	filenameNoExt := filename
+	for _, ext := range fileExtensions {
+		if strings.HasSuffix(filenameNoExt, ext) {
+			filenameNoExt = strings.TrimSuffix(filenameNoExt, ext)
+			break // Only strip one extension
+		}
+	}
 
 	reversedFilename := reverseString(filenameNoExt)
 
@@ -460,7 +477,7 @@ func NewNetUpdater(config *fwcommon.FrameworkConfig, fetcherPtr fwcommon.Fetcher
 		parts := strings.SplitN(*config.UpdatorAppConfiguration.GithubUpMetaRepo, "/", 2)
 		if len(parts) == 2 {
 			// Pass the fetcher to NewGithubUpdateFetcher
-			nu.config.UpdatorAppConfiguration.GhMetaFetcher = NewGithubUpdateFetcher(parts[0], parts[1], nu.fetcher)
+			nu.config.UpdatorAppConfiguration.GhMetaFetcher = NewGithubUpdateFetcher(parts[0], parts[1], nu.fetcher, nu.log)
 		}
 	}
 

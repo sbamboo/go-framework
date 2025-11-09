@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -52,7 +53,8 @@ func SetupFramework() *libfw.Framework {
 		DebugSendPort:   9000,
 		DebugListenPort: 9001,
 
-		LoggerFile:     nil,
+		// LoggerFile is <built-executable-parent-directory>/app.log using os.Executable()
+		LoggerFile:     Ptr(filepath.Join(filepath.Dir(func() string { exe, _ := os.Executable(); return exe }()), "app.log")),
 		LoggerFormat:   nil,
 		LoggerCallable: nil,
 
@@ -70,6 +72,7 @@ func SetupFramework() *libfw.Framework {
 		},
 
 		LogFrameworkInternalErrors: true,
+		WriteDebugLogs:             true,
 	}
 
 	return libfw.NewFramework(config)

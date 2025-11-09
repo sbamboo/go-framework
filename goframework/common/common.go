@@ -21,6 +21,8 @@ type FrameworkConfig struct {
 	UpdatorAppConfiguration *UpdatorAppConfiguration
 
 	LogFrameworkInternalErrors bool // Toggles log.LogThroughError used by .net and .update
+
+	WriteDebugLogs bool // If disabled logger.Debug(...) is never written to file, still sent to callable and attached debuggers.
 }
 
 // MARK: Helpers

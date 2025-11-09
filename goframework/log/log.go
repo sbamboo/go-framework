@@ -33,8 +33,15 @@ func (log *Logger) Log(level fwcommon.LogLevel, message string) error {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	logLine := fmt.Sprintf(format, timestamp, level.String(), message) + "\n"
 
+	// If log.config is null or log.config.WriteDebugLogs is not boolean true (type is bool)
+	//   and level is DEBUG set doWriteDebugLogs to false
+	doWriteDebugLogs := true
+	if (log.config == nil || !log.config.WriteDebugLogs) && level == fwcommon.DEBUG {
+		doWriteDebugLogs = false
+	}
+
 	// Write to file
-	if log.config.LoggerFile != nil {
+	if log.config.LoggerFile != nil && doWriteDebugLogs {
 
 		if *log.config.LoggerFile == "" {
 			return fmt.Errorf("logger file path is empty")
