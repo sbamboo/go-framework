@@ -31,4 +31,8 @@ func TestMain(t *testing.T) {
 	fw := NewFramework(config)
 
 	fmt.Println(fw)
+
+	hash := fw.Chck.HashStr("Hello world", SHA256)
+
+	fmt.Printf("Hash: %s\n", hash)
 }

@@ -1,6 +1,4 @@
 # FRAMEWORK
-- updates can't fetch on non windows targets (app makes wrong target-key)
-- add a module to goframework for calculating and verifying checksums and signatures of files and optionally content
 - Send `usage:stats` regularly
 - Handling around services like gdrive,dropbox,sprend
 - include old platform features: simplified debug descriptor, add .Terminal, should sixel be libsixel?, add console and cli with formatting and escape codes, auto escape-code to windows legacy etc...

@@ -1,0 +1,1 @@
+@pwsh -NoProfile -ExecutionPolicy Bypass -Command "& './build.ps1' -semver '0.0.0' -uind '0' -channel 'dev' -notes 'WORKSPACE (dev)' -auto -noCrossCompile -withDebugger -deployURL '_'"

@@ -257,6 +257,24 @@ type GithubAsset struct {
 	Digest             string `json:"digest"`
 }
 
+// Hash / Checksum algorithms
+type HashAlgorithm string
+
+const (
+	SHA1    HashAlgorithm = "sha1"
+	SHA256  HashAlgorithm = "sha256"
+	CRC32   HashAlgorithm = "crc32"
+	UNKNOWN HashAlgorithm = "unknown"
+)
+
+// Signature algorithms
+type SigAlgorithm string
+
+const (
+	ED25519 SigAlgorithm = "ed25519"
+	RSA     SigAlgorithm = "rsa"
+)
+
 //MARK: Interfaces
 
 type DebuggerInterface interface {
