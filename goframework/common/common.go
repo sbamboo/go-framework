@@ -275,6 +275,80 @@ const (
 	RSA     SigAlgorithm = "rsa"
 )
 
+// PLATFORM DESCRIPTORS
+type BuildFlags struct {
+	WithDebugger bool
+	NoGoPsUtil   bool
+}
+
+type BuildDescriptor struct {
+	CompileTimePlatform string
+	CompileTimeArch     string
+	BuildFlags          BuildFlags
+}
+
+type RuntimeDescriptor struct {
+	GoVersion string
+	Compiler  string
+	Build     BuildDescriptor
+}
+
+type UserDescriptor struct {
+	Name      *string
+	Username  *string
+	HomeDir   *string
+	ConfigDir *string
+	CacheDir  *string
+}
+
+type WIN32API_ConsoleScreenBufferInfo struct{}
+
+type Win32API_Host_Descriptor struct {
+	Avaliable           bool
+	HandleValueValue    int
+	Handle              int
+	ConsoleMode         int
+	ConsoleScreenBuffer WIN32API_ConsoleScreenBufferInfo
+	LwtAvaliable        bool
+}
+
+type HostDescriptor struct {
+	OS                   string
+	Platform             string
+	PlatformFamily       string
+	PlatformVersion      string
+	KernelArch           string
+	KernelVersion        string
+	VirtualizationSystem string
+	VirtualizationRole   string
+	HostID               string
+	Hostname             *string
+	TempDir              *string
+	WorkingDir           *string
+	User                 UserDescriptor
+	LegacyWindows        bool
+	Win32API             *Win32API_Host_Descriptor // <-- Nillable
+}
+
+type ProcessDescriptor struct {
+	Executable        *string
+	Parent            *string
+	RuntimeCPUs       int
+	RuntimeGoRoutines int
+	PID               int
+	PPID              int
+	UnixEgid          int
+	UnixEuid          int
+	UnixGid           int
+	UnixUid           int
+}
+
+type PlatformDescriptor struct {
+	Runtime RuntimeDescriptor
+	Host    HostDescriptor
+	Process ProcessDescriptor
+}
+
 //MARK: Interfaces
 
 type DebuggerInterface interface {

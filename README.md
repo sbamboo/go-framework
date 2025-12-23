@@ -61,6 +61,7 @@ Updates are fetched/pulled from update **channels**, each channel have their own
 The update system by default pulls from a *deploy.json* file, but if the channel name has prefix `git.` the update system fetches the *GithubUpMetaRepo* releases and finds ones with the tag `ci-git.<channel>-<uind>-<semver>` ex. `ci-git.commit-1-0.0.0`. And in releases finds `<app>-<semver>-<platform>-<arch>(.exe)` and `<app>-<semver>-<platform>-<arch>.sig`<br>
 Another one is the `ugit.` prefix where we fetch *GithubUpMetaRepo* for releases that includes a yaml codeblock whos first line is `__upmeta__: "<upmeta-version>"`, then it parses out the meta information from the upmeta data format before matching to release files.
 
+The platform descriptor is meant to be used internally by goframework and by external tools to get metadata and capabilities of the host. However the host machine information uses `github.com/shirou/gopsutil/v4` if that is not desired the `-tags no_gopsutil` can be added to skip that, note that it limits the host-machine information that can be retrieved through goframework.
 
 # Testing
 To make the code communicate with debuggers it must be built with the `with_debugger` ldflag, all testapp dev builds have it, when running tests add `-tags with_debugger`

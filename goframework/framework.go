@@ -6,6 +6,7 @@ import (
 	fwdebug "github.com/sbamboo/goframework/debug"
 	fwlog "github.com/sbamboo/goframework/log"
 	fwnet "github.com/sbamboo/goframework/net"
+	fwplatform "github.com/sbamboo/goframework/platform"
 	fwupdate "github.com/sbamboo/goframework/update"
 )
 
@@ -90,3 +91,7 @@ var ED25519 = fwcommon.ED25519
 var RSA = fwcommon.RSA
 
 type LogLevel = fwcommon.LogLevel
+
+func GetDescriptor() *fwcommon.PlatformDescriptor {
+	return fwplatform.GetDescriptor()
+}

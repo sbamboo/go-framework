@@ -25,6 +25,7 @@ ADD_DEPLOY=""
 DEPLOY_URL=""
 GH_UP_META_REPO=""
 WITH_DEBUGGER=0
+NO_GO_PSUTIL=0
 DO_DEBUG_LDFLAGS=0
 HELP=0
 
@@ -124,6 +125,7 @@ while [[ "$#" -gt 0 ]]; do
         -deployURL) DEPLOY_URL="$2"; shift ;;
         -ghUpMetaRepo) GH_UP_META_REPO="$2"; shift ;;
         --withDebugger) WITH_DEBUGGER=1 ;;
+        --noGoPsUtil) NO_GO_PSUTIL=1 ;;
         --doDebugLdflags) DO_DEBUG_LDFLAGS=1 ;;
         -appName) APP_NAME="$2"; shift ;;
         --help) HELP=1 ;;
@@ -447,8 +449,23 @@ if [[ "$NO_CROSS_COMPILE" -eq 0 ]]; then
     export GOARCH="$TARGET_ARCH"
 fi
 
+tags=()
+
 if [[ "$WITH_DEBUGGER" -eq 1 ]]; then
-    BUILD_COMMAND+=" -tags \"with_debugger\""
+    tags+=("with_debugger")
+fi
+
+if [[ "$NO_GO_PSUTIL" -eq 1 ]]; then
+    tags+=("no_gopsutil")
+fi
+
+tagString=""
+if (( ${#tags[@]} > 0 )); then
+    tagString=$(IFS=,; echo "${tags[*]}")
+fi
+
+if (( ${#tags[@]} > 0 )); then
+    BUILD_COMMAND+=" -tags \"$tagString\""
 fi
 BUILD_COMMAND+=" -o \"$OUTPUT_BINARY_PATH\" ."
 

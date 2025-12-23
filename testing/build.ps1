@@ -17,6 +17,7 @@ param (
     [string]$deployURL,
     [string]$ghUpMetaRepo,
     [switch]$withDebugger,
+    [switch]$noGoPsUtil,
     [switch]$doDebugLdflags,
     [string]$appName = "testapp", # Default app name, can be overridden
     [switch]$help
@@ -47,6 +48,7 @@ Options:
   -deployURL "<string>"          URL for the deploy.json, where most channels fetch updates from
   -ghUpMetaRepo "<owner>/<repo>" GitHub repository for "ugit."/"git." channels to fetch github releases from
   -withDebugger                  Build with debugger support (default: no)
+  -noGoPsUtil                    Disables GoPsUtil, reduces binary size but leads to loss of platform information (default: flag not set so GoPsUtil is used)
   -debugLdflags                  Prints debug ldflags for the Go build
   -appName "<string>"            Application name (current: $appName)
   -help                          Show this help message
@@ -487,8 +489,20 @@ try {
         Set-Item -Path Env:GOARCH -Value $targetArch
     }
 
+    $tags = @()
+
     if ($withDebugger) {
-        go build -ldflags "$ldFlags" -tags "with_debugger" -o $outputBinaryPath .
+        $tags += 'with_debugger'
+    }
+
+    if ($noGoPsUtil) {
+        $tags += 'no_gopsutil'
+    }
+
+    $tagString = $tags -join ','
+
+    if ($tags.Count -gt 0) {
+        go build -ldflags "$ldFlags" -tags $tagString -o $outputBinaryPath .
     } else {
         go build -ldflags "$ldFlags" -o $outputBinaryPath .
     }
