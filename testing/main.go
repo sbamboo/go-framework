@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	libfw "github.com/sbamboo/goframework"
 
@@ -184,36 +186,87 @@ func GetJSON(v interface{}, indent ...any) ([]byte, error) {
 	}
 }
 
+var (
+	modkernel32 = syscall.NewLazyDLL("kernel32.dll")
+	procBeep    = modkernel32.NewProc("Beep")
+)
+
+func Beep(frequency, duration uint32) error {
+	r, _, err := procBeep.Call(uintptr(frequency), uintptr(duration))
+	if r == 0 {
+		return err
+	}
+	return nil
+}
+
+func beepMorse(code string) {
+	unit := 150 // milliseconds for a dot
+	freq := 750 // Hz
+
+	for _, c := range code {
+		switch c {
+		case '.':
+			Beep(uint32(freq), uint32(unit)) // dot
+		case '-':
+			Beep(uint32(freq), uint32(3*unit)) // dash
+		}
+		time.Sleep(time.Duration(unit) * time.Millisecond) // pause between symbols
+	}
+}
+
 // -- Main Function --
 func main() {
 	fw := SetupFramework()
 
 	fw.Debugger.Activate()
 
-	descriptor := libfw.GetDescriptor()
+	fw.Debugger.RegisterFor("console:in", func(msg libfw.JSONObject) {
+		cmd, ok := msg["cmd"].(string)
+		lct := strings.ToLower(strings.TrimSpace(cmd))
+		if ok {
+			if strings.HasPrefix(cmd, "morse:") {
+				cmd = cmd[5:]
+				beepMorse(cmd)
+			} else if lct == "beep" {
+				Beep(1000, 500)
+			} else {
+				fmt.Println(">> " + cmd)
+			}
+		}
+	})
 
-	jsonData, err := GetJSON(descriptor, true)
-	if err != nil {
-		panic(err)
+	// descriptor := libfw.GetDescriptor()
+
+	// jsonData, err := GetJSON(descriptor, true)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// os.Stdout.Write(jsonData)
+	// fmt.Print("\n")
+	// if err == nil {
+	// 	fw.Log.Debug(string(jsonData))
+	// }
+
+	stat, err := libfw.GetUsageStats()
+	if err == nil {
+		// jsonData2, _ := GetJSON(stat, true)
+		// if err == nil {
+		// 	fw.Log.Debug(string(jsonData2))
+		// }
+		fw.Debugger.UsageStat(stat)
 	}
-	os.Stdout.Write(jsonData)
-	fmt.Print("\n")
 
 	reader := bufio.NewReader(os.Stdin)
-
 	for {
-		fmt.Print(": ")
+		fmt.Print(": ") // print prompt safely
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			continue
 		}
-
-		input = strings.TrimSpace(input) // remove newline
-
+		input = strings.TrimSpace(input)
 		if input == "exit" {
-			break
+			os.Exit(0)
 		}
-
 		fw.Log.Debug(fw.Chck.HashStr(input, libfw.SHA256))
 	}
 }

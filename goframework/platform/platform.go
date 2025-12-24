@@ -163,3 +163,7 @@ func GetDescriptor() *fwcommon.PlatformDescriptor {
 		},
 	}
 }
+
+func GetUsageStats() (*fwcommon.UsageStat, error) {
+	return GetProcUsageStats(int32(os.Getpid()))
+}

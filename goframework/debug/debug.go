@@ -427,7 +427,7 @@ func (e *DebugEmitter) NetStopWFUpdate(netevent fwcommon.NetworkEvent) error {
 	})
 }
 
-func (e *DebugEmitter) UsageStat(stats fwcommon.JSONObject) error {
+func (e *DebugEmitter) UsageStat(stats any) error {
 	return e.Send(fwcommon.JSONObject{
 		"signal": "usage:stats",
 		"stats":  stats,

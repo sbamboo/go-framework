@@ -349,6 +349,80 @@ type PlatformDescriptor struct {
 	Process ProcessDescriptor
 }
 
+type CpuTimesStat struct {
+	User      float64 `json:"user"`
+	System    float64 `json:"system"`
+	Idle      float64 `json:"idle"`
+	Nice      float64 `json:"nice"`
+	Iowait    float64 `json:"iowait"`
+	Irq       float64 `json:"irq"`
+	Softirq   float64 `json:"softirq"`
+	Steal     float64 `json:"steal"`
+	Guest     float64 `json:"guest"`
+	GuestNice float64 `json:"guest_nice"`
+}
+
+type RlimitStat struct {
+	Resource string `json:"resource"`
+	Name     string `json:"name"`
+	Soft     uint64 `json:"soft"`
+	Hard     uint64 `json:"hard"`
+	Used     uint64 `json:"used"`
+}
+
+type ConnectionStat struct {
+	Fd        uint32 `json:"fd"`
+	Family    uint32 `json:"family"`
+	Type      uint32 `json:"type"`
+	LaddrIP   string `json:"laddr_ip"`
+	LaddrPort uint32 `json:"laddr_port"`
+	RaddrIP   string `json:"raddr_ip"`
+	RaddrPort uint32 `json:"raddr_port"`
+	Status    string `json:"status"`
+	Pid       int32  `json:"pid"`
+}
+
+type UsageStat struct {
+	Pid                       int32                  `json:"pid"`
+	Name                      string                 `json:"name"`
+	Status                    []string               `json:"status"`
+	Cmdline                   string                 `json:"cmdline"`
+	Args                      []string               `json:"args"`
+	Exe                       string                 `json:"exe"`
+	Cwd                       string                 `json:"cwd"`
+	CreateTime                int64                  `json:"create_time"`
+	Username                  string                 `json:"username"`
+	Uids                      []int32                `json:"uids"`
+	Gids                      []int32                `json:"gids"`
+	Groups                    []int32                `json:"groups"`
+	CpuPercent                float64                `json:"cpu_percent"`
+	MemoryPercent             float32                `json:"memory_percent"`
+	MemoryRSS                 uint64                 `json:"memory_rss"`
+	MemoryVMS                 uint64                 `json:"memory_vms"`
+	IOReadBytes               uint64                 `json:"io_read_bytes"`
+	IOWriteBytes              uint64                 `json:"io_write_bytes"`
+	NumFds                    int32                  `json:"num_fds"`
+	NumThreads                int32                  `json:"num_threads"`
+	ThreadCount               int32                  `json:"thread_count"`
+	Threads                   map[int32]CpuTimesStat `json:"threads"`
+	NumCtxSwitchesVoluntary   int64                  `json:"num_ctx_switches_voluntary"`
+	NumCtxSwitchesInvoluntary int64                  `json:"num_ctx_switches_involuntary"`
+	OpenFilesCount            int32                  `json:"open_files_count"`
+	OpenFiles                 []string               `json:"open_files"`
+	Nice                      int32                  `json:"nice"`
+	Terminal                  string                 `json:"terminal"`
+	Ppid                      int32                  `json:"ppid"`
+	ParentPid                 int32                  `json:"parent_pid"`
+	Rlimit                    []RlimitStat           `json:"rlimit"`
+	Connections               []ConnectionStat       `json:"connections"`
+	SystemCPUCores            int                    `json:"system_cpu_cores"`
+	MaxMemoryTotal            uint64                 `json:"max_memory_total"`
+	MaxIOReadBytes            uint64                 `json:"max_io_read_bytes"`
+	MaxIOWriteBytes           uint64                 `json:"max_io_write_bytes"`
+	MaxNumFds                 int32                  `json:"max_num_fds"`
+	MaxNumThreads             int32                  `json:"max_num_threads"`
+}
+
 //MARK: Interfaces
 
 type DebuggerInterface interface {

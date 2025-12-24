@@ -93,7 +93,7 @@ func (e *DebugEmitter) NetUpdateFull(netevent fwcommon.NetworkEvent) error      
 func (e *DebugEmitter) NetStop(id string) error                                    { return nil }
 func (e *DebugEmitter) NetStopEvent(netevent fwcommon.NetworkEvent) error          { return nil }
 func (e *DebugEmitter) NetStopWFUpdate(netevent fwcommon.NetworkEvent) error       { return nil }
-func (e *DebugEmitter) UsageStat(stats fwcommon.JSONObject) error                  { return nil }
+func (e *DebugEmitter) UsageStat(stats any) error                                  { return nil }
 func (e *DebugEmitter) Ping() error                                                { return nil }
 func (e *DebugEmitter) Pong() error                                                { return nil }
 func (e *DebugEmitter) CustomEnvelope(kind string, body fwcommon.JSONObject) error { return nil }

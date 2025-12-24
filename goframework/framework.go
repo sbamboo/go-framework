@@ -39,6 +39,8 @@ func NewFramework(config *fwcommon.FrameworkConfig) *Framework {
 }
 
 // MARK: Exports
+type JSONObject = fwcommon.JSONObject
+
 type FrameworkConfig = fwcommon.FrameworkConfig
 type UpdatorAppConfiguration = fwcommon.UpdatorAppConfiguration
 type NetFetchOptions = fwcommon.NetFetchOptions
@@ -94,4 +96,10 @@ type LogLevel = fwcommon.LogLevel
 
 func GetDescriptor() *fwcommon.PlatformDescriptor {
 	return fwplatform.GetDescriptor()
+}
+
+type UsageStat = fwcommon.UsageStat
+
+func GetUsageStats() (*fwcommon.UsageStat, error) {
+	return fwplatform.GetUsageStats()
 }
