@@ -235,6 +235,15 @@ func main() {
 		}
 	})
 
+	fw.Debugger.RegisterFor("misc:pong", func(msg libfw.JSONObject) {
+		fmt.Println("Got pong!")
+	})
+
+	fw.Debugger.RegisterFor("misc:ping", func(msg libfw.JSONObject) {
+		fmt.Println("Got ping, sending pong!")
+		fw.Debugger.OnPing(msg)
+	})
+
 	// descriptor := libfw.GetDescriptor()
 
 	// jsonData, err := GetJSON(descriptor, true)
@@ -264,8 +273,11 @@ func main() {
 			continue
 		}
 		input = strings.TrimSpace(input)
-		if input == "exit" {
-			os.Exit(0)
+		switch input {
+			case "exit":
+				os.Exit(0)
+			case "ping":
+				fw.Debugger.Ping()
 		}
 		fw.Log.Debug(fw.Chck.HashStr(input, libfw.SHA256))
 	}
