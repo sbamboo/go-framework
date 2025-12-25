@@ -11,3 +11,101 @@
 [2025-12-23 18:47:02 DEBUG] 9b96a1fe1d548cbbc960cc6a0286668fd74a763667b06366fb2324269fcabaa4
 [2025-12-24 00:32:01 DEBUG] 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 [2025-12-24 00:32:27 DEBUG] 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+[2025-12-25 13:05:07 DEBUG] {
+  "Host": {
+    "HostID": "",
+    "Hostname": "DESKTOP-771P5NS",
+    "KernelArch": "",
+    "KernelVersion": "",
+    "LegacyWindows": false,
+    "OS": "",
+    "Platform": "",
+    "PlatformFamily": "",
+    "PlatformVersion": "",
+    "TempDir": "C:\\Users\\simon\\AppData\\Local\\Temp",
+    "User": {
+      "CacheDir": "C:\\Users\\simon\\AppData\\Roaming",
+      "ConfigDir": "C:\\Users\\simon\\AppData\\Roaming",
+      "HomeDir": "C:\\Users\\simon",
+      "Name": "simon",
+      "Username": "DESKTOP-771P5NS\\simon"
+    },
+    "VirtualizationRole": "",
+    "VirtualizationSystem": "",
+    "Win32API": null,
+    "WorkingDir": "C:\\Users\\simon\\Documents\\GitHub\\go-framework\\testing"
+  },
+  "Process": {
+    "Executable": "C:\\Users\\simon\\Documents\\GitHub\\go-framework\\testing\\builds\\testapp_v0.0.0_dev_windows-amd64.exe",
+    "PID": 19948,
+    "PPID": 18608,
+    "Parent": "C:\\Users\\simon\\Documents\\GitHub\\go-framework\\testing\\builds\\testapp_v0.0.0_dev_windows-amd64.exe",
+    "RuntimeCPUs": 16,
+    "RuntimeGoRoutines": 3,
+    "UnixEgid": -1,
+    "UnixEuid": -1,
+    "UnixGid": -1,
+    "UnixUid": -1
+  },
+  "Runtime": {
+    "Build": {
+      "BuildFlags": {
+        "NoGoPsUtil": true,
+        "WithDebugger": true
+      },
+      "CompileTimeArch": "amd64",
+      "CompileTimePlatform": "windows"
+    },
+    "Compiler": "gc",
+    "GoVersion": "go1.24.4"
+  }
+}
+[2025-12-25 13:05:48 DEBUG] {
+  "Host": {
+    "HostID": "",
+    "Hostname": "DESKTOP-771P5NS",
+    "KernelArch": "",
+    "KernelVersion": "",
+    "LegacyWindows": false,
+    "OS": "",
+    "Platform": "",
+    "PlatformFamily": "",
+    "PlatformVersion": "",
+    "TempDir": "C:\\Users\\simon\\AppData\\Local\\Temp",
+    "User": {
+      "CacheDir": "C:\\Users\\simon\\AppData\\Roaming",
+      "ConfigDir": "C:\\Users\\simon\\AppData\\Roaming",
+      "HomeDir": "C:\\Users\\simon",
+      "Name": "simon",
+      "Username": "DESKTOP-771P5NS\\simon"
+    },
+    "VirtualizationRole": "",
+    "VirtualizationSystem": "",
+    "Win32API": null,
+    "WorkingDir": "C:\\Users\\simon\\Documents\\GitHub\\go-framework\\testing"
+  },
+  "Process": {
+    "Executable": "C:\\Users\\simon\\Documents\\GitHub\\go-framework\\testing\\builds\\testapp_v0.0.0_dev_windows-amd64.exe",
+    "PID": 8028,
+    "PPID": 18608,
+    "Parent": "C:\\Users\\simon\\Documents\\GitHub\\go-framework\\testing\\builds\\testapp_v0.0.0_dev_windows-amd64.exe",
+    "RuntimeCPUs": 16,
+    "RuntimeGoRoutines": 3,
+    "UnixEgid": -1,
+    "UnixEuid": -1,
+    "UnixGid": -1,
+    "UnixUid": -1
+  },
+  "Runtime": {
+    "Build": {
+      "BuildFlags": {
+        "NoGoPsUtil": true,
+        "WithDebugger": true
+      },
+      "CompileTimeArch": "amd64",
+      "CompileTimePlatform": "windows"
+    },
+    "Compiler": "gc",
+    "GoVersion": "go1.24.4"
+  }
+}

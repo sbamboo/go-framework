@@ -10,8 +10,8 @@
 
 
 # DEBUGGER
-- After two site refresh debugger can no longer content frontend<->server (udp addrinuse?)
-- Sometimes a rebuild or restart of debugger is required to get app<->debugger to connect (udp addrinuse?)
+* After two site refresh debugger can no longer content frontend<->server (udp addrinuse?)
+* Sometimes a rebuild or restart of debugger is required to get app<->debugger to connect (udp addrinuse?)
 - Status bar should have the avrg. delay calculated based on `sent` as well as delay with debugger-server, maybe if we are connected to the app or the server etc.
 
 

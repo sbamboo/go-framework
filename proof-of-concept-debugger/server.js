@@ -21,6 +21,12 @@ let debug = null;
 let lastAttachedSignalReceiver = null; // Track the specific signalReceiver instance
 const connectedClients = new Set(); // Store all active WebSocket connections
 
+// Helper to log the debugger ws connections
+function logDebuggerStatus(context = "OK") {
+    const activeWs = connectedClients.size;
+    console.log(`[DebuggerServer] WS.${context}, Active WebSocket clients: ${activeWs}`);
+}
+
 // This function now broadcasts to all connected clients.
 const broadcastUDPToWebSockets = (msg) => {
     try {
@@ -61,6 +67,7 @@ function attachDebuggerUDPListener() {
 wss.on("connection", (ws) => {
     console.log("[DebuggerServer] Browser connected via WebSocket");
     connectedClients.add(ws); // Add new client to the set
+    logDebuggerStatus("NEW"); // Log status on new connection
 
     ws.on("message", (message) => {
         try {
@@ -98,11 +105,13 @@ wss.on("connection", (ws) => {
     ws.on("close", () => {
         console.log("[DebuggerServer] WebSocket client disconnected");
         connectedClients.delete(ws); // Remove client from the set
+        logDebuggerStatus("CLOSED"); // Log status on disconnect
     });
 
     ws.on("error", (err) => {
         console.error("[DebuggerServer] WebSocket client error:", err);
         connectedClients.delete(ws); // Ensure client is removed on error too
+        logDebuggerStatus("ERROR"); // Log status on error/disconnect
     });
 });
 
