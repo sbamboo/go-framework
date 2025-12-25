@@ -41,18 +41,29 @@ class Debugger {
      */
     Configure(signalPort, commandPort) {
         // Cleanup existing sockets
-        if (this.signalReceiver) this.signalReceiver.close();
-        if (this.commandSender) this.commandSender.close();
+        if (this.signalReceiver) {
+            this.signalReceiver.close();
+            this.signalReceiver = null; // Clear reference
+        }
+        if (this.commandSender) {
+            this.commandSender.close();
+            this.commandSender = null; // Clear reference
+        }
 
         this.signalPort = signalPort;
         this.commandPort = commandPort;
 
         // --- Setup Signal Receiver ---
-        this.signalReceiver = dgram.createSocket("udp4");
+        // Create socket with reuseAddr option
+        this.signalReceiver = dgram.createSocket({
+            type: "udp4",
+            reuseAddr: true // This is the key!
+        });
 
         this.signalReceiver.on("error", (err) => {
             console.error(`[Debugger] Signal receiver error:\n${err.stack}`);
             this.signalReceiver.close();
+            this.signalReceiver = null; // Clear reference on error
         });
 
         this.signalReceiver.on("message", (msg, rinfo) => {
@@ -77,21 +88,33 @@ class Debugger {
         this.signalReceiver.on("listening", () => {
             const address = this.signalReceiver.address();
             console.log(`[Debugger] Debugger listening for signals on ${address.address}:${address.port}`);
+            // setBroadcast should be after bind and before sending broadcast packets
+            this.signalReceiver.setBroadcast(true);
         });
 
+        // Set reuseAddr to true for the signal receiver
         this.signalReceiver.bind(this.signalPort, this.host);
 
         // --- Setup Command Sender ---
-        this.commandSender = dgram.createSocket("udp4");
+        // Create socket with reuseAddr option
+        this.commandSender = dgram.createSocket({
+            type: "udp4",
+            reuseAddr: true // Also for the sender
+        });
 
         this.commandSender.on("error", (err) => {
             console.error(`[Debugger] Command sender error:\n${err.stack}`);
-            this.commandSender.close();
+            if (this.commandSender) { // Check if it's still active before closing
+                this.commandSender.close();
+                this.commandSender = null; // Clear reference on error
+            }
         });
 
         this.commandSender.on("listening", () => {
             const address = this.commandSender.address();
             console.log(`[Debugger] Command sender bound on ${address.address}:${address.port} (sending to ${this.host}:${this.commandPort})`);
+            // setBroadcast should be after bind and before sending broadcast packets
+            this.commandSender.setBroadcast(true);
         });
 
         this.commandSender.bind(0, this.host); // ephemeral port
