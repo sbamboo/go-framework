@@ -18,12 +18,15 @@ const dgram = require("dgram");
 // --- Main Class ----
 
 class Debugger {
-    constructor(signalPort = 9000, commandPort = 9001, host = "127.0.0.1") {
+    constructor(signalPort = 9000, commandPort = 9001, host = "127.0.0.1", displayRecvContent = true, beSilent = false) {
         this.ProtocolVersion = 1;
 
         this.signalPort = signalPort;
         this.commandPort = commandPort;
         this.host = host;
+
+        this.displayRecvContent = displayRecvContent;
+        this.beSilent = beSilent;
 
         this.lastKnownLatency = -1;
 
@@ -74,7 +77,13 @@ class Debugger {
                     this.lastKnownLatency = Date.now() - parseInt(data.sent, 10)
                 }
 
-                console.log(`[Debugger] Signal received from ${rinfo.address}:${rinfo.port}:`, data);
+                if (!this.beSilent) {
+                    if (this.displayRecvContent) {
+                        console.log(`[Debugger] Signal received from ${rinfo.address}:${rinfo.port}:`, data);
+                    } else {
+                        console.log(`[Debugger] Signal received from ${rinfo.address}:${rinfo.port}`);
+                    }
+                }
 
                 const handler = this.signalHandlers.get(data.signal);
                 if (handler) {
@@ -137,7 +146,9 @@ class Debugger {
             if (err) {
                 console.error(`[Debugger] Failed to send command: ${err.message}`);
             } else {
-                console.log(`[Debugger] Signal sent: ${msg.signal || "[no signal]"}`);
+                if (!this.beSilent) {
+                    console.log(`[Debugger] Signal sent: ${msg.signal || "[no signal]"}`);
+                }
             }
         });
     }
@@ -153,7 +164,9 @@ class Debugger {
             if (err) {
                 console.error(`[Debugger] Failed to send command: ${err.message}`);
             } else {
-                console.log(`[Debugger] Signal sent: ${payload.signal || "[no signal]"}`);
+                if (!this.beSilent) {
+                    console.log(`[Debugger] Signal sent: ${payload.signal || "[no signal]"}`);
+                }
             }
         });
     }

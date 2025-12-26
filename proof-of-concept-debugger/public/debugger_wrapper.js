@@ -12,7 +12,8 @@ class Debugger {
         this.signalHandlers = new Map();
         this.incomingListeners = [];
         this.outgoingListeners = [];
-        this.lastKnownLatency = -1;
+        this.lastKnownAppLatency = -1;
+        this.lastKnownSrvLatency = -1;
 
         this.ws.addEventListener("open", () => {
             console.log("[DebuggerFrontend] WebSocket connected");
@@ -26,11 +27,19 @@ class Debugger {
                 const data = JSON.parse(event.data);
 
                 if (data.hasOwnProperty("sent")) {
-                    this.lastKnownLatency = Date.now() - parseInt(data.sent, 10);
+                    this.lastKnownSrvLatency = Date.now() - parseInt(data.sent, 10);
+                }
+                if (data.hasOwnProperty("responded")) {
+                    this.lastKnownSrvLatency = Date.now() - parseInt(data.responded, 10);
+                }
+
+                if (data.hasOwnProperty("msg") && data.msg.hasOwnProperty("sent")) {
+                    this.lastKnownAppLatency = Date.now() - parseInt(data.msg.sent, 10);
                 }
 
                 this.incomingListeners.forEach((cb) => cb(data));
 
+                // Did we get a message from the app?
                 if (data.event === "receive" && data.msg && data.msg.signal) {
                     const signalHandler = this.signalHandlers.get(data.msg.signal);
                     if (signalHandler) {
@@ -39,11 +48,18 @@ class Debugger {
                     }
                 }
 
+                // Did we get a Acknowledge-Request-Check response?
+                if (data.event === "ackreq.ack") {
+                    data["__handled__"] = true;
+                }
+
                 const generalHandler = this.eventHandlers.get(data.event);
                 if (generalHandler) {
                     generalHandler(data);
                 } else {
-                    console.log("[DebuggerFrontend] Unhandled event:", data.event, data);
+                    if (!data.hasOwnProperty("__handled__") || data["__handled__"] !== true) {
+                        console.log("[DebuggerFrontend] Unhandled event:", data.event, data);
+                    }
                 }
             } catch (e) {
                 console.warn("[DebuggerFrontend] Failed to parse incoming message", e);
@@ -92,12 +108,29 @@ class Debugger {
 
     sendConstructed(payload) {
         this.sendEvent("send_constructed", {
-            msg: payload
+            "msg": payload
         }); // Use the 'send_constructed' since we added protocol+sent
         this.outgoingListeners.forEach((cb) =>
             cb({
-                event: "send",
-                msg: payload
+                "event": "send",
+                "msg": payload
+            }),
+        );
+    }
+
+    /**
+     * Send a Acknowledge-Request-Check to the debugger-server
+     * We send `ackreq` with `requested` (timestamp ms of when we make the request) and if the server is live we should get an `ackreq.ack` event back with `received` (timestamp ms at server recieve) and `responded` (timestamp ms at server respond send), then on respond checking the "now" time shows us the latency and some of the processing time.
+     */
+    SendAckReq() {
+        const requested = Date.now();
+        this.sendEvent("ackreq", {
+            "requested": requested
+        }); // Use the 'send_constructed' since we added protocol+sent
+        this.outgoingListeners.forEach((cb) =>
+            cb({
+                "event": "ackreq",
+                "requested": requested
             }),
         );
     }
@@ -107,17 +140,17 @@ class Debugger {
      */
     Send(msg) {
         const payload = {
-            protocol: this.ProtocolVersion,
-            sent: Date.now(),
+            "protocol": this.ProtocolVersion,
+            "sent": Date.now(),
             ...msg,
         };
         this.sendEvent("send_constructed", {
-            msg: payload
+            "msg": payload
         }); // Use the 'send_constructed' since we added protocol+sent
         this.outgoingListeners.forEach((cb) =>
             cb({
-                event: "send",
-                msg: payload
+                "event": "send",
+                "msg": payload
             }),
         );
     }
@@ -146,10 +179,9 @@ class Debugger {
     /**
      * Recomendation implementation of onPing
      */
-    OnPing = (msg) => {
+    OnPing = (_) => {
         this.Pong();
     };
-    // Arrow function to bind this to the invokating instance else one could use <instance>.OnPing.bind(<instance>)
 
     /**
      * Send a console command to the emitter.
@@ -180,6 +212,15 @@ class Debugger {
     Pong() {
         this.Send({
             signal: "misc:pong",
+        });
+    }
+
+    /**
+     * Send a ping signal.
+     */
+    Ping() {
+        this.Send({
+            signal: "misc:ping",
         });
     }
 }

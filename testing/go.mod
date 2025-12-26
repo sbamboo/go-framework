@@ -2,7 +2,10 @@ module goframework_testapp
 
 go 1.24.4
 
-require github.com/sbamboo/goframework v0.0.0
+require (
+	github.com/gordonklaus/portaudio v0.0.0-20250206071425-98a94950218b
+	github.com/sbamboo/goframework v0.0.0
+)
 
 replace github.com/sbamboo/goframework => ../goframework
 

@@ -5,6 +5,20 @@ const path = require("path");
 const { exec } = require("child_process");
 
 const Debugger = require("./debugger");
+const { exit } = require("process");
+
+const beSilent = process.argv.some(arg => arg.includes('--silent'));
+const displayRecvContent = process.argv.some(arg => arg.includes('--debug'));
+const dispHelp = process.argv.some(arg => arg.includes('--help')) || process.argv.some(arg => arg.includes('--h'))
+
+if (dispHelp) {
+    console.log("Usage: node.js server.js [--silent] [--debug] [--help / --h]");
+    console.log("  --silent       Does not log received or sent signals.");
+    console.log("  --debug        Shows content of received signals.");
+    console.log("  --help / --h   Shows this help text.");
+    console.log("");
+    exit();
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -32,8 +46,8 @@ const broadcastUDPToWebSockets = (msg) => {
     try {
         const data = JSON.parse(msg.toString());
         const messageToClients = JSON.stringify({
-            event: "receive",
-            msg: data
+            "event": "receive",
+            "msg": data
         });
         connectedClients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN) {
@@ -45,6 +59,30 @@ const broadcastUDPToWebSockets = (msg) => {
         console.warn("[DebuggerServer] Failed to parse UDP message for broadcast:", e);
     }
 };
+
+const sendRawToWebSockets = (body) => {
+    try {
+        const messageToClients = JSON.stringify(body);
+        connectedClients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(messageToClients);
+            }
+        });
+    } catch (e) {
+        console.warn("[DebuggerServer] Failed to send ackreq acknowledgement UDP message for broadcast:", e);
+    }
+};
+
+const sendAckReqToWebSockets = (received, requested) => {
+    sendRawToWebSockets({
+        "event": "ackreq.ack",
+        "received": received,
+        "responded": Date.now(),
+        "_forwarded_": {
+            "requested": requested
+        }
+    });
+}
 
 // Function to attach the UDP forwarder to the *current* debugger's signalReceiver
 // This function needs to be called whenever `debug` is initialized or reconfigured
@@ -69,6 +107,8 @@ wss.on("connection", (ws) => {
     connectedClients.add(ws); // Add new client to the set
     logDebuggerStatus("NEW"); // Log status on new connection
 
+    const received = Date.now();
+
     ws.on("message", (message) => {
         try {
             const msg = JSON.parse(message);
@@ -77,7 +117,7 @@ wss.on("connection", (ws) => {
             if (event === "construct") {
                 const { signalPort = 9000, commandPort = 9001 } = msg.params;
                 if (!debug) {
-                    debug = new Debugger(signalPort, commandPort);
+                    debug = new Debugger(signalPort, commandPort, "127.0.0.1", displayRecvContent, beSilent);
                     console.log(`[DebuggerServer] Debugger instance created (${signalPort}, ${commandPort})`);
                     attachDebuggerUDPListener(); // Attach listener after first creation
                 } else {
@@ -96,6 +136,10 @@ wss.on("connection", (ws) => {
                 debug.Send(msg.msg);
             } else if (event === "send_constructed" && debug) {
                 debug.sendConstructed(msg.msg);
+            // (ack)Acknowledge (req)Request check
+            } else if (event === "ackreq") {
+                // Send back over the websocket the timestamps
+                sendAckReqToWebSockets(received, msg.requested);
             }
         } catch (e) {
             console.error("[DebuggerServer] Failed to handle WebSocket message:", e);

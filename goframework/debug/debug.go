@@ -10,6 +10,7 @@ import (
 	"time"
 
 	fwcommon "github.com/sbamboo/goframework/common"
+	fwplatform "github.com/sbamboo/goframework/platform"
 )
 
 const W_ProtocolVersion = 1
@@ -45,6 +46,10 @@ type DebugEmitter struct {
 
 	// Measuring values
 	LastKnownLatency int64
+
+	// Handling for sending a UsageStat automatically with a configured delay
+	usageStopChan chan struct{}
+	usageWg       sync.WaitGroup
 }
 
 func NewDebugEmitter(config *fwcommon.FrameworkConfig) *DebugEmitter {
@@ -118,6 +123,13 @@ func (e *DebugEmitter) activateInternal() {
 	e.signalInStopChan = make(chan struct{})
 	e.signalInWg.Add(1)
 	go e.listenForIncomming()
+
+	// If enabled start usage-stat send loop
+	if e.config.DebugSendUsage {
+		e.usageStopChan = make(chan struct{})
+		e.usageWg.Add(1)
+		go e.usageLoop()
+	}	
 }
 
 // deactivateInternal is the core logic for tearing down network connections.
@@ -157,6 +169,13 @@ func (e *DebugEmitter) deactivateInternal() {
 	}
 
 	e.Active = false
+
+	// If it was started, stop the usage-stat send loop
+	if e.usageStopChan != nil {
+		close(e.usageStopChan)
+		e.usageWg.Wait()
+		e.usageStopChan = nil
+	}	
 }
 
 // listenForIncomming handles incoming UDP datagrams as signals.
@@ -285,6 +304,26 @@ func (e *DebugEmitter) doSend(msg fwcommon.JSONObject) {
 		// fmt.Errorf("failed to send UDP datagram: %w", err)
 		return
 	}
+}
+
+// Internal usage-stat send loop
+func (e *DebugEmitter) usageLoop() {
+    defer e.usageWg.Done()
+
+    ticker := time.NewTicker(time.Duration(e.config.DebugSendUsageInterval) * time.Millisecond)
+    defer ticker.Stop()
+
+    for {
+        select {
+        case <-e.usageStopChan:
+            return
+        case <-ticker.C:
+            stats, err := fwplatform.GetUsageStats()
+			if err == nil {
+				e.UsageStat(stats)
+			}
+        }
+    }
 }
 
 // Activate establishes the UDP connections for sending and receiving.

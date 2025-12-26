@@ -5,6 +5,11 @@ const logArea = document.getElementById("console-log");
 const input = document.getElementById("console-input");
 const inputRaw = document.getElementById("console-input-raw");
 const statusBar = document.getElementById("status-bar");
+let statusBarTogglesShown = false;
+let statusBarTextShown = false;
+const statusBarPre = document.getElementById("status-bar-pre");
+const statusBarText = document.getElementById("status-bar-text");
+const statusBarInner = document.getElementById("status-bar-inner");
 const processStatsOutput = document.getElementById("process-stats-output");
 const aboutProtocolVer = document.getElementById("about-value-protocol-ver");
 
@@ -12,6 +17,254 @@ const aboutProtocolVer = document.getElementById("about-value-protocol-ver");
 const debuggerInstance = new Debugger();
 window.debuggerInstance = debuggerInstance; // Expose for inline HTML or console access
 aboutProtocolVer.innerText = debuggerInstance.ProtocolVersion;
+
+// Connection debugging
+const connections = {
+    "server": {
+        "conknown": false, // Is the connection known?
+        "lastseen": -1, // When did we last hear from the server?
+        "enabled": false, // Have user wanted us to send `ackreq` => `ackreq.ack` chains
+        "interval": 1000, // MS between sending `ackreq`
+        "samples": [], // { requested, received, responded, receivedAtClient }
+        "avgRtt": -1, // Round trip time for `ackreq` => `ackreq.ack` (requested until receivedAtClient)
+        "avgReq": -1, // Time to send a request (requested until received)
+        "avgResp": -1, // Time to recieve a request (responded until receivedAtClient)
+        "avgServerProc": -1, // Calculated server-processing time (received until responded)
+        "maxSamples": 50 // At MAX it throws the first sample (oldest)
+    },
+    "app": {
+        "conknown": false, // Is the connection known?
+        "lastseen": -1, // When did we last hear from the app?
+        "timeout": 2000, // How long to wait before changing conknown to false (unknown), -1 is infinite
+        "enabled": false, // Have user wanted us to send `misc:ping` => `misc:pong` chains
+        "interval": 1000, // MS between sending `misc:ping`
+        "samples": [], // { pingSent, appSentRespPong, recievedPong }
+        "avgRtt": -1, // Round trip time for `misc:ping` => `misc:pong` (pingSent until recievedPong)
+        "avgReqProc": -1, // Time to send a request plus app processing time (pingSent until appSentRespPong)
+        "avgResp": -1, // Time to recieve a request (appSentRespPong until recievedPong)
+        "maxSamples": 50 // At MAX it throws the first sample (oldest)
+    }
+};
+
+function pushSample(target, sample) {
+    target.samples.push(sample);
+    if (target.samples.length > target.maxSamples) target.samples.shift();
+}
+
+function computeServerAverages() {
+    const s = connections.server;
+    if (s.samples.length === 0) return;
+    s.avgRtt = s.samples.reduce((a, x) => a + (x.receivedAtClient - x.requested), 0) / s.samples.length;
+    s.avgReq = s.samples.reduce((a, x) => a + (x.received - x.requested), 0) / s.samples.length;
+    s.avgResp = s.samples.reduce((a, x) => a + (x.receivedAtClient - x.responded), 0) / s.samples.length;
+    s.avgServerProc = s.samples.reduce((a, x) => a + (x.responded - x.received), 0) / s.samples.length;
+}
+
+function computeAppAverages() {
+    const a = connections.app;
+    if (a.samples.length === 0) return;
+    a.avgRtt = a.samples.reduce((acc, x) => acc + (x.recievedPong - x.pingSent), 0) / a.samples.length;
+    a.avgReqProc = a.samples.reduce((acc, x) => acc + (x.appSentRespPong - x.pingSent), 0) / a.samples.length;
+    a.avgResp = a.samples.reduce((acc, x) => acc + (x.recievedPong - x.appSentRespPong), 0) / a.samples.length;
+}
+
+function renderConnectionTopbar() {
+    const s = connections.server;
+    const a = connections.app;
+    const srvStatus = s.conknown ? "🟢Connected" : "🔴Disconnected";
+    let appStatus = a.conknown ? "🟢Connected" : "🟠Unknown";
+
+    if (a.timeout === -1 || !a.enabled) {
+        appStatus = "🟢Unknown";
+    }
+
+    const appRtt = a.avgRtt >= 0 ? a.avgRtt.toFixed(0) + "ms" : "--";
+    const appDetails = `(ReqProc: ${a.avgReqProc>=0?a.avgReqProc.toFixed(0):"--"}ms, Resp: ${a.avgResp>=0?a.avgResp.toFixed(0):"--"}ms)`;
+
+    const srvRtt = s.avgRtt >= 0 ? s.avgRtt.toFixed(0) + "ms" : "--";
+    const srvDetails = `(Req: ${s.avgReq>=0?s.avgReq.toFixed(0):"--"}ms, Resp: ${s.avgResp>=0?s.avgResp.toFixed(0):"--"}ms, SrvProc: ${s.avgServerProc>=0?s.avgServerProc.toFixed(0):"--"}ms)`;
+
+    statusBarText.innerHTML = `
+        <span class="status-subtitle">App:</span><span class="status-span">${appStatus}</span><span class="rtt-tooltip">${appRtt}<span class="rtt-details">${appDetails}</span></span> 
+        <span class="status-subtitle">Server:</span><span class="status-span">${srvStatus}</span><span class="rtt-tooltip">${srvRtt}<span class="rtt-details">${srvDetails}</span></span>
+    `;
+
+    if (statusBarTogglesShown && statusBarInner.style.display == "none") {
+        statusBarInner.style.display = "flex";
+    } else if (!statusBarTogglesShown && statusBarInner.style.display == "flex") {
+        statusBarInner.style.display = "none";
+    }
+
+    if (statusBarTextShown && statusBarText.style.display == "none") {
+        statusBarText.style.display = "inline-block";
+    } else if (!statusBarTextShown && statusBarText.style.display == "inline-block") {
+        statusBarText.style.display = "none";
+    }
+}
+
+let serverPingInterval;
+let appPingInterval;
+const pingServerToggle = document.getElementById("ping-server-toggle")
+pingServerToggle.checked = connections.server.enabled;
+pingServerToggle.addEventListener("change", (e)=>{
+    connections.server.enabled = e.target.checked;
+    if(e.target.checked) enableServerPing(); else clearInterval(serverPingInterval);
+});
+const pingAppToggle = document.getElementById("ping-app-toggle")
+pingAppToggle.checked = connections.app.enabled;
+pingAppToggle.addEventListener("change", (e)=>{
+    connections.app.enabled = e.target.checked;
+    if(e.target.checked) enableAppPing(); else clearInterval(appPingInterval);
+});
+const pingServerInterval = document.getElementById("ping-server-interval")
+pingServerInterval.value = connections.server.interval;
+pingServerInterval.addEventListener("input", (e)=>{
+    connections.server.interval = Number(e.target.value);
+    if(connections.server.enabled) enableServerPing();
+});
+const pingAppInterval = document.getElementById("ping-app-interval")
+pingAppInterval.value = connections.app.interval;
+pingAppInterval.addEventListener("input", (e)=>{
+    connections.app.interval = Number(e.target.value);
+    if(connections.app.enabled) enableAppPing();
+});
+const appTimeout = document.getElementById("app-timeout")
+appTimeout.value = connections.app.timeout;
+appTimeout.addEventListener("input", (e)=>{
+    connections.app.timeout = Number(e.target.value);
+});
+
+function enableServerPing() {
+    try {
+        clearInterval(serverPingInterval);
+    } catch {}
+    serverPingInterval = setInterval(()=>{
+        if (!connections.server.enabled) return
+
+        debuggerInstance.SendAckReq();
+    }, connections.server.interval);
+    renderConnectionTopbar();
+}
+
+debuggerInstance.RegisterForServerEvent("ackreq.ack", (msg) => {
+    let  receivedAtClient = Date.now();
+
+    // Extract timestamps
+    let requested = msg._forwarded_.requested;
+    let received = msg.received;
+    let responded = msg.responded;
+
+    // Clamp values to ensure deltas are non-negative
+    if (received < requested) received = requested;
+    if (responded < received) responded = received;
+    if (receivedAtClient < responded) receivedAtClient = responded;
+
+    const sample = {
+        "requested": requested,
+        "received": received,
+        "responded": responded,
+        "receivedAtClient": receivedAtClient
+    };
+
+    pushSample(connections.server, sample);
+    computeServerAverages();
+    connections.server.conknown = true;
+    connections.server.lastseen = Date.now();
+    renderConnectionTopbar();
+});
+
+function enableAppPing() {
+    try {
+        clearInterval(appPingInterval);
+    } catch {}
+    appPingInterval = setInterval(()=>{
+        if (!connections.app.enabled) return
+
+        const pingSent = Date.now();
+
+        connections.app.lastPingSent = pingSent;
+
+        debuggerInstance.Ping();
+    }, connections.app.interval);
+    renderConnectionTopbar();
+}
+
+debuggerInstance.RegisterFor("misc:pong", (msg)=>{
+    const recievedPong = Date.now();
+    const appSentRespPong = msg.sent || Date.now();
+    
+    const sample = {
+        "pingSent": connections.app.lastPingSent,
+        "appSentRespPong": appSentRespPong,
+        "recievedPong": recievedPong
+    };
+
+    pushSample(connections.app, sample);
+    computeAppAverages();
+    connections.app.conknown = true;
+    connections.app.lastseen = Date.now();
+    renderConnectionTopbar();
+});
+
+// App timeout checker
+setInterval(()=>{
+    const a = connections.app;
+    if(a.timeout<0 || a.lastseen<0) return;
+    if(Date.now() - a.lastseen > a.timeout) {
+        a.conknown = false;
+    }
+}, 200);
+
+// Initial render
+renderConnectionTopbar();
+
+function reprAsString(value) {
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+
+    // Primitive types
+    if (typeof value !== 'object') return String(value);
+
+    // Handle standard Error objects
+    if (value instanceof Error) {
+        return `@${JSON.stringify({ type: value.constructor.name, message: value.message })}`;
+    }
+
+    // Handle ErrorEvent / Event objects (like WebSocket errors)
+    if (value instanceof Event || value.constructor.name === 'ErrorEvent') {
+        const toret = {};
+        if (value.constructor?.name) toret.__class__ = value.constructor.name;
+        if (value.message) toret.message = value.message;
+        if (value.error) toret.error = value.error;
+        toret.type = value.type || value.constructor.name;
+        return `@${JSON.stringify(toret)}`;
+    }
+
+    // Arrays
+    if (Array.isArray(value)) return JSON.stringify(value);
+
+    // Plain objects
+    if (value.constructor === Object) return JSON.stringify(value);
+
+    // Class instances (non-plain objects)
+    const props = {};
+    // Include all own enumerable properties
+    for (const key of Object.keys(value)) {
+        props[key] = value[key];
+    }
+
+    // Include prototype methods as "function" placeholders
+    const proto = Object.getPrototypeOf(value);
+    if (proto && proto !== Object.prototype) {
+        Object.getOwnPropertyNames(proto).forEach(key => {
+            if (typeof proto[key] === 'function' && !(key in props)) {
+                props[key] = 'function';
+            }
+        });
+    }
+
+    return '@' + JSON.stringify(props);
+}
 
 // --- Tab Management Logic ---
 const tabs = document.querySelectorAll(".tab");
@@ -59,23 +312,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Initial status bar update
 debuggerInstance.ws.addEventListener("open", () => {
-    statusBar.textContent = "Debugger Status: 🟢Connected";
+    statusBarTogglesShown = true;
+    statusBarTextShown = true;
+
+    connections.server.conknown = true;
+    connections.server.lastseen = Date.now();
+
+    renderConnectionTopbar();
 });
 
 debuggerInstance.ws.addEventListener("close", () => {
-    statusBar.textContent = "Debugger Status: 🔴Disconnected";
+    statusBarTogglesShown = false;
+    statusBarTextShown = true;
+
+    connections.server.conknown = false;
+    connections.server.lastseen = -1;
+    
+    connections.app.conknown = false;
+    connections.app.lastseen = -1;
 });
 
 debuggerInstance.ws.addEventListener("error", (err) => {
-    statusBar.textContent = `Debugger Status: Error - ${err.message || err}`;
+    statusBarTogglesShown = false;
+    statusBarTextShown = false;
+    statusBarPre.innerText = `Debugger Status: SocketError - ${err.message || "See browser console."}`;
+
+    connections.server.conknown = false;
+    connections.server.lastseen = -1;
+    
+    connections.app.conknown = false;
+    connections.app.lastseen = -1;
+
+    try {
+        pingAppToggle.checked = false;
+        connections.app.enabled = false;
+        clearInterval(appPingInterval);
+
+        pingServerToggle.checked = false;
+        connections.server.enabled = false;
+        clearInterval(serverPingInterval);
+    } catch {}
+
+    renderConnectionTopbar();
 });
 
 debuggerInstance.RegisterFor("misc:ping", debuggerInstance.OnPing);
 
 debuggerInstance.RegisterFor("usage:stats", (msg) => {
-    console.log("[Usage Stats Received]"); // Debug log
     try {
-        console.log(msg);
         const statsObject = new UsageStatObject(msg.stats);
         // Display the formatted report in the Process & Usage tab
         processStatsOutput.textContent = statsObject.getFormattedReport();
@@ -87,8 +371,11 @@ debuggerInstance.RegisterFor("usage:stats", (msg) => {
 
 debuggerInstance.RegisterForIncoming((event) => {
     let logMessage = "";
+
     switch (event.event) {
         case "receive":
+            if (event.msg.signal === "misc:pong" && connections.app.enabled) return; // If we are pinging the app dont show recieve
+
             toDisp = event.msg;
             if (event.msg.signal) {
                 if (event.msg.signal === "usage:stats") {
@@ -116,6 +403,9 @@ debuggerInstance.RegisterForIncoming((event) => {
             // If `sendEvent` triggers an incoming "send" due to server echo, handle it here
             // but typically outgoing is better handled by RegisterForOutgoing.
             break;
+        case "ackreq.ack":
+            if (connections.server.enabled) return; // If we are pinging the server dont show recieve
+            break;
         default:
             logMessage = `>> [Event:Unknown/Incoming] ${JSON.stringify(event)}\n`;
             break;
@@ -130,7 +420,12 @@ debuggerInstance.RegisterForOutgoing((event) => {
     let logMessage = "";
     switch (event.event) {
         case "send":
+            if (event.msg.signal === "misc:ping" && connections.app.enabled) return; // If we are pinging the app dont show send
+
             logMessage = `<< [Event:Send] ${JSON.stringify(event.msg)}\n`;
+            break;
+        case "ackreq":
+            if (connections.server.enabled) return; // If we are pinging the server dont show send
             break;
         default:
             logMessage = `<< [Event:Unknown/Outgoing] ${JSON.stringify(event)}\n`;

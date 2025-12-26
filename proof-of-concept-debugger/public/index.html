@@ -8,7 +8,18 @@
 </head>
 
 <body>
-    <div id="status-bar">Debugger Status: Connecting...</div>
+    <div id="status-bar">
+        <p><span id="status-bar-pre">Debugger Status:</span> <span id="status-bar-text" style="display:none;">Connecting...</span></p>
+        <div id="status-bar-inner" style="display:none;">
+            <label>PingServer:</label><input type="checkbox" id="ping-server-toggle"> 
+            <p>(i:<input type="number" id="ping-server-interval" value="">ms)</p>
+            
+            <label>PingApp:</label><input type="checkbox" id="ping-app-toggle"> 
+            <p>(i:<input type="number" id="ping-app-interval" value="">ms)</p>
+            
+            <label>AppTimeout:</label><input type="number" id="app-timeout" value=""><p>ms</p>
+        </div>
+    </div>
 
     <div id="tab-bar">
         <div class="tab" id="console-tab" data-tab-target="console-content">
