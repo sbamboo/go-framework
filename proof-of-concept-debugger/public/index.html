@@ -41,12 +41,19 @@
 
     <main id="main-content-area">
         <section id="console-content" class="tab-content">
-            <div id="console-log" class="console-log" contenteditable="false"></div>
-            <div id="console-input-wrapper">
-                <input type="text" id="console-input" placeholder="Type a command and hit Enter..." />
-                <button id="console-clear">Clear</button>
+            <div id="console-controls">
+                <label>Autoscroll: </label><input id="console-toggle-autoscroll" type="checkbox" checked>
+                <label>Log ping/ackreq when pinging: </label><input id="console-toggle-log-pings" type="checkbox">
+                <label>Log received usage-stats: </label><input id="console-toggle-log-usagestats" type="checkbox">
             </div>
-            <input type="text" id="console-input-raw" placeholder="Type raw signal-json and hit Enter..." />
+            <div id="console-inner-wrapper">
+                <div id="console-log" class="console-log" contenteditable="false"></div>
+                <div id="console-input-wrapper">
+                    <input type="text" id="console-input" placeholder="Type a command and hit Enter..." />
+                    <button id="console-clear">Clear</button>
+                </div>
+                <input type="text" id="console-input-raw" placeholder="Type raw signal-json and hit Enter..." />
+            </div>
         </section>
 
         <section id="elements-content" class="tab-content" style="display: none">

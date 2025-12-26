@@ -12,6 +12,22 @@ const statusBarText = document.getElementById("status-bar-text");
 const statusBarInner = document.getElementById("status-bar-inner");
 const processStatsOutput = document.getElementById("process-stats-output");
 const aboutProtocolVer = document.getElementById("about-value-protocol-ver");
+const consoleToggleAutoscroll = document.getElementById("console-toggle-autoscroll");
+const consoleToggleLogPings = document.getElementById("console-toggle-log-pings");
+const consoleToggleLogUsageStats = document.getElementById("console-toggle-log-usagestats");
+let hidePingAckWhenPinging = !consoleToggleLogPings.checked;
+let hideUsageStats = !consoleToggleLogUsageStats.checked;
+let doAutoscroll = consoleToggleAutoscroll.checked;
+
+consoleToggleAutoscroll.addEventListener("change", (e) => {
+    doAutoscroll = e.target.checked;
+});
+consoleToggleLogPings.addEventListener("change", (e) => {
+    hidePingAckWhenPinging = !e.target.checked;
+});
+consoleToggleLogUsageStats.addEventListener("change", (e) => {
+    hideUsageStats = !e.target.checked;
+});
 
 // Global instance of the debugger, so it can be accessed by new buttons/functions
 const debuggerInstance = new Debugger();
@@ -374,7 +390,8 @@ debuggerInstance.RegisterForIncoming((event) => {
 
     switch (event.event) {
         case "receive":
-            if (event.msg.signal === "misc:pong" && connections.app.enabled) return; // If we are pinging the app dont show recieve
+            if (event.msg.signal === "misc:pong" && connections.app.enabled && hidePingAckWhenPinging) return; // If we are pinging the app dont show recieve
+            if (event.msg.signal === "usage:stats" && hideUsageStats) return; // If we are pinging the app dont show recieve
 
             toDisp = event.msg;
             if (event.msg.signal) {
@@ -404,7 +421,8 @@ debuggerInstance.RegisterForIncoming((event) => {
             // but typically outgoing is better handled by RegisterForOutgoing.
             break;
         case "ackreq.ack":
-            if (connections.server.enabled) return; // If we are pinging the server dont show recieve
+            if (connections.server.enabled && hidePingAckWhenPinging) return; // If we are pinging the server dont show recieve
+            logMessage = `>> [Event:AckReq] ${JSON.stringify(event)}\n`;
             break;
         default:
             logMessage = `>> [Event:Unknown/Incoming] ${JSON.stringify(event)}\n`;
@@ -412,7 +430,9 @@ debuggerInstance.RegisterForIncoming((event) => {
     }
     if (logMessage) {
         logArea.innerHTML += logMessage + "\n";
-        logArea.scrollTop = logArea.scrollHeight;
+        if (doAutoscroll) {
+            logArea.scrollTop = logArea.scrollHeight;
+        }
     }
 });
 
@@ -420,12 +440,13 @@ debuggerInstance.RegisterForOutgoing((event) => {
     let logMessage = "";
     switch (event.event) {
         case "send":
-            if (event.msg.signal === "misc:ping" && connections.app.enabled) return; // If we are pinging the app dont show send
+            if (event.msg.signal === "misc:ping" && connections.app.enabled && hidePingAckWhenPinging) return; // If we are pinging the app dont show send
 
             logMessage = `<< [Event:Send] ${JSON.stringify(event.msg)}\n`;
             break;
         case "ackreq":
-            if (connections.server.enabled) return; // If we are pinging the server dont show send
+            if (connections.server.enabled && hidePingAckWhenPinging) return; // If we are pinging the server dont show send
+            logMessage = `<< [Event:AckReq] ${JSON.stringify(event)}\n`;
             break;
         default:
             logMessage = `<< [Event:Unknown/Outgoing] ${JSON.stringify(event)}\n`;
@@ -433,7 +454,9 @@ debuggerInstance.RegisterForOutgoing((event) => {
     }
     if (logMessage) {
         logArea.innerHTML += logMessage;
-        logArea.scrollTop = logArea.scrollHeight;
+        if (doAutoscroll) {
+            logArea.scrollTop = logArea.scrollHeight;
+        }
     }
 });
 

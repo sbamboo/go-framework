@@ -418,15 +418,7 @@ func main() {
 				}
 
 				contentStr := string(data) // convert bytes to string
-				fmt.Println("Streamed fetch completed. Content length:", len(contentStr))
-				fmt.Println("Content preview (first 500 chars):")
-				if len(contentStr) > 500 {
-					fmt.Println(contentStr[:500], "...")
-				} else {
-					fmt.Println(contentStr)
-				}
-
-				return &contentStr // return pointer to string if you want to propagate it
+				return &contentStr         // return pointer to string if you want to propagate it
 			}
 
 		} else if strings.HasPrefix(lct, "ff:") || strings.HasPrefix(lct, "sff:") {

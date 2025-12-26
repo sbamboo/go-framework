@@ -144,12 +144,29 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
+    box-sizing: border-box; /* Include padding in width/height */
+}
+.tab-content:not(#console-content), #console-log {
     padding: 1rem;
-    /* Adjust padding here to avoid double padding */
-    box-sizing: border-box;
-    /* Include padding in width/height */
-    overflow: auto;
-    /* Enable scrolling for content that overflows */
+    overflow: auto; /* Enable scrolling for content that overflows */
+}
+
+#console-inner-wrapper {
+    height: calc(100% - 1.5rem);
+    overflow: auto; /* Enable scrolling for content that overflows */
+}
+
+#console-controls {
+    width: 100%;
+    border-bottom: 1px solid #ccc;
+
+    height: 1.5rem;
+
+    padding-left: 0.5rem;
+}
+
+#console-controls label {
+    margin-right: -0.5rem;
 }
 
 #console-log {
