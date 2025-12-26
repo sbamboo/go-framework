@@ -27,6 +27,7 @@ GH_UP_META_REPO=""
 WITH_DEBUGGER=0
 NO_GO_PSUTIL=0
 DO_DEBUG_LDFLAGS=0
+DEBUGGER_ADRESS=""
 HELP=0
 
 # --- Helper Functions ---
@@ -90,6 +91,7 @@ Options:
   -ghUpMetaRepo "<owner>/<repo>" GitHub repository for "ugit."/"git." channels to fetch github releases from
   --withDebugger                 Build with debugger support (default: no)
   --doDebugLdflags               Prints debug ldflags for the Go build
+  -debuggerAdress "<ip>"         If given we change the compiled adress value for where the debugger is, this is not recomended to change as it is defaulted to 127.0.0.1 for security.
   -appName "<string>"            Application name (current: $APP_NAME)
   --help                         Show this help message
 
@@ -127,6 +129,7 @@ while [[ "$#" -gt 0 ]]; do
         --withDebugger) WITH_DEBUGGER=1 ;;
         --noGoPsUtil) NO_GO_PSUTIL=1 ;;
         --doDebugLdflags) DO_DEBUG_LDFLAGS=1 ;;
+        -debuggerAdress) DEBUGGER_ADRESS="$2"; shift ;;
         -appName) APP_NAME="$2"; shift ;;
         --help) HELP=1 ;;
         *) error "Unknown parameter passed: $1. Use --help for usage information." ;;
@@ -432,6 +435,11 @@ LDFLAGS="-X 'main.AppVersion=$SEMVER' -X 'main.AppUIND=$UIND' -X 'main.AppChanne
 # if $GH_UP_META_REPO is set and not "", add it to ldflags
 if [[ -n "$GH_UP_META_REPO" ]]; then
     LDFLAGS+=" -X 'main.AppGithubRepo=$GH_UP_META_REPO'"
+fi
+
+# if $DEBUGGER_ADRESS is set and not "", add it to ldflags
+if [[ -n "$DEBUGGER_ADRESS" ]]; then
+    LDFLAGS+=" -X 'main.DebuggerHost=$DEBUGGER_ADRESS'"
 fi
 
 if [[ "$DO_DEBUG_LDFLAGS" -eq 1 ]]; then

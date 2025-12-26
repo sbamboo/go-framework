@@ -394,6 +394,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 
 		if progressor != nil {
 			progress.Event.EventState = fwcommon.NetStateResponded
+			progress.Event.EventSuccess = true
 			progressor(&progress, nil)
 		}
 

@@ -53,8 +53,13 @@ type DebugEmitter struct {
 }
 
 func NewDebugEmitter(config *fwcommon.FrameworkConfig) *DebugEmitter {
+	host := "127.0.0.1" // Static for localhost
+	if config.DebugOverrideHost != "" {
+		host = config.DebugOverrideHost
+	}
+
 	return &DebugEmitter{
-		host:   "127.0.0.1", // Static for localhost
+		host:   host,
 		config: config,
 
 		ProtocolVersion: W_ProtocolVersion,
@@ -129,7 +134,7 @@ func (e *DebugEmitter) activateInternal() {
 		e.usageStopChan = make(chan struct{})
 		e.usageWg.Add(1)
 		go e.usageLoop()
-	}	
+	}
 }
 
 // deactivateInternal is the core logic for tearing down network connections.
@@ -175,7 +180,7 @@ func (e *DebugEmitter) deactivateInternal() {
 		close(e.usageStopChan)
 		e.usageWg.Wait()
 		e.usageStopChan = nil
-	}	
+	}
 }
 
 // listenForIncomming handles incoming UDP datagrams as signals.
@@ -308,22 +313,22 @@ func (e *DebugEmitter) doSend(msg fwcommon.JSONObject) {
 
 // Internal usage-stat send loop
 func (e *DebugEmitter) usageLoop() {
-    defer e.usageWg.Done()
+	defer e.usageWg.Done()
 
-    ticker := time.NewTicker(time.Duration(e.config.DebugSendUsageInterval) * time.Millisecond)
-    defer ticker.Stop()
+	ticker := time.NewTicker(time.Duration(e.config.DebugSendUsageInterval) * time.Millisecond)
+	defer ticker.Stop()
 
-    for {
-        select {
-        case <-e.usageStopChan:
-            return
-        case <-ticker.C:
-            stats, err := fwplatform.GetUsageStats()
+	for {
+		select {
+		case <-e.usageStopChan:
+			return
+		case <-ticker.C:
+			stats, err := fwplatform.GetUsageStats()
 			if err == nil {
 				e.UsageStat(stats)
 			}
-        }
-    }
+		}
+	}
 }
 
 // Activate establishes the UDP connections for sending and receiving.

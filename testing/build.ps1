@@ -19,6 +19,7 @@ param (
     [switch]$withDebugger,
     [switch]$noGoPsUtil,
     [switch]$doDebugLdflags,
+    [string]$debuggerAdress,
     [string]$appName = "testapp", # Default app name, can be overridden
     [switch]$help
 )
@@ -50,6 +51,7 @@ Options:
   -withDebugger                  Build with debugger support (default: no)
   -noGoPsUtil                    Disables GoPsUtil, reduces binary size but leads to loss of platform information (default: flag not set so GoPsUtil is used)
   -debugLdflags                  Prints debug ldflags for the Go build
+  -debuggerAdress "<ip>"         If given we change the compiled adress value for where the debugger is, this is not recomended to change as it is defaulted to 127.0.0.1 for security.
   -appName "<string>"            Application name (current: $appName)
   -help                          Show this help message
 
@@ -472,6 +474,11 @@ $ldFlags = "-X 'main.AppVersion=$semver' -X 'main.AppUIND=$uind' -X 'main.AppCha
 # if $ghUpMetaRepo is set and not "", add it to ldflags
 if ($ghUpMetaRepo -and $ghUpMetaRepo -ne "") {
     $ldFlags += " -X 'main.AppGithubRepo=$ghUpMetaRepo'"
+}
+
+# if $debuggerAdress is set and not "", add it to ldflags
+if ($debuggerAdress -and $debuggerAdress -ne "") {
+    $ldFlags += " -X 'main.DebuggerHost=$debuggerAdress'"
 }
 
 if ($doDebugLdflags) {

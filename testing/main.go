@@ -30,6 +30,7 @@ var (
 	AppCommitHash = "unknown"
 	AppDeployURL  string
 	AppGithubRepo = "" // If not provided this will be cast to *string nil later
+	DebuggerHost  = ""
 )
 
 //go:embed signing/public.pem
@@ -53,10 +54,11 @@ func SetupFramework() *libfw.Framework {
 	}
 
 	config := &libfw.FrameworkConfig{
-		DebugSendPort:   9000,
-		DebugListenPort: 9001,
-		DebugSendUsage: true,
+		DebugSendPort:          9000,
+		DebugListenPort:        9001,
+		DebugSendUsage:         true,
 		DebugSendUsageInterval: 1000,
+		DebugOverrideHost:      DebuggerHost,
 
 		// LoggerFile is <built-executable-parent-directory>/app.log using os.Executable()
 		LoggerFile:     Ptr(filepath.Join(filepath.Dir(func() string { exe, _ := os.Executable(); return exe }()), "app.log")),
@@ -188,7 +190,6 @@ func GetJSON(v interface{}, indent ...any) ([]byte, error) {
 	}
 }
 
-
 func beepMorse(code string) {
 	unit := 150 // milliseconds for a dot
 	freq := 750 // Hz
@@ -312,7 +313,7 @@ func main() {
 
 	fw.Debugger.Activate()
 
-	handleCommand := func (cmd string) *string {
+	handleCommand := func(cmd string) *string {
 		cmd = strings.TrimSpace(cmd)
 		lct := strings.ToLower(cmd)
 
@@ -338,7 +339,7 @@ func main() {
 		} else if strings.HasPrefix(cmd, "beep:") {
 			cmd = cmd[5:] // remove "beep:"
 			parts := strings.Split(cmd, ",")
-		
+
 			if len(parts) == 0 || parts[0] == "" {
 				Beep(1000, 500)
 			} else if len(parts) == 1 {
@@ -359,43 +360,43 @@ func main() {
 					Beep(uint32(freq), uint32(dur))
 				}
 			}
-			
+
 		} else if strings.HasPrefix(lct, "f:") || strings.HasPrefix(lct, "sf:") {
 			parts := strings.SplitN(cmd[2:], ",", 2)
 			if len(parts) != 2 {
 				fmt.Println("[ERR] Invalid format. Use f:<METHOD>,<URL> or sf:<METHOD>,<URL>")
 				return nil
 			}
-		
+
 			_method := strings.ToUpper(strings.TrimSpace(parts[0]))
 			method := libfw.MethodGet
 			switch _method {
-				case string(libfw.MethodConnect):
-					method = libfw.MethodConnect
-				case string(libfw.MethodDelete):
-					method = libfw.MethodDelete
-				case string(libfw.MethodGet):
-					method = libfw.MethodGet
-				case string(libfw.MethodHead):
-					method = libfw.MethodHead
-				case string(libfw.MethodPost):
-					method = libfw.MethodPost
-				case string(libfw.MethodPut):
-					method = libfw.MethodPut
-				case string(libfw.MethodPatch):
-					method = libfw.MethodPatch
-				case string(libfw.MethodOptions):
-					method = libfw.MethodOptions
-				case string(libfw.MethodTrace):
-					method = libfw.MethodTrace
+			case string(libfw.MethodConnect):
+				method = libfw.MethodConnect
+			case string(libfw.MethodDelete):
+				method = libfw.MethodDelete
+			case string(libfw.MethodGet):
+				method = libfw.MethodGet
+			case string(libfw.MethodHead):
+				method = libfw.MethodHead
+			case string(libfw.MethodPost):
+				method = libfw.MethodPost
+			case string(libfw.MethodPut):
+				method = libfw.MethodPut
+			case string(libfw.MethodPatch):
+				method = libfw.MethodPatch
+			case string(libfw.MethodOptions):
+				method = libfw.MethodOptions
+			case string(libfw.MethodTrace):
+				method = libfw.MethodTrace
 			}
 			url := strings.TrimSpace(parts[1])
 			stream := strings.HasPrefix(lct, "sf:")
-		
+
 			report, err := fw.Net.Fetch(
 				method, url,
 				stream, false, // not writing to file
-				nil,           // default path
+				nil, // default path
 				myProgressor,
 				nil, nil, nil,
 				(&libfw.NetFetchOptions{}).Default(),
@@ -404,7 +405,7 @@ func main() {
 				fmt.Println("[ERR]", err)
 				return nil
 			}
-		
+
 			if !stream {
 				content := *report.GetNonStreamContent()
 				return &content
@@ -434,7 +435,7 @@ func main() {
 				fmt.Println("[ERR] Invalid format. Use ff:<METHOD>,<URL>,<FILENAME> or sff:<METHOD>,<URL>,<FILENAME>")
 				return nil
 			}
-		
+
 			_method := strings.ToUpper(strings.TrimSpace(parts[0]))
 			method := libfw.MethodGet
 			switch _method {
@@ -457,15 +458,15 @@ func main() {
 			case string(libfw.MethodTrace):
 				method = libfw.MethodTrace
 			}
-		
+
 			url := strings.TrimSpace(parts[1])
 			filePath := strings.TrimSpace(parts[2])
 			stream := strings.HasPrefix(lct, "sff:")
-		
+
 			_, err := fw.Net.Fetch(
 				method, url,
 				stream, true, // write to file
-				&filePath,    // target filename
+				&filePath, // target filename
 				myProgressor,
 				nil, nil, nil,
 				(&libfw.NetFetchOptions{}).Default(),
@@ -473,8 +474,8 @@ func main() {
 			if err != nil {
 				fmt.Println("[ERR]", err)
 				return nil
-			}	
-			
+			}
+
 		} else if lct == "beep" {
 			Beep(1000, 500)
 
@@ -487,7 +488,7 @@ func main() {
 		} else {
 			return &cmd
 		}
-	
+
 		return nil
 	}
 
@@ -529,7 +530,7 @@ func main() {
 		if err != nil {
 			continue
 		}
-		
+
 		ret := handleCommand(input)
 		if ret != nil {
 			fw.Log.Debug(*ret)

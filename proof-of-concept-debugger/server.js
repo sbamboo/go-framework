@@ -7,9 +7,15 @@ const { exec } = require("child_process");
 const Debugger = require("./debugger");
 const { exit } = require("process");
 
-const beSilent = process.argv.some(arg => arg.includes('--silent'));
-const displayRecvContent = process.argv.some(arg => arg.includes('--debug'));
-const dispHelp = process.argv.some(arg => arg.includes('--help')) || process.argv.some(arg => arg.includes('--h'))
+let host = '127.0.0.1';
+const args = process.argv.slice(2);
+const beSilent = args.includes('--silent');
+const displayRecvContent = args.includes('--debug');
+const dispHelp = args.includes('--help') || args.includes('-h');
+const hostIndex = args.indexOf('-host');
+if (hostIndex !== -1 && args[hostIndex + 1]) {
+  host = args[hostIndex + 1];
+}
 
 if (dispHelp) {
     console.log("Usage: node.js server.js [--silent] [--debug] [--help / --h]");
@@ -117,7 +123,7 @@ wss.on("connection", (ws) => {
             if (event === "construct") {
                 const { signalPort = 9000, commandPort = 9001 } = msg.params;
                 if (!debug) {
-                    debug = new Debugger(signalPort, commandPort, "127.0.0.1", displayRecvContent, beSilent);
+                    debug = new Debugger(signalPort, commandPort, host, displayRecvContent, beSilent);
                     console.log(`[DebuggerServer] Debugger instance created (${signalPort}, ${commandPort})`);
                     attachDebuggerUDPListener(); // Attach listener after first creation
                 } else {

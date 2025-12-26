@@ -9,10 +9,11 @@ import (
 
 // MARK: Config
 type FrameworkConfig struct {
-	DebugSendPort   int // Only used if compiled with 'with_debugger tag
-	DebugListenPort int // Only used if compiled with 'with_debugger' tag
-	DebugSendUsage  bool // Should the app send UsageStat regularly to the debugger?
-	DebugSendUsageInterval int // Milliseconds internal for the usage-stat send loop if enabled (how often send usage-stats)
+	DebugSendPort          int    // Only used if compiled with 'with_debugger' tag
+	DebugListenPort        int    // Only used if compiled with 'with_debugger' tag
+	DebugSendUsage         bool   // Should the app send UsageStat regularly to the debugger?
+	DebugSendUsageInterval int    // Milliseconds internal for the usage-stat send loop if enabled (how often send usage-stats)
+	DebugOverrideHost      string // Dont change unless absolutely needed, its defaulted to "127.0.0.1" for safety
 
 	LoggerFile     *string                      // Path to the log file
 	LoggerFormat   *string                      // Format for log messages, auto %s is replaced with: timestamp, level, message; so three %s are required
