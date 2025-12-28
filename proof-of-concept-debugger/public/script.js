@@ -15,8 +15,10 @@ const aboutProtocolVer = document.getElementById("about-value-protocol-ver");
 const consoleToggleAutoscroll = document.getElementById("console-toggle-autoscroll");
 const consoleToggleLogPings = document.getElementById("console-toggle-log-pings");
 const consoleToggleLogUsageStats = document.getElementById("console-toggle-log-usagestats");
+const consoleToggleLogNetUpdates = document.getElementById("console-toggle-log-netupdates");
 let hidePingAckWhenPinging = !consoleToggleLogPings.checked;
 let hideUsageStats = !consoleToggleLogUsageStats.checked;
+let hideNetUpdates = !consoleToggleLogNetUpdates.checked;
 let doAutoscroll = consoleToggleAutoscroll.checked;
 
 consoleToggleAutoscroll.addEventListener("change", (e) => {
@@ -27,6 +29,9 @@ consoleToggleLogPings.addEventListener("change", (e) => {
 });
 consoleToggleLogUsageStats.addEventListener("change", (e) => {
     hideUsageStats = !e.target.checked;
+});
+consoleToggleLogNetUpdates.addEventListener("change", (e) => {
+    hideNetUpdates = !e.target.checked;
 });
 
 // Global instance of the debugger, so it can be accessed by new buttons/functions
@@ -406,7 +411,9 @@ debuggerInstance.RegisterForIncoming((event) => {
                     toDisp.text = "...";
                 }
             }
-            logMessage = `>> [Event:Receive] ${JSON.stringify(toDisp)}\n`;
+            if (event.msg.signal === "net:update" && hideNetUpdates) {} else {
+                logMessage = `>> [Event:Receive] ${JSON.stringify(toDisp)}\n`;
+            }
             break;
         case "construct":
             logMessage = `>> [Event:Construct] ${JSON.stringify(event.params)}\n`;

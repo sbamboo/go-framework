@@ -81,6 +81,7 @@ func (flagh *FrameworkFlagHandler) IsEnabled(flag string) bool {
 var FrameworkFlags = FrameworkFlagHandler{
 	"net.internal_error_log":    true,
 	"update.internal_error_log": true,
+	"net.progressor_netupdate":  true,
 }
 
 // MARK: Types
