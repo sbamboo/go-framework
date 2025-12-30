@@ -1,4 +1,5 @@
 # FRAMEWORK
+- Implement the event stepping
 - Currently progress updates for both debug and progressor is tied to either blockSize or internal buffer block sizes, aka. very fast, it would be ideal to optionally decouple to set inverval
 - Handling around services like gdrive,dropbox,sprend
 - Chibit v1 and v2 (split servies) support

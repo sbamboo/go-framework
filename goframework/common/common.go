@@ -506,6 +506,8 @@ type NetFetchOptions struct {
 	RetryTimeouts         int              `json:"retry_timeouts"`          // The number of times to retry a connection when it timeouts, 0 or less to not
 	DialTimeout           time.Duration    `json:"dial_timeout"`            // Negative numbers mean no timeout, DialTimeout does not trigger Retry
 	ResolveAdditionalInfo bool             `json:"resolve_additional_info"` // Also true when a debugger is active
+	DNSPreCheck           bool             `json:"dns_pre_check"`           // Perform the DNS resolve check before creating request
+	AutoReadEOFClose      bool             `json:"auto_read_eof_close"`     // NetProgressReport automatically calls .Close when .Read reaches EOF, usefull for streams
 }
 
 // Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No

@@ -31,6 +31,8 @@ type NetProgressReport struct {
 	orgProgressor fwcommon.ProgressorFn
 	errorWrapper  ErrorWrapperFn
 	debPtr        fwcommon.DebuggerInterface
+
+	closed bool
 }
 
 func (npr *NetProgressReport) GetNetworkEvent() *fwcommon.NetworkEvent {
@@ -58,6 +60,9 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 		}
 	}
 	if err != nil {
+		if err == io.EOF && pr.Event.NetFetchOptions.AutoReadEOFClose {
+			pr.Close()
+		}
 		if pr.progressor != nil {
 			if err == io.EOF {
 				pr.progressor(pr, nil)
@@ -75,6 +80,10 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 // Close implements the io.Closer interface for NetProgressReport.
 // It ensures the underlying reader is closed.
 func (pr *NetProgressReport) Close() error {
+    if pr.closed {
+        return nil
+    }
+
 	pr.Event.EventState = fwcommon.NetStateFinished
 
 	if pr.orgProgressor != nil {
@@ -84,6 +93,8 @@ func (pr *NetProgressReport) Close() error {
 	if pr.debPtr.IsActive() {
 		pr.debPtr.NetStopWFUpdate(*pr.Event)
 	}
+
+	pr.closed = true
 
 	// Ensure pr.Response and pr.Response.Body are not nil
 	if pr.Response == nil || pr.Response.Body == nil {
@@ -280,6 +291,19 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			ctx = context.Background()
 		}
 
+		// DNS pre-check
+		if options.DNSPreCheck {
+			u, err := url.Parse(remoteUrl)
+			if err != nil || u.Host == "" {
+				return &progress, fmt.Errorf("invalid URL: %s", remoteUrl)
+			}
+			host := u.Hostname()
+			if _, err := net.LookupHost(host); err != nil {
+				return &progress, fmt.Errorf("DNS resolution failed for host %s: %w", host, err)
+			}
+		}
+
+		// Create request
 		req, err := http.NewRequestWithContext(ctx, string(method), remoteUrl, body)
 		if err != nil {
 			if progressor != nil {
