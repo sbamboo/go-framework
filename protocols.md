@@ -12,9 +12,9 @@ Is used between the app and any debuggers.
     "signal": "console:log",
     "protocol": 1,
     "sent": int:epoch,
-    "type": "string:logtype" / int:loglevel, // The log type: `DEBUG` / 0    `INFO` / 1    `WARN` / 2    `ERROR` / 3    `UNKNOWN`
+    "type": "string:logtype" | int:loglevel, // The log type: `DEBUG` / 0    `INFO` / 1    `WARN` / 2    `ERROR` / 3    `UNKNOWN`
     "text": "string", // The log message
-    "object": {...} / NULL // Optionall JSON object for context
+    "object": {...} | NULL // Optional JSON object for context
 }
 ```
 
@@ -25,7 +25,7 @@ Is used between the app and any debuggers.
     "protocol": 1,
     "sent": int:epoch,
     "cmd": "string",
-    "object": {...} / NULL // Optionall JSON object for context
+    "object": {...} | NULL // Optional JSON object for context
 }
 ```
 
@@ -35,9 +35,10 @@ Is used between the app and any debuggers.
     "signal": "elements:tree",
     "protocol": 1,
     "sent": int:epoch,
-    "tree": {...}
+    "tree": [...TREE...] // Array of tree objects (tree of nodes)
 }
 ```
+TREE: The objects fields are node properties, the protocol recommends having atleast "id" and "type" but this is up to the protocol implementor, all objects can otherwise be identified by an array of indexes to reach it or if given it's id or an id of a parent/grandparent and the indexes path from it. Each object may have a field "children" this is a list of more objects. (this is the only tree field whos implementation is static and known.
 
 ### << Elements Update
 ```json
@@ -45,7 +46,7 @@ Is used between the app and any debuggers.
     "signal": "elements:update",
     "protocol": 1,
     "sent": int:epoch,
-    "element": "string" / [int,...],
+    "element": "string" | [int:indexes,...],
     "properties": {...}
 }
 ```
@@ -56,7 +57,7 @@ Is used between the app and any debuggers.
     "signal": "elements:mod",
     "protocol": 1,
     "sent": int:epoch,
-    "element": "string" / [int,...],
+    "element": "string" | [int:indexes,...],
     "property": any,
     "value": any
 }
@@ -68,7 +69,41 @@ Is used between the app and any debuggers.
     "signal": "net:start",
     "protocol": 1,
     "sent": int:epoch,
-    "properties": {...}
+    "properties": {...NETEVENT...}
+}
+```
+NETEVENT: (Except for `net:start` all fields are optional and id allowed)
+```json
+{
+    "id": "string",
+    "context": "string", // Optional context string
+    "initiator": "string" | [int:indexes,...], // Optional element identifier
+    "method": "string:httpmethod", // The HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD, CONNECT, OPTIONS, TRACE
+    "priority": "string:priority", // The net-priority of this event
+    "meta_buffer_size": int, // <0 for unknown
+    "meta_is_stream": bool, // Is this request streamed?
+    "meta_as_file": bool, // Is this request being written to file
+    "meta_direction": "outgoing" | "incomming", // "outgoing" is app fetches/downloads something; "incomming" is app recieves a network connection from somwhere else
+    "meta_speed": float, // <0 for unknown, in Mbit/s
+    "meta_time_to_con": int, // Nanoseconds, duration until connection
+    "meta_time_to_first_byte": int, // Nanoseconds, duration until first byte received
+    "meta_got_first_resp": string, // When did we get the first response ("YYYY-MM-DDThh:mm:ssZ")
+    "meta_retry_attempt": int, // The numbers of attempts made (1 is first attempt)
+    "status": int, // The current HTTP status
+    "client_ip": string:IP, // IP making the request
+    "remote": string, // Remote address of the request
+    "remote_ip": string:IP, // IP of the remote
+    "protocol": string, // Web protocol for the request
+    "scheme": string, // Scheme of the request (HTTP/HTTPS etc.)
+    "content_type": string, // MIME type of response content
+    "headers": {...}, // Headers sent with the request
+    "resp_headers": {...}, // Headers in response
+    "transferred": int, // How many bytes have been transferred
+    "size": int, // What is the expected size of the response content, -1 if unknown
+    "event_state": string:EventState, // The state of the network event: "waiting", "paused", "retry", "established", "responded", "transfer", "finished"
+    "event_success": bool, // Is the event result successfull?
+    "event_step_current": int | NULL, // If the event is stepped in progress what is the current step
+    "event_step_max": int | NULL // If the event is stepped in progress what is the amax step
 }
 ```
 
@@ -79,7 +114,7 @@ Is used between the app and any debuggers.
     "protocol": 1,
     "sent": int:epoch,
     "id": int:netevent.id,
-    "properties": {...}
+    "properties": {...NETEVENT...}
 }
 ```
 
@@ -100,7 +135,7 @@ Is used between the app and any debuggers.
     "protocol": 1,
     "sent": int:epoch,
     "id": int:netevent.id,
-    "properties": {...}
+    "properties": {...NETEVENT...}
 }
 ```
 
@@ -110,7 +145,86 @@ Is used between the app and any debuggers.
     "signal": "usage:stats",
     "protocol": 1,
     "sent": int:epoch,
-    "stats": {...}
+    "stats": {...USAGESTATS...}
+}
+```
+USAGESTATS: (Current Proof-Of-Concept fields-list)
+```json
+{
+    "pid": int,
+    "name": string,
+    "status": [string,...],
+    "cmdline": string,
+    "args": [string,...],
+    "exe": string,
+    "cwd": string,
+    "create_time": int,
+    "username": string,
+    "uids": [int,...],
+    "gids": [int,...],
+    "groups": [int,...],
+    "cpu_percent": float,
+    "memory_percent": float,
+    "memory_rss": int,
+    "memory_vms": int,
+    "io_read_bytes": int,
+    "io_write_bytes": int,
+    "num_fds": int,
+    "num_threads": int,
+    "thread_count": int,
+    "threads": {
+        int: {
+            "user": float,
+            "system": float,
+            "idle": float,
+            "nice": float,
+            "iowait": float,
+            "irq": float,
+            "softirq": float,
+            "steal": float,
+            "guest": float,
+            "guestn_nice": float
+        },
+        ...
+    },
+    "num_ctx_switches_voluntary": int,
+    "num_ctx_switches_involuntary": int,
+    "open_files_count": int,
+    "open_files": [string,...],
+    "nice": int,
+    "terminal": string,
+    "ppid": int,
+    "parent_pid": int,
+    "rlimit": [
+        {
+            "resource": string,
+            "name": string,
+            "soft": int,
+            "hard": int,
+            "used": int
+        },
+        ...
+    ],
+    "connections": [
+        {
+            "fd": int,
+            "family": int,
+            "type": int,
+            "laddr_ip": string,
+            "laddr_port": int,
+            "raddr_ip": string,
+            "raddr_port": int,
+            "status": string,
+            "pid": int
+        },
+        ...
+    ],
+    "system_cpu_cores": int,
+    "max_memory_total": int,
+    "max_io_read_bytes": int,
+    "max_io_write_bytes": int,
+    "max_num_fds": int,
+    "max_num_threads": int
 }
 ```
 
@@ -138,8 +252,8 @@ Is used between the app and any debuggers.
     "signal": "custom:envelope",
     "protocol": 1,
     "sent": int:epoch,
-    "kind": string,
-    "body": {...}
+    "kind": string, // The custom signal id
+    "body": {...}   // The signal body
 }
 ```
 
