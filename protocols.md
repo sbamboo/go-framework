@@ -1,5 +1,7 @@
 # Debugger Protocol
 Is used between the app and any debuggers.
+All messages have the field "signal" which contains the type of message and the field "protocol" which is the protocol version.
+The protocol uses UDP in broadcast mode to emitt signals no matter a listener.
 `>>` means incomming to the app.
 `<<` means outgoing from the app.
 `int:epoch` is in milliseconds.
@@ -7,6 +9,7 @@ Is used between the app and any debuggers.
 ## Protocol version 1
 
 ### << Console Log
+App emitts a message to the receiver.
 ```json
 {
     "signal": "console:log",
@@ -19,6 +22,7 @@ Is used between the app and any debuggers.
 ```
 
 ### >> Console In
+Receiver emitts a message to the app. (Possibly a command)
 ```json
 {
     "signal": "console:in",
@@ -30,6 +34,7 @@ Is used between the app and any debuggers.
 ```
 
 ### << Elements Tree
+App emitts a tree of elements and their properties.
 ```json
 {
     "signal": "elements:tree",
@@ -38,9 +43,10 @@ Is used between the app and any debuggers.
     "tree": [...TREE...] // Array of tree objects (tree of nodes)
 }
 ```
-TREE: The objects fields are node properties, the protocol recommends having atleast "id" and "type" but this is up to the protocol implementor, all objects can otherwise be identified by an array of indexes to reach it or if given it's id or an id of a parent/grandparent and the indexes path from it. Each object may have a field "children" this is a list of more objects. (this is the only tree field whos implementation is static and known.
+TREE: The objects fields are node properties, the protocol recommends having atleast "id" and "type" but this is up to the protocol implementor, all objects can otherwise be identified by an array of indexes to reach it or if given it's id or an id of a parent/grandparent and the indexes path from it. Each object may have a field "children" this is a list of more objects. (this is the only tree field whos implementation is static and known)
 
 ### << Elements Update
+App emitts it has an update for an element, fields here are only the updated fields that should be updated on the receiver, and can't include "children" field nor "id" field.
 ```json
 {
     "signal": "elements:update",
@@ -52,6 +58,7 @@ TREE: The objects fields are node properties, the protocol recommends having atl
 ```
 
 ### >> Elements Mod
+Recieiver emitts that it want to update a property of an element.
 ```json
 {
     "signal": "elements:mod",
@@ -64,6 +71,7 @@ TREE: The objects fields are node properties, the protocol recommends having atl
 ```
 
 ### << Net Create
+App emitts that it is creating a network event
 ```json
 {
     "signal": "net:start",
@@ -83,7 +91,7 @@ NETEVENT: (Except for `net:start` all fields are optional and id allowed)
     "meta_buffer_size": int, // <0 for unknown
     "meta_is_stream": bool, // Is this request streamed?
     "meta_as_file": bool, // Is this request being written to file
-    "meta_direction": "outgoing" | "incomming", // "outgoing" is app fetches/downloads something; "incomming" is app recieves a network connection from somwhere else
+    "meta_direction": "outgoing" | "incomming", // "outgoing" is app fetches/downloads something; "incomming" is app receives a network connection from somwhere else
     "meta_speed": float, // <0 for unknown, in Mbit/s
     "meta_time_to_con": int, // Nanoseconds, duration until connection
     "meta_time_to_first_byte": int, // Nanoseconds, duration until first byte received
@@ -108,6 +116,7 @@ NETEVENT: (Except for `net:start` all fields are optional and id allowed)
 ```
 
 ### << Net Update
+App emitts that it has a new state for a previous network event, either all fields or only the updated ones are sent, depending on how trackable the "id"s are.
 ```json
 {
     "signal": "net:update",
@@ -119,6 +128,7 @@ NETEVENT: (Except for `net:start` all fields are optional and id allowed)
 ```
 
 ### << Net Stop
+App emitts that a previous network event has ended, this is different from net:update setting event_status to "finished" as this declares the event is no longer relevant. (Can be implemented as a remove/destroy but this is not specced)
 ```json
 {
     "signal": "net:stop",
@@ -129,6 +139,7 @@ NETEVENT: (Except for `net:start` all fields are optional and id allowed)
 ```
 
 ### << Net Stop + Update
+This is a special event added as a work arround for a bug, it provides updated fields and tells the receiver to update the state of an event and then stop it.
 ```json
 {
     "signal": "net:stop.update",
@@ -140,6 +151,7 @@ NETEVENT: (Except for `net:start` all fields are optional and id allowed)
 ```
 
 ### << Usage Stats
+App emitts it's system resource usage and other debugging information.
 ```json
 {
     "signal": "usage:stats",
@@ -228,7 +240,8 @@ USAGESTATS: (Current Proof-Of-Concept fields-list)
 }
 ```
 
-### << Ping
+### << >> Ping
+App/Reciever sends a request for connection agknowledgement.
 ```json
 {
     "signal": "misc:ping",
@@ -237,7 +250,8 @@ USAGESTATS: (Current Proof-Of-Concept fields-list)
 }
 ```
 
-### >> Pong
+### << >> Pong
+App/Reciever sends a response to a `ping` signal, agknowledgeing the connection.
 ```json
 {
     "signal": "misc:pong",
@@ -246,7 +260,8 @@ USAGESTATS: (Current Proof-Of-Concept fields-list)
 }
 ```
 
-### << Custom Envelope
+### << >> Custom Envelope
+Custom signals can be sent over a strictly validated connection by using the `custom:envelope` signal.
 ```json
 {
     "signal": "custom:envelope",
@@ -331,7 +346,7 @@ The `ackreq.ack` event is the servers acknowledgement of its connection to the d
 ```json
 {
     "event": "ackreq.ack",
-    "received": int:epoch, // Timestamp when the `ackreq` was recieved
+    "received": int:epoch, // Timestamp when the `ackreq` was received
     "responded": int:epoch, // Timestamp when the `ackreq.ack` was sent
     "_forwarded_": {        // Forwarded is technically optional but due to events not being order-ensured forwarding back the input timestamps helps with latency calculation.
         "requested": int:epoch
