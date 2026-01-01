@@ -476,6 +476,8 @@ func main() {
 
 		} else if lct == "ping" {
 			fw.Debugger.Ping()
+		} else if lct == "?" {
+			fmt.Println("\nexit                                     - \nping                                     - Sends debugger ping\nsha256:{str}                             - \nsha1:{str}                               - \ncrc32:{str}                              - \nf:{httpMethod},{url}                     - \nsf:{httpMethod},{url}                    - (streamed)\nff:{httpMethod},{url},{file}             - \nsff:{httpMethod},{url},{file}            - (streamed)\nbeep / beep:{freq} / beep:{freq},{durMs} - Beeps\nmorse:{morse}                            - plays the given morse (. and -)")
 
 		} else {
 			return &cmd
