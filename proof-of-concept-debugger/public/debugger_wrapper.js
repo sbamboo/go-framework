@@ -14,6 +14,7 @@ class Debugger {
         this.outgoingListeners = [];
         this.lastKnownAppLatency = -1;
         this.lastKnownSrvLatency = -1;
+        this.receivedUsageStats = 0;
 
         this.ws.addEventListener("open", () => {
             console.log("[DebuggerFrontend] WebSocket connected");
@@ -35,6 +36,10 @@ class Debugger {
 
                 if (data.hasOwnProperty("msg") && data.msg.hasOwnProperty("sent")) {
                     this.lastKnownAppLatency = Date.now() - parseInt(data.msg.sent, 10);
+                }
+
+                if (data.hasOwnProperty("msg") && data.msg.hasOwnProperty("signal") && data.msg.signal === "usage:stats") {
+                    this.receivedUsageStats += 1;
                 }
 
                 this.incomingListeners.forEach((cb) => cb(data));

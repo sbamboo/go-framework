@@ -44,6 +44,40 @@ func (npr *NetProgressReport) GetResponse() *http.Response {
 func (npr *NetProgressReport) GetNonStreamContent() *string {
 	return npr.Content
 }
+func (npr *NetProgressReport) SetSteppingMax(max int) {
+	npr.GetNetworkEvent().EventStepMax = &max
+}
+func (npr *NetProgressReport) SetSteppingCurrent(current int) {
+	npr.GetNetworkEvent().EventStepCurrent = &current
+}
+func (npr *NetProgressReport) UnsetSteppingMax() {
+	npr.GetNetworkEvent().EventStepMax = nil
+}
+func (npr *NetProgressReport) UnsetSteppingCurrent() {
+	npr.GetNetworkEvent().EventStepCurrent = nil
+}
+func (npr *NetProgressReport) IncrSteppingCurrent() {
+	event := npr.GetNetworkEvent()
+
+	if event.EventStepCurrent == nil || event.EventStepMax == nil {
+		return
+	}
+
+	cur := event.EventStepCurrent
+	max := event.EventStepMax
+
+	*cur++
+	if *cur > *max {
+		*cur = *max
+	}
+}
+func (npr *NetProgressReport) ResetSteppingCurrent() {
+	event := npr.GetNetworkEvent()
+
+	if event.EventStepCurrent != nil && event.EventStepMax != nil {
+		*event.EventStepCurrent = 0
+	}
+}
 
 // Read implements the io.Reader interface for NetProgressReport.
 func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
@@ -51,10 +85,15 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 	n, err = pr.Response.Body.Read(p)
 	if n > 0 {
 		pr.Event.Transferred += int64(n)
+		
 		duration := time.Since(pr.Event.MetaGotFirstResp).Seconds()
 		if duration > 0 {
 			pr.Event.MetaSpeed = float64(n*8) / duration / 1_000_000
 		}
+
+		// If EventStepMax is not nil calc EventStepCurrent
+		pr.Event.CalcStep()
+
 		if pr.progressor != nil {
 			pr.progressor(pr, nil)
 		}
@@ -210,7 +249,8 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				EventState:       fwcommon.NetStateWaiting,
 				EventSuccess:     false,
 				EventStepCurrent: nil,
-				EventStepMax:     nil,
+				EventStepMax:     options.EventStepMax,
+				EventStepMode: options.EventStepMode,
 			},
 			Response:      nil,
 			Content:       nil,
@@ -531,6 +571,8 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 			written += int64(n)
 
 			progress.Event.Transferred = written
+
+			progress.Event.CalcStep()
 
 			duration := time.Since(progress.Event.MetaGotFirstResp).Seconds()
 			if duration > 0 {

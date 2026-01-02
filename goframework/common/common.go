@@ -128,6 +128,12 @@ const (
 	MethodTrace   HttpMethod = "TRACE"
 )
 
+type EventStepMode string
+const (
+	EventStepManual EventStepMode = "manual"
+	EventStepAuto EventStepMode = "auto"
+)
+
 type NetworkEvent struct {
 	// Identifier
 	ID        string             `json:"id"`
@@ -170,6 +176,43 @@ type NetworkEvent struct {
 	EventSuccess     bool     `json:"event_success"`
 	EventStepCurrent *int     `json:"event_step_current,omitempty"`
 	EventStepMax     *int     `json:"event_step_max,omitempty"`
+	EventStepMode    EventStepMode `json:"event_step_mode"`
+}
+
+func (ev *NetworkEvent) CalcStep() {
+	if ev.EventStepMode != EventStepAuto {
+		return
+	}
+
+	// Need a max step to calculate against
+	if ev.EventStepMax == nil {
+		return
+	}
+
+	// Size and transferred must be known
+	if ev.Size <= 0 || ev.Transferred < 0 {
+		return
+	}
+
+	max := *ev.EventStepMax
+
+	// Calculate step
+	step := int((ev.Transferred * int64(max)) / ev.Size)
+
+	// Clamp
+	if step < 0 {
+		step = 0
+	} else if step > max {
+		step = max
+	}
+
+	// Allocate if needed
+	if ev.EventStepCurrent == nil {
+		ev.EventStepCurrent = &step
+		return
+	}
+
+	*ev.EventStepCurrent = step
 }
 
 type ProgressorFn func(progressPtr NetworkProgressReportInterface, err error)
@@ -470,6 +513,14 @@ type NetworkProgressReportInterface interface {
 	GetNetworkEvent() *NetworkEvent
 	GetResponse() *http.Response
 	GetNonStreamContent() *string // Nill if stream
+
+	SetSteppingMax(max int)
+	SetSteppingCurrent(current int)
+	UnsetSteppingMax()
+	UnsetSteppingCurrent()
+	IncrSteppingCurrent()
+	ResetSteppingCurrent()
+
 	Read(p []byte) (n int, err error)
 	Close() error
 }
@@ -508,9 +559,11 @@ type NetFetchOptions struct {
 	ResolveAdditionalInfo bool             `json:"resolve_additional_info"` // Also true when a debugger is active
 	DNSPreCheck           bool             `json:"dns_pre_check"`           // Perform the DNS resolve check before creating request
 	AutoReadEOFClose      bool             `json:"auto_read_eof_close"`     // NetProgressReport automatically calls .Close when .Read reaches EOF, usefull for streams
+	EventStepMax          *int             `json:"event_step_max"`          // If not nil this will enable stepping
+	EventStepMode         EventStepMode    `json:"event_step_mode"`         // "auto" or "manual", in auto the step is calculated by transferred/size
 }
 
-// Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No
+// Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No, EventStepMax:nil, EventStepMode:manual
 func (op *NetFetchOptions) Empty() *NetFetchOptions {
 	op.BufferSize = 32 * 1024
 	op.TotalSizeOverride = -2
@@ -521,10 +574,12 @@ func (op *NetFetchOptions) Empty() *NetFetchOptions {
 	op.Context = nil
 	op.RetryTimeouts = -1
 	op.DialTimeout = -1
+	op.EventStepMax = nil
+	op.EventStepMode = EventStepManual
 	return op
 }
 
-// Defaults all values to sensible defaults: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:30s, Context:No, RetryTimeouts:2, DialTimeout:5s
+// Defaults all values to sensible defaults: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:30s, Context:No, RetryTimeouts:2, DialTimeout:5s, EventStepMax:nil, EventStepMode:auto
 func (op *NetFetchOptions) Default() *NetFetchOptions {
 	op.BufferSize = 32 * 1024
 	op.TotalSizeOverride = -2
@@ -535,5 +590,7 @@ func (op *NetFetchOptions) Default() *NetFetchOptions {
 	op.Context = nil
 	op.RetryTimeouts = 2
 	op.DialTimeout = 5
+	op.EventStepMax = nil
+	op.EventStepMode = EventStepAuto
 	return op
 }

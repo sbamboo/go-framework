@@ -53,6 +53,8 @@ func SetupFramework() *libfw.Framework {
 		panic(fmt.Errorf("invalid AppUIND: %w", err))
 	}
 
+	netOptions := (&libfw.NetFetchOptions{}).Default()
+
 	config := &libfw.FrameworkConfig{
 		DebugSendPort:          9000,
 		DebugListenPort:        9001,
@@ -65,7 +67,7 @@ func SetupFramework() *libfw.Framework {
 		LoggerFormat:   nil,
 		LoggerCallable: nil,
 
-		NetFetchOptions: (&libfw.NetFetchOptions{}).Default(),
+		NetFetchOptions: netOptions,
 		UpdatorAppConfiguration: &libfw.UpdatorAppConfiguration{
 			SemVer:           AppVersion,
 			UIND:             AppUIND,
@@ -399,7 +401,7 @@ func main() {
 				nil, // default path
 				myProgressor,
 				nil, nil, nil,
-				(&libfw.NetFetchOptions{}).Default(),
+				fw.Config.NetFetchOptions,
 			)
 			if err != nil {
 				fmt.Println("[ERR]", err)
@@ -461,7 +463,7 @@ func main() {
 				&filePath, // target filename
 				myProgressor,
 				nil, nil, nil,
-				(&libfw.NetFetchOptions{}).Default(),
+				fw.Config.NetFetchOptions,
 			)
 			if err != nil {
 				fmt.Println("[ERR]", err)
