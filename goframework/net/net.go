@@ -134,7 +134,9 @@ func (pr *NetProgressReport) Close() error {
         return nil
     }
 
-	pr.Event.EventState = fwcommon.NetStateFinished
+	if pr.Event.EventState != fwcommon.NetStateFailed {
+		pr.Event.EventState = fwcommon.NetStateFinished
+	}
 
 	if pr.orgProgressor != nil {
 		pr.orgProgressor(pr, nil)
