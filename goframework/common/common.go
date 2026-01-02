@@ -523,6 +523,11 @@ type NetworkProgressReportInterface interface {
 	GetResponse() *http.Response
 	GetNonStreamContent() *string // Nill if stream
 
+	GetLastSentProgressor() *time.Time
+	SetLastSentProgressor(t time.Time)
+	GetLastSentDebug() *time.Time
+	SetLastSentDebug(t time.Time)
+
 	SetSteppingMax(max int)
 	SetSteppingCurrent(current int)
 	UnsetSteppingMax()
@@ -570,9 +575,12 @@ type NetFetchOptions struct {
 	AutoReadEOFClose      bool             `json:"auto_read_eof_close"`     // NetProgressReport automatically calls .Close when .Read reaches EOF, usefull for streams
 	EventStepMax          *int             `json:"event_step_max"`          // If not nil this will enable stepping
 	EventStepMode         EventStepMode    `json:"event_step_mode"`         // "auto" or "manual", in auto the step is calculated by transferred/size
+
+	ProgressorInterval int `json:"progressor_interval"` // How often do we update progressor during transfer (ms, -1 = always)
+	DebuggerInterval   int `json:"debugger_interval"`   // How often do we update debugger during transfer (ms, -1 = always) (only matters if built with debugging)
 }
 
-// Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No, EventStepMax:nil, EventStepMode:manual
+// Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No, EventStepMax:nil, EventStepMode:manual, ProgressorInterval:-1, DebuggerInterval:-1
 func (op *NetFetchOptions) Empty() *NetFetchOptions {
 	op.BufferSize = 32 * 1024
 	op.TotalSizeOverride = -2
@@ -585,10 +593,12 @@ func (op *NetFetchOptions) Empty() *NetFetchOptions {
 	op.DialTimeout = -1
 	op.EventStepMax = nil
 	op.EventStepMode = EventStepManual
+	op.ProgressorInterval = -1
+	op.DebuggerInterval = -1
 	return op
 }
 
-// Defaults all values to sensible defaults: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:30s, Context:No, RetryTimeouts:2, DialTimeout:5s, EventStepMax:nil, EventStepMode:auto
+// Defaults all values to sensible defaults: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:30s, Context:No, RetryTimeouts:2, DialTimeout:5s, EventStepMax:nil, EventStepMode:auto, ProgressorInterval:-1, DebuggerInterval:-1
 func (op *NetFetchOptions) Default() *NetFetchOptions {
 	op.BufferSize = 32 * 1024
 	op.TotalSizeOverride = -2
@@ -601,5 +611,7 @@ func (op *NetFetchOptions) Default() *NetFetchOptions {
 	op.DialTimeout = 5
 	op.EventStepMax = nil
 	op.EventStepMode = EventStepAuto
+	op.ProgressorInterval = -1
+	op.DebuggerInterval = -1
 	return op
 }

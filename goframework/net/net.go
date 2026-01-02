@@ -32,6 +32,9 @@ type NetProgressReport struct {
 	errorWrapper  ErrorWrapperFn
 	debPtr        fwcommon.DebuggerInterface
 
+	lastSentProgressor *time.Time
+	lastSentDebug      *time.Time
+
 	closed bool
 }
 
@@ -43,6 +46,18 @@ func (npr *NetProgressReport) GetResponse() *http.Response {
 }
 func (npr *NetProgressReport) GetNonStreamContent() *string {
 	return npr.Content
+}
+func (npr *NetProgressReport) GetLastSentProgressor() *time.Time {
+	return npr.lastSentProgressor
+}
+func (npr *NetProgressReport) SetLastSentProgressor(t time.Time) {
+	npr.lastSentProgressor = &t
+}
+func (npr *NetProgressReport) GetLastSentDebug() *time.Time {
+	return npr.lastSentDebug
+}
+func (npr *NetProgressReport) SetLastSentDebug(t time.Time) {
+	npr.lastSentDebug = &t
 }
 func (npr *NetProgressReport) SetSteppingMax(max int) {
 	npr.GetNetworkEvent().EventStepMax = &max
@@ -116,9 +131,7 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 			}
 		} else {
 			// Progress to debugger
-			if pr.debPtr.IsActive() && fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_ProgressorNetUpdate) {
-				pr.debPtr.NetUpdateFull(*pr.Event)
-			}
+			callNetUpdateFull(pr.debPtr, pr)
 		}
 		if err != io.EOF {
 			pr.errorWrapper(err)
@@ -156,6 +169,17 @@ func (pr *NetProgressReport) Close() error {
 	return pr.Response.Body.Close()
 }
 
+// Helper class
+func atleastInterval(last *time.Time, intervalMs int) bool {
+	if intervalMs < 0 {
+		return true
+	}
+	if last == nil {
+		return true
+	}
+	return time.Since(*last) >= time.Duration(intervalMs)*time.Millisecond
+}
+
 // Main network Class-like
 type NetHandler struct {
 	config     *fwcommon.FrameworkConfig
@@ -181,10 +205,26 @@ func (nh *NetHandler) logThroughError(err error) error {
 	return err
 }
 
-func (nh *NetHandler) DebUpdateFull(progressPtr fwcommon.NetworkProgressReportInterface) {
-	if nh.deb.IsActive() && fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_ProgressorNetUpdate) {
-		nh.deb.NetUpdateFull(*progressPtr.GetNetworkEvent())
+func callNetUpdateFull(debPtr fwcommon.DebuggerInterface, progressPtr fwcommon.NetworkProgressReportInterface) {
+	// Is the debugger active and internal logging enabled?
+	if debPtr.IsActive() && fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_ProgressorNetUpdate) {
+		event := progressPtr.GetNetworkEvent()
+		// Is the interval -1 (always) or 0 or the state is not "Transfer", just call debugger
+		if event.NetFetchOptions.DebuggerInterval <= 0 || event.EventState != fwcommon.NetStateTransfer {
+			debPtr.NetUpdateFull(*event)
+			progressPtr.SetLastSentDebug(time.Now())
+		} else {
+			// Else we check if we have waited atleast the interval and if so update and set lastSent
+			if atleastInterval(progressPtr.GetLastSentDebug(), event.NetFetchOptions.DebuggerInterval) {
+				debPtr.NetUpdateFull(*event)
+				progressPtr.SetLastSentDebug(time.Now())
+			}
+		}
 	}
+}
+
+func (nh *NetHandler) DebUpdateFull(progressPtr fwcommon.NetworkProgressReportInterface) {
+	callNetUpdateFull(nh.deb, progressPtr)
 }
 
 func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
@@ -210,8 +250,20 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		progressor = func(progressPtr fwcommon.NetworkProgressReportInterface, err error) {
 			// Relay progress
 			nh.DebUpdateFull(progressPtr)
+
 			// Call original progressor
-			orgProgressor(progressPtr, err)
+			event := progressPtr.GetNetworkEvent()
+			// Is the interval -1 (always) or 0 or the state is not "Transfer", just call progressor
+			if event.NetFetchOptions.ProgressorInterval <= 0 || event.EventState != fwcommon.NetStateTransfer {
+				orgProgressor(progressPtr, err)
+				progressPtr.SetLastSentProgressor(time.Now())
+			} else {
+				// Else we check if we have waited atleast the interval and if so update and set lastSent
+				if atleastInterval(progressPtr.GetLastSentProgressor(), event.NetFetchOptions.ProgressorInterval) {
+					orgProgressor(progressPtr, err)
+					progressPtr.SetLastSentProgressor(time.Now())
+				}
+			}
 		}
 	}
 
@@ -601,9 +653,7 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 				if progress.progressor != nil {
 					progress.progressor(progress, fmt.Errorf("failed to write to destination: %w", writeErr))
 				} else {
-					if progress.debPtr.IsActive() && fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_ProgressorNetUpdate) {
-						progress.debPtr.NetUpdateFull(*progress.Event)
-					}
+					callNetUpdateFull(progress.debPtr, progress)
 				}
 				return fmt.Errorf("failed to write to destination: %w", writeErr)
 			}
@@ -622,9 +672,7 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 			if progress.progressor != nil {
 				progress.progressor(progress, nil)
 			} else {
-				if progress.debPtr.IsActive() && fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_ProgressorNetUpdate) {
-					progress.debPtr.NetUpdateFull(*progress.Event)
-				}
+				callNetUpdateFull(progress.debPtr, progress)
 			}
 		}
 
@@ -633,9 +681,7 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 			if progress.progressor != nil {
 				progress.progressor(progress, nil)
 			} else {
-				if progress.debPtr.IsActive() && fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_ProgressorNetUpdate) {
-					progress.debPtr.NetUpdateFull(*progress.Event)
-				}
+				callNetUpdateFull(progress.debPtr, progress)
 			}
 			break
 		} else if err != nil {
@@ -643,9 +689,7 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 			if progress.progressor != nil {
 				progress.progressor(progress, fmt.Errorf("failed to read from source: %w", err))
 			} else {
-				if progress.debPtr.IsActive() && fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_ProgressorNetUpdate) {
-					progress.debPtr.NetUpdateFull(*progress.Event)
-				}
+				callNetUpdateFull(progress.debPtr, progress)
 			}
 			return fmt.Errorf("failed to read from source: %w", err)
 		}
