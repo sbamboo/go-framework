@@ -31,6 +31,11 @@ type NetProgressReport struct {
 	orgProgressor fwcommon.ProgressorFn
 	errorWrapper  ErrorWrapperFn
 	debPtr        fwcommon.DebuggerInterface
+
+	lastSentProgressor *time.Time
+	lastSentDebug      *time.Time
+
+	closed bool
 }
 
 func (npr *NetProgressReport) GetNetworkEvent() *fwcommon.NetworkEvent {
@@ -42,6 +47,52 @@ func (npr *NetProgressReport) GetResponse() *http.Response {
 func (npr *NetProgressReport) GetNonStreamContent() *string {
 	return npr.Content
 }
+func (npr *NetProgressReport) GetLastSentProgressor() *time.Time {
+	return npr.lastSentProgressor
+}
+func (npr *NetProgressReport) SetLastSentProgressor(t time.Time) {
+	npr.lastSentProgressor = &t
+}
+func (npr *NetProgressReport) GetLastSentDebug() *time.Time {
+	return npr.lastSentDebug
+}
+func (npr *NetProgressReport) SetLastSentDebug(t time.Time) {
+	npr.lastSentDebug = &t
+}
+func (npr *NetProgressReport) SetSteppingMax(max int) {
+	npr.GetNetworkEvent().EventStepMax = &max
+}
+func (npr *NetProgressReport) SetSteppingCurrent(current int) {
+	npr.GetNetworkEvent().EventStepCurrent = &current
+}
+func (npr *NetProgressReport) UnsetSteppingMax() {
+	npr.GetNetworkEvent().EventStepMax = nil
+}
+func (npr *NetProgressReport) UnsetSteppingCurrent() {
+	npr.GetNetworkEvent().EventStepCurrent = nil
+}
+func (npr *NetProgressReport) IncrSteppingCurrent() {
+	event := npr.GetNetworkEvent()
+
+	if event.EventStepCurrent == nil || event.EventStepMax == nil {
+		return
+	}
+
+	cur := event.EventStepCurrent
+	max := event.EventStepMax
+
+	*cur++
+	if *cur > *max {
+		*cur = *max
+	}
+}
+func (npr *NetProgressReport) ResetSteppingCurrent() {
+	event := npr.GetNetworkEvent()
+
+	if event.EventStepCurrent != nil && event.EventStepMax != nil {
+		*event.EventStepCurrent = 0
+	}
+}
 
 // Read implements the io.Reader interface for NetProgressReport.
 func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
@@ -49,21 +100,38 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 	n, err = pr.Response.Body.Read(p)
 	if n > 0 {
 		pr.Event.Transferred += int64(n)
+		
 		duration := time.Since(pr.Event.MetaGotFirstResp).Seconds()
 		if duration > 0 {
 			pr.Event.MetaSpeed = float64(n*8) / duration / 1_000_000
 		}
+
+		// If EventStepMax is not nil calc EventStepCurrent
+		pr.Event.CalcStep()
+
 		if pr.progressor != nil {
 			pr.progressor(pr, nil)
 		}
 	}
+
 	if err != nil {
+		if err == io.EOF && pr.Event.NetFetchOptions.AutoReadEOFClose {
+			pr.Close()
+		}
+
+		if err != io.EOF {
+			pr.Event.EventState = fwcommon.NetStateFailed
+		}
+
 		if pr.progressor != nil {
 			if err == io.EOF {
 				pr.progressor(pr, nil)
 			} else {
 				pr.progressor(pr, err)
 			}
+		} else {
+			// Progress to debugger
+			callNetUpdateFull(pr.debPtr, pr)
 		}
 		if err != io.EOF {
 			pr.errorWrapper(err)
@@ -75,7 +143,13 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 // Close implements the io.Closer interface for NetProgressReport.
 // It ensures the underlying reader is closed.
 func (pr *NetProgressReport) Close() error {
-	pr.Event.EventState = fwcommon.NetStateFinished
+    if pr.closed {
+        return nil
+    }
+
+	if pr.Event.EventState != fwcommon.NetStateFailed {
+		pr.Event.EventState = fwcommon.NetStateFinished
+	}
 
 	if pr.orgProgressor != nil {
 		pr.orgProgressor(pr, nil)
@@ -85,12 +159,25 @@ func (pr *NetProgressReport) Close() error {
 		pr.debPtr.NetStopWFUpdate(*pr.Event)
 	}
 
+	pr.closed = true
+
 	// Ensure pr.Response and pr.Response.Body are not nil
 	if pr.Response == nil || pr.Response.Body == nil {
 		return nil
 	}
 
 	return pr.Response.Body.Close()
+}
+
+// Helper class
+func atleastInterval(last *time.Time, intervalMs int) bool {
+	if intervalMs < 0 {
+		return true
+	}
+	if last == nil {
+		return true
+	}
+	return time.Since(*last) >= time.Duration(intervalMs)*time.Millisecond
 }
 
 // Main network Class-like
@@ -112,10 +199,32 @@ func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInt
 }
 
 func (nh *NetHandler) logThroughError(err error) error {
-	if fwcommon.FrameworkFlags.IsEnabled("net.internal_error_log") {
+	if fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_InternalErrorLog) {
 		return nh.log.LogThroughError(err)
 	}
 	return err
+}
+
+func callNetUpdateFull(debPtr fwcommon.DebuggerInterface, progressPtr fwcommon.NetworkProgressReportInterface) {
+	// Is the debugger active and internal logging enabled?
+	if debPtr.IsActive() && fwcommon.FrameworkFlags.IsEnabled(fwcommon.Net_ProgressorNetUpdate) {
+		event := progressPtr.GetNetworkEvent()
+		// Is the interval -1 (always) or 0 or the state is not "Transfer", just call debugger
+		if event.NetFetchOptions.DebuggerInterval <= 0 || event.EventState != fwcommon.NetStateTransfer {
+			debPtr.NetUpdateFull(*event)
+			progressPtr.SetLastSentDebug(time.Now())
+		} else {
+			// Else we check if we have waited atleast the interval and if so update and set lastSent
+			if atleastInterval(progressPtr.GetLastSentDebug(), event.NetFetchOptions.DebuggerInterval) {
+				debPtr.NetUpdateFull(*event)
+				progressPtr.SetLastSentDebug(time.Now())
+			}
+		}
+	}
+}
+
+func (nh *NetHandler) DebUpdateFull(progressPtr fwcommon.NetworkProgressReportInterface) {
+	callNetUpdateFull(nh.deb, progressPtr)
 }
 
 func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
@@ -140,11 +249,21 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 	if progressor != nil {
 		progressor = func(progressPtr fwcommon.NetworkProgressReportInterface, err error) {
 			// Relay progress
-			if nh.deb.IsActive() && fwcommon.FrameworkFlags.IsEnabled("net.progressor_netupdate") {
-				nh.deb.NetUpdateFull(*progressPtr.GetNetworkEvent())
-			}
+			nh.DebUpdateFull(progressPtr)
+
 			// Call original progressor
-			orgProgressor(progressPtr, err)
+			event := progressPtr.GetNetworkEvent()
+			// Is the interval -1 (always) or 0 or the state is not "Transfer", just call progressor
+			if event.NetFetchOptions.ProgressorInterval <= 0 || event.EventState != fwcommon.NetStateTransfer {
+				orgProgressor(progressPtr, err)
+				progressPtr.SetLastSentProgressor(time.Now())
+			} else {
+				// Else we check if we have waited atleast the interval and if so update and set lastSent
+				if atleastInterval(progressPtr.GetLastSentProgressor(), event.NetFetchOptions.ProgressorInterval) {
+					orgProgressor(progressPtr, err)
+					progressPtr.SetLastSentProgressor(time.Now())
+				}
+			}
 		}
 	}
 
@@ -199,7 +318,8 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				EventState:       fwcommon.NetStateWaiting,
 				EventSuccess:     false,
 				EventStepCurrent: nil,
-				EventStepMax:     nil,
+				EventStepMax:     options.EventStepMax,
+				EventStepMode:    options.EventStepMode,
 			},
 			Response:      nil,
 			Content:       nil,
@@ -225,9 +345,11 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 
 		// If we aren't on the first attempt, we need to update the progress state to retry
 		if attempt > 1 {
+			progress.Event.EventState = fwcommon.NetStateRetry
 			if progressor != nil {
-				progress.Event.EventState = fwcommon.NetStateRetry
 				progressor(&progress, nil)
+			} else {
+				nh.DebUpdateFull(&progress)
 			}
 		}
 
@@ -280,11 +402,26 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			ctx = context.Background()
 		}
 
+		// DNS pre-check
+		if options.DNSPreCheck {
+			u, err := url.Parse(remoteUrl)
+			if err != nil || u.Host == "" {
+				return &progress, fmt.Errorf("invalid URL: %s", remoteUrl)
+			}
+			host := u.Hostname()
+			if _, err := net.LookupHost(host); err != nil {
+				return &progress, fmt.Errorf("DNS resolution failed for host %s: %w", host, err)
+			}
+		}
+
+		// Create request
 		req, err := http.NewRequestWithContext(ctx, string(method), remoteUrl, body)
 		if err != nil {
+			progress.Event.EventState = fwcommon.NetStateFailed
 			if progressor != nil {
-				progress.Event.EventState = fwcommon.NetStateFinished
 				progressor(&progress, fmt.Errorf("failed to create request: %w", err))
+			} else {
+				nh.DebUpdateFull(&progress)
 			}
 			return &progress, nh.logThroughError(fmt.Errorf("failed to create request: %w", err))
 		}
@@ -326,9 +463,11 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			}
 
 			// Other errors or no retries left
+			progress.Event.EventState = fwcommon.NetStateFailed
 			if progressor != nil {
-				progress.Event.EventState = fwcommon.NetStateFinished
 				progressor(&progress, err)
+			} else {
+				nh.DebUpdateFull(&progress)
 			}
 			return &progress, nh.logThroughError(fmt.Errorf("failed to fetch URL: %w", err))
 		}
@@ -368,9 +507,11 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			}
 		}
 
+		progress.Event.EventState = fwcommon.NetStateEstablished
 		if progressor != nil {
-			progress.Event.EventState = fwcommon.NetStateEstablished
 			progressor(&progress, nil)
+		} else {
+			nh.DebUpdateFull(&progress)
 		}
 
 		if !stream {
@@ -380,9 +521,11 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		if resp.StatusCode != http.StatusOK {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
+			progress.Event.EventState = fwcommon.NetStateFinished // Should this be .NetStateFailed instead? Where do we draw the line of failed or finished-non-ok
 			if progressor != nil {
-				progress.Event.EventState = fwcommon.NetStateFinished
 				progressor(&progress, fmt.Errorf("non-OK status: %s", resp.Status))
+			} else {
+				nh.DebUpdateFull(&progress)
 			}
 			return &progress, nh.logThroughError(fmt.Errorf("received non-OK HTTP status: %s", resp.Status))
 		}
@@ -392,10 +535,12 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			progress.Event.Size = options.TotalSizeOverride
 		}
 
+		progress.Event.EventState = fwcommon.NetStateResponded
+		progress.Event.EventSuccess = true
 		if progressor != nil {
-			progress.Event.EventState = fwcommon.NetStateResponded
-			progress.Event.EventSuccess = true
 			progressor(&progress, nil)
+		} else {
+			nh.DebUpdateFull(&progress)
 		}
 
 		lastProgress = progress
@@ -428,9 +573,11 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				}
 				wd, err := os.Getwd()
 				if err != nil {
+					progress.Event.EventState = fwcommon.NetStateFailed
 					if progressor != nil {
-						progress.Event.EventState = fwcommon.NetStateFinished
 						progressor(&progress, fmt.Errorf("failed to get working directory: %w", err))
+					} else {
+						nh.DebUpdateFull(&progress)
 					}
 					return &progress, nh.logThroughError(fmt.Errorf("failed to get working directory: %w", err))
 				}
@@ -441,9 +588,11 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		if file {
 			outputFile, err := os.Create(outputPath)
 			if err != nil {
+				progress.Event.EventState = fwcommon.NetStateFailed
 				if progressor != nil {
-					progress.Event.EventState = fwcommon.NetStateFinished
 					progressor(&progress, fmt.Errorf("failed to create output file %s: %w", outputPath, err))
+				} else {
+					nh.DebUpdateFull(&progress)
 				}
 				return &progress, nh.logThroughError(fmt.Errorf("failed to create output file %s: %w", outputPath, err))
 			}
@@ -463,9 +612,11 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				}
 				_, writeErr := outputFile.Write(bodyBytes)
 				if writeErr != nil {
+					progress.Event.EventState = fwcommon.NetStateFailed
 					if progressor != nil {
-						progress.Event.EventState = fwcommon.NetStateFinished
 						progressor(&progress, fmt.Errorf("failed to write to file %s: %w", outputPath, writeErr))
+					} else {
+						nh.DebUpdateFull(&progress)
 					}
 					return &progress, nh.logThroughError(fmt.Errorf("failed to write to file %s: %w", outputPath, writeErr))
 				}
@@ -498,9 +649,11 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 		if n > 0 {
 			_, writeErr := dst.Write(buf[:n])
 			if writeErr != nil {
+				progress.Event.EventState = fwcommon.NetStateFailed
 				if progress.progressor != nil {
-					progress.Event.EventState = fwcommon.NetStateFinished
 					progress.progressor(progress, fmt.Errorf("failed to write to destination: %w", writeErr))
+				} else {
+					callNetUpdateFull(progress.debPtr, progress)
 				}
 				return fmt.Errorf("failed to write to destination: %w", writeErr)
 			}
@@ -508,28 +661,35 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 
 			progress.Event.Transferred = written
 
+			progress.Event.CalcStep()
+
 			duration := time.Since(progress.Event.MetaGotFirstResp).Seconds()
 			if duration > 0 {
 				progress.Event.MetaSpeed = float64(int(written)*8) / duration / 1_000_000
 			}
 
+			progress.Event.EventState = fwcommon.NetStateTransfer
 			if progress.progressor != nil {
-				progress.Event.EventState = fwcommon.NetStateTransfer
 				progress.progressor(progress, nil)
+			} else {
+				callNetUpdateFull(progress.debPtr, progress)
 			}
 		}
 
 		if err == io.EOF {
+			progress.Event.EventState = fwcommon.NetStateFinished
 			if progress.progressor != nil {
-				progress.Event.EventState = fwcommon.NetStateFinished
 				progress.progressor(progress, nil)
+			} else {
+				callNetUpdateFull(progress.debPtr, progress)
 			}
 			break
-		}
-		if err != nil {
+		} else if err != nil {
+			progress.Event.EventState = fwcommon.NetStateFailed
 			if progress.progressor != nil {
-				progress.Event.EventState = fwcommon.NetStateFinished
 				progress.progressor(progress, fmt.Errorf("failed to read from source: %w", err))
+			} else {
+				callNetUpdateFull(progress.debPtr, progress)
 			}
 			return fmt.Errorf("failed to read from source: %w", err)
 		}

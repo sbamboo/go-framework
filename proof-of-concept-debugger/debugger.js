@@ -18,7 +18,7 @@ const dgram = require("dgram");
 // --- Main Class ----
 
 class Debugger {
-    constructor(signalPort = 9000, commandPort = 9001, host = "127.0.0.1", displayRecvContent = true, beSilent = false) {
+    constructor(signalPort = 9000, commandPort = 9001, host = "127.0.0.1", displayRecvContent = true, displaySentContent = true, beSilent = false) {
         this.ProtocolVersion = 1;
 
         this.signalPort = signalPort;
@@ -26,6 +26,7 @@ class Debugger {
         this.host = host;
 
         this.displayRecvContent = displayRecvContent;
+        this.displaySentContent = displaySentContent;
         this.beSilent = beSilent;
 
         this.lastKnownLatency = -1;
@@ -147,7 +148,11 @@ class Debugger {
                 console.error(`[Debugger] Failed to send command: ${err.message}`);
             } else {
                 if (!this.beSilent) {
-                    console.log(`[Debugger] Signal sent: ${msg.signal || "[no signal]"}`);
+                    if (this.displaySentContent) {
+                        console.log(`[Debugger] Signal sent: ${msg.signal || "[no signal]"}: `, msg);
+                    } else {
+                        console.log(`[Debugger] Signal sent: ${msg.signal || "[no signal]"}`);
+                    }
                 }
             }
         });
@@ -165,7 +170,11 @@ class Debugger {
                 console.error(`[Debugger] Failed to send command: ${err.message}`);
             } else {
                 if (!this.beSilent) {
-                    console.log(`[Debugger] Signal sent: ${payload.signal || "[no signal]"}`);
+                    if (this.displaySentContent) {
+                        console.log(`[Debugger] Signal sent: ${payload.signal || "[no signal]"}:`, payload);
+                    } else {
+                        console.log(`[Debugger] Signal sent: ${payload.signal || "[no signal]"}`);
+                    }
                 }
             }
         });
@@ -184,7 +193,7 @@ class Debugger {
      * Recomendation implementation of onPing
      */
     OnPing(msg) {
-        this.Pong();
+        this.Pong(msg);
     }
 
     // --- Specific signals ---
@@ -220,7 +229,17 @@ class Debugger {
     /**
      * Send a pong response signal.
      */
-    Pong() {
+    Pong(msg = null) {
+        if (msg != null && msg.hasOwnProperty("sent")) {
+            this.sendConstructed({
+                "signal": "misc:pong",
+                "_forwarded_": {
+                    "requested": msg.sent
+                }
+            })
+            return;
+        }
+
         this.sendConstructed({
             "signal": "misc:pong"
         })

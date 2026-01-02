@@ -1,7 +1,6 @@
 # FRAMEWORK
-- `f:GET,https://github.com/sbamboo/theaxolot77/raw/refs/heads/main/storage/chunks/ce30c8be-3fe3-4da8-85ac-ac194b33fbdf/1.chunk` does not send progress updatess?
+- Handling around services like gdrive,dropbox,sprend (+ when we interrupt a fetch for ex. GDrive handling set `interupted` to true on the old event and start a new event, when streaming we consume until identifier or not, if identifier consume fully parse and return new fetch stream, if not showhow restore state, if it's done in the report object it gets abit more complicated)
 - Chibit v1 and v2 (split servies) support
-- Handling around services like gdrive,dropbox,sprend
 - Add Win32API fields to platform descriptor
 - include old platform features: add .Terminal (with CLI/Terminal capabilities check), should sixel be libsixel?, add console and cli with formatting and escape codes, auto escape-code to windows legacy etc...
 - after fix of debugger go back to defering .Close() in update
@@ -11,6 +10,7 @@
 
 
 # DEBUGGER
+- App <=> server <=> frontend : Clock desync offset correction
 
 
 # DEBUGGER/FRAMEWORK

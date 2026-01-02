@@ -95,16 +95,26 @@ func (log *Logger) Error(message string) error {
 
 // Main function for logging errors internally, governed by FrameworkConfig.LogFrameworkInternalErrors
 func (log *Logger) LogThroughError(err error) error {
-	if err != nil {
-		// If logging of internal errors are enabled, log the error (also calls debugger log)
-		if log.config.LogFrameworkInternalErrors {
-			return log.Error(err.Error())
-		} else {
-			// Else just call debugger log
-			if log.deb.IsActive() {
-				log.deb.ConsoleLog(fwcommon.ERROR, err.Error(), nil)
-			}
+	if err == nil {
+        return nil
+    }
+
+	var logErr error
+
+	// If logging of internal errors are enabled, log the error (also calls debugger log)
+	if log.config.LogFrameworkInternalErrors {
+		logErr = log.Error(err.Error())
+	} else {
+		// Else just call debugger log
+		if log.deb.IsActive() {
+			log.deb.ConsoleLog(fwcommon.ERROR, err.Error(), nil)
 		}
 	}
-	return nil
+
+	// If logging failed, combine with original error
+    if logErr != nil {
+        return fmt.Errorf("original error: %w; logging error: %v", err, logErr)
+    }
+
+	return err
 }

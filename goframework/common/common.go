@@ -59,19 +59,27 @@ func (indh *FrameworkIndexHandler) GetNewOfIndex(ctx string) int {
 	return indh.GetIndex(ctx)
 }
 
-var FrameworkIndexes = FrameworkIndexHandler{
+var FrameworkIndexes = FrameworkIndexHandler {
 	"netevent": 0,
 }
 
-type FrameworkFlagHandler map[string]bool
+type FrameworkFlag string
 
-func (flagh *FrameworkFlagHandler) Enable(flag string) {
+const (
+	Net_InternalErrorLog FrameworkFlag = "net.internal_error_log"
+	Update_InternalErrorLog FrameworkFlag = "update.internal_error_log"
+	Net_ProgressorNetUpdate FrameworkFlag = "net.progressor_netupdate"
+)
+
+type FrameworkFlagHandler map[FrameworkFlag]bool
+
+func (flagh *FrameworkFlagHandler) Enable(flag FrameworkFlag) {
 	(*flagh)[flag] = true
 }
-func (flagh *FrameworkFlagHandler) Disable(flag string) {
+func (flagh *FrameworkFlagHandler) Disable(flag FrameworkFlag) {
 	(*flagh)[flag] = false
 }
-func (flagh *FrameworkFlagHandler) IsEnabled(flag string) bool {
+func (flagh *FrameworkFlagHandler) IsEnabled(flag FrameworkFlag) bool {
 	if enabled, ok := (*flagh)[flag]; ok {
 		return enabled
 	}
@@ -79,8 +87,9 @@ func (flagh *FrameworkFlagHandler) IsEnabled(flag string) bool {
 }
 
 var FrameworkFlags = FrameworkFlagHandler{
-	"net.internal_error_log":    true,
-	"update.internal_error_log": true,
+	Net_InternalErrorLog:    true,
+	Update_InternalErrorLog: true,
+	Net_ProgressorNetUpdate:  true,
 }
 
 // MARK: Types
@@ -105,6 +114,7 @@ const (
 	NetStateResponded   NetState = "responded"
 	NetStateTransfer    NetState = "transfer"
 	NetStateFinished    NetState = "finished"
+	NetStateFailed      NetState = "failed"
 )
 
 type NetPriority string
@@ -125,6 +135,12 @@ const (
 	MethodConnect HttpMethod = "CONNECT"
 	MethodOptions HttpMethod = "OPTIONS"
 	MethodTrace   HttpMethod = "TRACE"
+)
+
+type EventStepMode string
+const (
+	EventStepManual EventStepMode = "manual"
+	EventStepAuto EventStepMode = "auto"
 )
 
 type NetworkEvent struct {
@@ -169,6 +185,43 @@ type NetworkEvent struct {
 	EventSuccess     bool     `json:"event_success"`
 	EventStepCurrent *int     `json:"event_step_current,omitempty"`
 	EventStepMax     *int     `json:"event_step_max,omitempty"`
+	EventStepMode    EventStepMode `json:"event_step_mode"`
+}
+
+func (ev *NetworkEvent) CalcStep() {
+	if ev.EventStepMode != EventStepAuto {
+		return
+	}
+
+	// Need a max step to calculate against
+	if ev.EventStepMax == nil {
+		return
+	}
+
+	// Size and transferred must be known
+	if ev.Size <= 0 || ev.Transferred < 0 {
+		return
+	}
+
+	max := *ev.EventStepMax
+
+	// Calculate step
+	step := int((ev.Transferred * int64(max)) / ev.Size)
+
+	// Clamp
+	if step < 0 {
+		step = 0
+	} else if step > max {
+		step = max
+	}
+
+	// Allocate if needed
+	if ev.EventStepCurrent == nil {
+		ev.EventStepCurrent = &step
+		return
+	}
+
+	*ev.EventStepCurrent = step
 }
 
 type ProgressorFn func(progressPtr NetworkProgressReportInterface, err error)
@@ -469,6 +522,19 @@ type NetworkProgressReportInterface interface {
 	GetNetworkEvent() *NetworkEvent
 	GetResponse() *http.Response
 	GetNonStreamContent() *string // Nill if stream
+
+	GetLastSentProgressor() *time.Time
+	SetLastSentProgressor(t time.Time)
+	GetLastSentDebug() *time.Time
+	SetLastSentDebug(t time.Time)
+
+	SetSteppingMax(max int)
+	SetSteppingCurrent(current int)
+	UnsetSteppingMax()
+	UnsetSteppingCurrent()
+	IncrSteppingCurrent()
+	ResetSteppingCurrent()
+
 	Read(p []byte) (n int, err error)
 	Close() error
 }
@@ -505,9 +571,16 @@ type NetFetchOptions struct {
 	RetryTimeouts         int              `json:"retry_timeouts"`          // The number of times to retry a connection when it timeouts, 0 or less to not
 	DialTimeout           time.Duration    `json:"dial_timeout"`            // Negative numbers mean no timeout, DialTimeout does not trigger Retry
 	ResolveAdditionalInfo bool             `json:"resolve_additional_info"` // Also true when a debugger is active
+	DNSPreCheck           bool             `json:"dns_pre_check"`           // Perform the DNS resolve check before creating request
+	AutoReadEOFClose      bool             `json:"auto_read_eof_close"`     // NetProgressReport automatically calls .Close when .Read reaches EOF, usefull for streams
+	EventStepMax          *int             `json:"event_step_max"`          // If not nil this will enable stepping
+	EventStepMode         EventStepMode    `json:"event_step_mode"`         // "auto" or "manual", in auto the step is calculated by transferred/size
+
+	ProgressorInterval int `json:"progressor_interval"` // How often do we update progressor during transfer (ms, -1 = always)
+	DebuggerInterval   int `json:"debugger_interval"`   // How often do we update debugger during transfer (ms, -1 = always) (only matters if built with debugging)
 }
 
-// Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No
+// Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No, EventStepMax:nil, EventStepMode:manual, ProgressorInterval:-1, DebuggerInterval:-1
 func (op *NetFetchOptions) Empty() *NetFetchOptions {
 	op.BufferSize = 32 * 1024
 	op.TotalSizeOverride = -2
@@ -518,10 +591,14 @@ func (op *NetFetchOptions) Empty() *NetFetchOptions {
 	op.Context = nil
 	op.RetryTimeouts = -1
 	op.DialTimeout = -1
+	op.EventStepMax = nil
+	op.EventStepMode = EventStepManual
+	op.ProgressorInterval = -1
+	op.DebuggerInterval = -1
 	return op
 }
 
-// Defaults all values to sensible defaults: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:30s, Context:No, RetryTimeouts:2, DialTimeout:5s
+// Defaults all values to sensible defaults: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:30s, Context:No, RetryTimeouts:2, DialTimeout:5s, EventStepMax:nil, EventStepMode:auto, ProgressorInterval:-1, DebuggerInterval:-1
 func (op *NetFetchOptions) Default() *NetFetchOptions {
 	op.BufferSize = 32 * 1024
 	op.TotalSizeOverride = -2
@@ -532,5 +609,9 @@ func (op *NetFetchOptions) Default() *NetFetchOptions {
 	op.Context = nil
 	op.RetryTimeouts = 2
 	op.DialTimeout = 5
+	op.EventStepMax = nil
+	op.EventStepMode = EventStepAuto
+	op.ProgressorInterval = -1
+	op.DebuggerInterval = -1
 	return op
 }

@@ -11,6 +11,7 @@ let host = '127.0.0.1';
 const args = process.argv.slice(2);
 const beSilent = args.includes('--silent');
 const displayRecvContent = args.includes('--debug');
+const displaySentContent = args.includes('--debug');
 const dispHelp = args.includes('--help') || args.includes('-h');
 const hostIndex = args.indexOf('-host');
 if (hostIndex !== -1 && args[hostIndex + 1]) {
@@ -123,7 +124,7 @@ wss.on("connection", (ws) => {
             if (event === "construct") {
                 const { signalPort = 9000, commandPort = 9001 } = msg.params;
                 if (!debug) {
-                    debug = new Debugger(signalPort, commandPort, host, displayRecvContent, beSilent);
+                    debug = new Debugger(signalPort, commandPort, host, displayRecvContent, displaySentContent, beSilent);
                     console.log(`[DebuggerServer] Debugger instance created (${signalPort}, ${commandPort})`);
                     attachDebuggerUDPListener(); // Attach listener after first creation
                 } else {

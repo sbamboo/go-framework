@@ -15,8 +15,10 @@ const aboutProtocolVer = document.getElementById("about-value-protocol-ver");
 const consoleToggleAutoscroll = document.getElementById("console-toggle-autoscroll");
 const consoleToggleLogPings = document.getElementById("console-toggle-log-pings");
 const consoleToggleLogUsageStats = document.getElementById("console-toggle-log-usagestats");
+const consoleToggleLogNetUpdates = document.getElementById("console-toggle-log-netupdates");
 let hidePingAckWhenPinging = !consoleToggleLogPings.checked;
 let hideUsageStats = !consoleToggleLogUsageStats.checked;
+let hideNetUpdates = !consoleToggleLogNetUpdates.checked;
 let doAutoscroll = consoleToggleAutoscroll.checked;
 
 consoleToggleAutoscroll.addEventListener("change", (e) => {
@@ -27,6 +29,9 @@ consoleToggleLogPings.addEventListener("change", (e) => {
 });
 consoleToggleLogUsageStats.addEventListener("change", (e) => {
     hideUsageStats = !e.target.checked;
+});
+consoleToggleLogNetUpdates.addEventListener("change", (e) => {
+    hideNetUpdates = !e.target.checked;
 });
 
 // Global instance of the debugger, so it can be accessed by new buttons/functions
@@ -378,7 +383,7 @@ debuggerInstance.RegisterFor("usage:stats", (msg) => {
     try {
         const statsObject = new UsageStatObject(msg.stats);
         // Display the formatted report in the Process & Usage tab
-        processStatsOutput.textContent = statsObject.getFormattedReport();
+        processStatsOutput.textContent = statsObject.getFormattedReport() + `\n\n--- Frontend ---\n  Updates: ${debuggerInstance.receivedUsageStats}`;
     } catch (e) {
         console.error("Error processing usage stats:", e);
         processStatsOutput.textContent = `Error processing usage stats: ${e.message}`;
@@ -406,7 +411,9 @@ debuggerInstance.RegisterForIncoming((event) => {
                     toDisp.text = "...";
                 }
             }
-            logMessage = `>> [Event:Receive] ${JSON.stringify(toDisp)}\n`;
+            if (event.msg.signal === "net:update" && hideNetUpdates) {} else {
+                logMessage = `>> [Event:Receive] ${JSON.stringify(toDisp)}\n`;
+            }
             break;
         case "construct":
             logMessage = `>> [Event:Construct] ${JSON.stringify(event.params)}\n`;
@@ -546,6 +553,14 @@ debuggerInstance.RegisterFor("console:log", (msg) => {
     }
 
     let logMessage = `[Console:Log ${msg.type.toUpperCase()}] ${msg.text} ${msg.object ? `\n${msg.object}` : ""}\n`;
+
+    logMessage = logMessage
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
     if (color) {logMessage = `<span style="color: ${color};">${logMessage}</span>`;}
     logArea.innerHTML += logMessage;
 });
@@ -723,9 +738,14 @@ function populateRow(row, eventData) {
     if (!eventData.event_step_current) eventData.event_step_current = null;
     if (!eventData.event_step_max) eventData.event_step_max = null;
 
+    // BAD FIX? For some reason event_step_current is null even tho the app has sent =0, likely a (`==` not `===`) issue
+    if (eventData.event_step_max !== null && eventData.event_step_current === null) {
+        eventData.event_step_current = 0;
+    }
+
     let is_stepped = false;
     let progress = 0;
-    if (eventData.event_step_current == null || eventData.event_step_max == null) {
+    if (eventData.event_step_current === null || eventData.event_step_max === null) {
         if (eventData.transferred != null && eventData.size != null) {
             progress = Math.min(100, (eventData.transferred / eventData.size) * 100).toFixed(0);
         }

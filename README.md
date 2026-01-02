@@ -63,5 +63,8 @@ Another one is the `ugit.` prefix where we fetch *GithubUpMetaRepo* for releases
 
 The platform descriptor is meant to be used internally by goframework and by external tools to get metadata and capabilities of the host. However the host machine information uses `github.com/shirou/gopsutil/v4` if that is not desired the `-tags no_gopsutil` can be added to skip that, note that it limits the host-machine information that can be retrieved through goframework.
 
+## Networking / Fetch
+When fetching with `stream=true` the networking module returns the `NetProgressReport` instantly and then fetch on read of the `NetProgressReport`. When debugging (and in general) remember to call `.Close()` or defer it, debug NetStop will ever only be called once closed.
+
 # Testing
 To make the code communicate with debuggers it must be built with the `with_debugger` ldflag, all testapp dev builds have it, when running tests add `-tags with_debugger`

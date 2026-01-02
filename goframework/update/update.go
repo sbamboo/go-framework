@@ -259,9 +259,9 @@ func (ghup *GithubUpdateFetcher) fetchReleases() ([]fwcommon.GithubReleaseAssets
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", ghup.Owner, ghup.Repo)
 	fmt.Println("Fetching releases from:", url)
 
-	fwcommon.FrameworkFlags.Disable("net.internal_error_log") // Disable net's debugging since we handle it
+	fwcommon.FrameworkFlags.Disable(fwcommon.Net_InternalErrorLog) // Disable net's debugging since we handle it
 	report, err := ghup.fetcher.GET(url, false, false, nil)
-	fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+	fwcommon.FrameworkFlags.Enable(fwcommon.Net_InternalErrorLog) // Re-enable net's debugging
 	if err != nil {
 		return nil, fmt.Errorf("fetcher.GET failed for %s: %w", url, err)
 	}
@@ -326,9 +326,9 @@ func (ghup *GithubUpdateFetcher) findAssetURL(assets []fwcommon.GithubAsset, nam
 /*
 // fetchFileContent fetches the content of a file from a given URL.
 func fetchFileContent(fetcher fwcommon.FetcherInterface, url string) (string, error) {
-	fwcommon.FrameworkFlags.Disable("net.internal_error_log") // Disable net's debugging since we handle it
+	fwcommon.FrameworkFlags.Disable(fwcommon.Net_InternalErrorLog) // Disable net's debugging since we handle it
 	report, err := fetcher.GET(url, false, false, nil)
-	fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+	fwcommon.FrameworkFlags.Enable(fwcommon.Net_InternalErrorLog) // Re-enable net's debugging
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch content from %s: %w", url, err)
 	}
@@ -347,9 +347,9 @@ func fetchFileContent(fetcher fwcommon.FetcherInterface, url string) (string, er
 
 // fetchBinaryFileContent fetches the content of a file from a given URL as bytes.
 func fetchBinaryFileContent(fetcher fwcommon.FetcherInterface, url string) ([]byte, error) {
-	fwcommon.FrameworkFlags.Disable("net.internal_error_log")      // Disable net's debugging since we handle it
+	fwcommon.FrameworkFlags.Disable(fwcommon.Net_InternalErrorLog)      // Disable net's debugging since we handle it
 	report, err := fetcher.GET(url, true, false, nil)              // Stream the body
-	defer fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+	defer fwcommon.FrameworkFlags.Enable(fwcommon.Net_InternalErrorLog) // Re-enable net's debugging
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch content from %s: %w", url, err)
@@ -485,7 +485,7 @@ func NewNetUpdater(config *fwcommon.FrameworkConfig, fetcherPtr fwcommon.Fetcher
 }
 
 func (nu *NetUpdater) logThroughError(err error) error {
-	if fwcommon.FrameworkFlags.IsEnabled("update.internal_error_log") {
+	if fwcommon.FrameworkFlags.IsEnabled(fwcommon.Update_InternalErrorLog) {
 		return nu.log.LogThroughError(err)
 	}
 	return err
@@ -515,9 +515,9 @@ func (nu *NetUpdater) getLatestVersionFromJsonDeploy() (*NetUpReleaseInfo, error
 		return nil, nu.logThroughError(fmt.Errorf("deploy.json URL is not configured"))
 	}
 	fmt.Println("Fetching deploy.json from:", *nu.config.UpdatorAppConfiguration.DeployURL)
-	fwcommon.FrameworkFlags.Disable("net.internal_error_log") // Disable net's debugging since we handle it
+	fwcommon.FrameworkFlags.Disable(fwcommon.Net_InternalErrorLog) // Disable net's debugging since we handle it
 	report, err := nu.fetcher.GET(*nu.config.UpdatorAppConfiguration.DeployURL, false, false, nil)
-	fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+	fwcommon.FrameworkFlags.Enable(fwcommon.Net_InternalErrorLog) // Re-enable net's debugging
 	if err != nil {
 		return nil, nu.logThroughError(fmt.Errorf("failed to fetch deploy.json from %s: %w", *nu.config.UpdatorAppConfiguration.DeployURL, err))
 	}
@@ -731,9 +731,9 @@ func (nu *NetUpdater) PerformUpdate(latestRelease *NetUpReleaseInfo) error {
 	opts.Checksum = expectedChecksum
 	opts.Signature = expectedSignature
 
-	fwcommon.FrameworkFlags.Disable("net.internal_error_log")      // Disable net's debugging since we handle it
+	fwcommon.FrameworkFlags.Disable(fwcommon.Net_InternalErrorLog)      // Disable net's debugging since we handle it
 	report, err := nu.fetcher.GET(downloadURL, true, false, nil)   // Stream the body
-	defer fwcommon.FrameworkFlags.Enable("net.internal_error_log") // Re-enable net's debugging
+	defer fwcommon.FrameworkFlags.Enable(fwcommon.Net_InternalErrorLog) // Re-enable net's debugging
 
 	if err != nil {
 		return nu.logThroughError(fmt.Errorf("failed to download update from %s: %w", downloadURL, err))

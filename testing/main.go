@@ -53,10 +53,12 @@ func SetupFramework() *libfw.Framework {
 		panic(fmt.Errorf("invalid AppUIND: %w", err))
 	}
 
+	netOptions := (&libfw.NetFetchOptions{}).Default()
+
 	config := &libfw.FrameworkConfig{
 		DebugSendPort:          9000,
 		DebugListenPort:        9001,
-		DebugSendUsage:         true,
+		DebugSendUsage:         false,
 		DebugSendUsageInterval: 1000,
 		DebugOverrideHost:      DebuggerHost,
 
@@ -65,7 +67,7 @@ func SetupFramework() *libfw.Framework {
 		LoggerFormat:   nil,
 		LoggerCallable: nil,
 
-		NetFetchOptions: (&libfw.NetFetchOptions{}).Default(),
+		NetFetchOptions: netOptions,
 		UpdatorAppConfiguration: &libfw.UpdatorAppConfiguration{
 			SemVer:           AppVersion,
 			UIND:             AppUIND,
@@ -399,7 +401,7 @@ func main() {
 				nil, // default path
 				myProgressor,
 				nil, nil, nil,
-				(&libfw.NetFetchOptions{}).Default(),
+				fw.Config.NetFetchOptions,
 			)
 			if err != nil {
 				fmt.Println("[ERR]", err)
@@ -461,7 +463,7 @@ func main() {
 				&filePath, // target filename
 				myProgressor,
 				nil, nil, nil,
-				(&libfw.NetFetchOptions{}).Default(),
+				fw.Config.NetFetchOptions,
 			)
 			if err != nil {
 				fmt.Println("[ERR]", err)
@@ -476,6 +478,8 @@ func main() {
 
 		} else if lct == "ping" {
 			fw.Debugger.Ping()
+		} else if lct == "?" {
+			fmt.Println("\nexit                                     - \nping                                     - Sends debugger ping\nsha256:{str}                             - \nsha1:{str}                               - \ncrc32:{str}                              - \nf:{httpMethod},{url}                     - \nsf:{httpMethod},{url}                    - (streamed)\nff:{httpMethod},{url},{file}             - \nsff:{httpMethod},{url},{file}            - (streamed)\nbeep / beep:{freq} / beep:{freq},{durMs} - Beeps\nmorse:{morse}                            - plays the given morse (. and -)")
 
 		} else {
 			return &cmd
