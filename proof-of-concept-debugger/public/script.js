@@ -51,6 +51,7 @@ const connections = {
         "avgReq": -1, // Time to send a request (requested until received)
         "avgResp": -1, // Time to recieve a request (responded until receivedAtClient)
         "avgServerProc": -1, // Calculated server-processing time (received until responded)
+        "avgClockOffset": 0, // Running average of clock offset (server clock - frontend clock)
         "maxSamples": 50 // At MAX it throws the first sample (oldest)
     },
     "app": {
@@ -63,6 +64,7 @@ const connections = {
         "avgRtt": -1, // Round trip time for `misc:ping` => `misc:pong` (pingSent until recievedPong)
         "avgReqProc": -1, // Time to send a request plus app processing time (pingSent until appSentRespPong)
         "avgResp": -1, // Time to recieve a request (appSentRespPong until recievedPong)
+        "avgClockOffset": 0, // Running average of clock offset (app clock - frontend clock)
         "maxSamples": 50 // At MAX it throws the first sample (oldest)
     }
 };
@@ -72,21 +74,27 @@ function pushSample(target, sample) {
     if (target.samples.length > target.maxSamples) target.samples.shift();
 }
 
+// --- Server RTT / Subvalues Calculations ---
 function computeServerAverages() {
     const s = connections.server;
     if (s.samples.length === 0) return;
-    s.avgRtt = s.samples.reduce((a, x) => a + (x.receivedAtClient - x.requested), 0) / s.samples.length;
-    s.avgReq = s.samples.reduce((a, x) => a + (x.received - x.requested), 0) / s.samples.length;
-    s.avgResp = s.samples.reduce((a, x) => a + (x.receivedAtClient - x.responded), 0) / s.samples.length;
-    s.avgServerProc = s.samples.reduce((a, x) => a + (x.responded - x.received), 0) / s.samples.length;
+
+    s.avgRtt = s.samples.reduce((a, x) => a + x._RTT, 0) / s.samples.length;
+    s.avgReq = s.samples.reduce((a, x) => a + x.subvalues.reqTime, 0) / s.samples.length;
+    s.avgResp = s.samples.reduce((a, x) => a + x.subvalues.respTime, 0) / s.samples.length;
+    s.avgServerProc = s.samples.reduce((a, x) => a + x.subvalues.srvProc, 0) / s.samples.length;
+    s.avgClockOffset = s.samples.reduce((a, x) => a + x.clockDriftOffset, 0) / s.samples.length;
 }
 
+// --- App RTT / Subvalues Calculations ---
 function computeAppAverages() {
     const a = connections.app;
     if (a.samples.length === 0) return;
-    a.avgRtt = a.samples.reduce((acc, x) => acc + (x.recievedPong - x.pingSent), 0) / a.samples.length;
-    a.avgReqProc = a.samples.reduce((acc, x) => acc + (x.appSentRespPong - x.pingSent), 0) / a.samples.length;
-    a.avgResp = a.samples.reduce((acc, x) => acc + (x.recievedPong - x.appSentRespPong), 0) / a.samples.length;
+
+    a.avgRtt = a.samples.reduce((acc, x) => acc + x._RTT, 0) / a.samples.length;
+    a.avgReqProc = a.samples.reduce((acc, x) => acc + x.subvalues.reqTime, 0) / a.samples.length;
+    a.avgResp = a.samples.reduce((acc, x) => acc + x.subvalues.respTime, 0) / a.samples.length;
+    a.avgClockOffset = s.samples.reduce((a, x) => a + x.clockDriftOffset, 0) / s.samples.length;
 }
 
 function renderConnectionTopbar() {
@@ -100,10 +108,10 @@ function renderConnectionTopbar() {
     }
 
     const appRtt = a.avgRtt >= 0 ? a.avgRtt.toFixed(0) + "ms" : "--";
-    const appDetails = `(ReqProc: ${a.avgReqProc>=0?a.avgReqProc.toFixed(0):"--"}ms, Resp: ${a.avgResp>=0?a.avgResp.toFixed(0):"--"}ms)`;
+    const appDetails = `Avg.(Proc: ${a.avgReqProc>=0?a.avgReqProc.toFixed(0):"--"}ms, Resp: ${a.avgResp>=0?a.avgResp.toFixed(0):"--"}ms, cΔ: ${a.avgClockOffset>=0?a.avgClockOffset.toFixed(0):"--"}ms) Last.(cΔ: ${a.samples.length ? a.samples[a.samples.length-1].clockDriftOffset.toFixed(1) : "--"}ms, AddRTT: ${a.samples.length ? a.samples[a.samples.length-1].rttAdditive.toFixed(0) : "--"}ms) ${a.samples.length ? a.samples.length : "--"}/${a.maxSamples}`;
 
     const srvRtt = s.avgRtt >= 0 ? s.avgRtt.toFixed(0) + "ms" : "--";
-    const srvDetails = `(Req: ${s.avgReq>=0?s.avgReq.toFixed(0):"--"}ms, Resp: ${s.avgResp>=0?s.avgResp.toFixed(0):"--"}ms, SrvProc: ${s.avgServerProc>=0?s.avgServerProc.toFixed(0):"--"}ms)`;
+    const srvDetails = `Avg.(Req: ${s.avgReq>=0?s.avgReq.toFixed(0):"--"}ms, Resp: ${s.avgResp>=0?s.avgResp.toFixed(0):"--"}ms, Proc: ${s.avgServerProc>=0?s.avgServerProc.toFixed(0):"--"}ms, cΔ: ${a.avgClockOffset>=0?a.avgClockOffset.toFixed(0):"--"}ms) Last.(cΔ: ${s.samples.length ? s.samples[s.samples.length-1].clockDriftOffset.toFixed(1) : "--"}ms, AddRTT: ${s.samples.length ? s.samples[s.samples.length-1].rttAdditive.toFixed(0) : "--"}ms) ${s.samples.length ? s.samples.length : "--"}/${s.maxSamples}`;
 
     statusBarText.innerHTML = `
         <span class="status-subtitle">App:</span><span class="status-span">${appStatus}</span><span class="rtt-tooltip">${appRtt}<span class="rtt-details">${appDetails}</span></span> 
@@ -123,6 +131,7 @@ function renderConnectionTopbar() {
     }
 }
 
+// --- Server Ping ---
 let serverPingInterval;
 let appPingInterval;
 const pingServerToggle = document.getElementById("ping-server-toggle")
@@ -160,31 +169,59 @@ function enableServerPing() {
         clearInterval(serverPingInterval);
     } catch {}
     serverPingInterval = setInterval(()=>{
-        if (!connections.server.enabled) return
+        if (!connections.server.enabled) return;
 
         debuggerInstance.SendAckReq();
     }, connections.server.interval);
     renderConnectionTopbar();
 }
 
-debuggerInstance.RegisterForServerEvent("ackreq.ack", (msg) => {
-    let  receivedAtClient = Date.now();
+// --- Server Ack Handler (Patched) ---
+debuggerInstance.RegisterForServerEvent("ackreq.ack", (_msg) => {
+    const msg = _msg;
+    const receivedAtClient = Date.now();
 
-    // Extract timestamps
-    let requested = msg._forwarded_.requested;
-    let received = msg.received;
-    let responded = msg.responded;
+    // T0: Frontend clock - when ackreq was sent
+    const T0 = msg._forwarded_.requested;
+    // T1: Server clock - when server received ackreq
+    const T1_server = msg.received;
+    // T2: Server clock - when server sent ackreq.ack
+    const T2_server = msg.responded;
+    // T3: Frontend clock - when frontend received ackreq.ack
+    const T3 = receivedAtClient;
 
-    // Clamp values to ensure deltas are non-negative
-    if (received < requested) received = requested;
-    if (responded < received) responded = received;
-    if (receivedAtClient < responded) receivedAtClient = responded;
+    // Calculate RTT using only frontend clock values
+    const _RTT = T3 - T0;
+
+    // Calculate clock offset for THIS sample only using NTP-style formula
+    // Clock offset represents: server_clock = frontend_clock + offset
+    // Formula: offset = ((T1_server - T0) + (T2_server - T3)) / 2
+    // This estimates the clock difference assuming symmetric network paths
+    const clockDriftOffset = ((T1_server - T0) + (T2_server - T3)) / 2;
+
+    // Convert server timestamps to frontend clock time using THIS sample's offset
+    // If server_clock = frontend_clock + offset, then frontend_clock = server_clock - offset
+    const T1_frontend = T1_server - clockDriftOffset;
+    const T2_frontend = T2_server - clockDriftOffset;
+
+    // Calculate times using frontend clock (all timestamps in same clock)
+    const reqTime  = T1_frontend - T0;        // Request time: frontend->server
+    const srvProc  = T2_frontend - T1_frontend; // Server processing time
+    const respTime = T3 - T2_frontend;        // Response time: server->frontend
 
     const sample = {
-        "requested": requested,
-        "received": received,
-        "responded": responded,
-        "receivedAtClient": receivedAtClient
+        "requested": T0,
+        "received": T1_server,
+        "responded": T2_server,
+        "receivedAtClient": T3,
+        "_RTT": _RTT,
+        "clockDriftOffset": clockDriftOffset,
+        "subvalues": {
+            "reqTime": reqTime,
+            "srvProc": srvProc,
+            "respTime": respTime
+        },
+        "rttAdditive": reqTime + srvProc + respTime
     };
 
     pushSample(connections.server, sample);
@@ -194,12 +231,13 @@ debuggerInstance.RegisterForServerEvent("ackreq.ack", (msg) => {
     renderConnectionTopbar();
 });
 
+// --- App Ping ---
 function enableAppPing() {
     try {
         clearInterval(appPingInterval);
     } catch {}
     appPingInterval = setInterval(()=>{
-        if (!connections.app.enabled) return
+        if (!connections.app.enabled) return;
 
         const pingSent = Date.now();
 
@@ -210,24 +248,56 @@ function enableAppPing() {
     renderConnectionTopbar();
 }
 
+// --- App Pong Handler (Patched) ---
 debuggerInstance.RegisterFor("misc:pong", (msg)=>{
-    const recievedPong = Date.now();
-    const appSentRespPong = msg.sent || Date.now();
+    const now = Date.now();
     
+    // T0: Frontend clock - when ping was sent (from _forwarded_.requested or lastPingSent)
+    const T0 = msg._forwarded_?.requested || connections.app.lastPingSent;
+    // T1: App clock - when app sent pong (from msg.sent field)
+    const T1_app = msg.sent || now;
+    // T2: Frontend clock - when frontend received pong
+    const T2 = now;
+
+    // Calculate RTT using only frontend clock values
+    const _RTT = T2 - T0;
+
+    // Calculate clock offset for THIS sample only
+    // Clock offset represents: app_clock = frontend_clock + offset
+    // For 3 timestamps (T0 frontend, T1 app, T2 frontend), we estimate:
+    // offset = T1_app - (T0 + T2) / 2 = (2*T1_app - T0 - T2) / 2
+    // This assumes the app timestamp is roughly at the midpoint between send and receive
+    const clockDriftOffset = (2 * T1_app - T0 - T2) / 2;
+
+    // Convert app timestamp to frontend clock time using THIS sample's offset
+    // If app_clock = frontend_clock + offset, then frontend_clock = app_clock - offset
+    const T1_frontend = T1_app - clockDriftOffset;
+
+    // Calculate times using frontend clock (all timestamps in same clock)
+    const reqTime  = T1_frontend - T0;        // Request time: frontend->app (includes app processing)
+    const respTime = T2 - T1_frontend;        // Response time: app->frontend
+
     const sample = {
-        "pingSent": connections.app.lastPingSent,
-        "appSentRespPong": appSentRespPong,
-        "recievedPong": recievedPong
+        "pingSent": T0,
+        "appSentRespPong": T1_app,
+        "recievedPong": T2,
+        "_RTT": _RTT,
+        "clockDriftOffset": clockDriftOffset,
+        "subvalues": {
+            "reqTime": reqTime,
+            "respTime": respTime
+        },
+        "rttAdditive": reqTime + respTime
     };
 
     pushSample(connections.app, sample);
     computeAppAverages();
     connections.app.conknown = true;
-    connections.app.lastseen = Date.now();
+    connections.app.lastseen = now;
     renderConnectionTopbar();
 });
 
-// App timeout checker
+// --- App timeout checker ---
 setInterval(()=>{
     const a = connections.app;
     if(a.timeout<0 || a.lastseen<0) return;
@@ -236,7 +306,7 @@ setInterval(()=>{
     }
 }, 200);
 
-// Initial render
+// --- Initial render ---
 renderConnectionTopbar();
 
 function reprAsString(value) {
