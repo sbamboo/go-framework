@@ -396,8 +396,8 @@ func (e *DebugEmitter) LogThroughError(err error) error {
 }
 
 // --- Recommended event handlers ---
-func (e *DebugEmitter) OnPing(_ fwcommon.JSONObject) {
-	e.Pong()
+func (e *DebugEmitter) OnPing(msg fwcommon.JSONObject) {
+	e.Pong(&msg)
 }
 
 // --- Specific signals ---
@@ -484,7 +484,28 @@ func (e *DebugEmitter) Ping() error {
 	})
 }
 
-func (e *DebugEmitter) Pong() error {
+func (e *DebugEmitter) Pong(msg *fwcommon.JSONObject) error {
+	if msg != nil {
+		// Check if key exists
+		if v, ok := (*msg)["sent"]; ok {
+			var sent int
+			switch val := v.(type) {
+				case int:
+					sent = val
+				case float64: // common if JSON-decoded
+					sent = int(val)
+			}
+			// only send _forwarded_ if we got a value, assuming epoch-0 is invalid value 1970-1-1 etc.
+			if sent != 0 {
+				return e.Send(fwcommon.JSONObject{
+					"signal": "misc:pong",
+					"_forwarded_": fwcommon.JSONObject{
+						"requested": sent,
+					},
+				})
+			}
+		}
+	}
 	return e.Send(fwcommon.JSONObject{
 		"signal": "misc:pong",
 	})

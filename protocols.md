@@ -257,7 +257,10 @@ App/Reciever sends a response to a `ping` signal, agknowledgeing the connection.
 {
     "signal": "misc:pong",
     "protocol": 1,
-    "sent": int:epoch
+    "sent": int:epoch,
+    "_forwarded_": {        // Forwarded is technically optional but due to events not being order-ensured forwarding back the input timestamps helps with latency calculation.
+        "requested": int:epoch
+    }
 }
 ```
 

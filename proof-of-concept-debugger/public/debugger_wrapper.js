@@ -184,8 +184,8 @@ class Debugger {
     /**
      * Recomendation implementation of onPing
      */
-    OnPing = (_) => {
-        this.Pong();
+    OnPing = (msg) => {
+        this.Pong(msg);
     };
 
     /**
@@ -214,10 +214,20 @@ class Debugger {
     /**
      * Send a pong response signal.
      */
-    Pong() {
+    Pong(msg = null) {
+        if (msg != null && msg.hasOwnProperty("sent")) {
+            this.Send({
+                "signal": "misc:pong",
+                "_forwarded_": {
+                    "requested": msg.sent
+                }
+            })
+            return;
+        }
+
         this.Send({
-            signal: "misc:pong",
-        });
+            "signal": "misc:pong"
+        })
     }
 
     /**

@@ -58,7 +58,7 @@ func SetupFramework() *libfw.Framework {
 	config := &libfw.FrameworkConfig{
 		DebugSendPort:          9000,
 		DebugListenPort:        9001,
-		DebugSendUsage:         true,
+		DebugSendUsage:         false,
 		DebugSendUsageInterval: 1000,
 		DebugOverrideHost:      DebuggerHost,
 
