@@ -51,6 +51,7 @@ const connections = {
         "avgReq": -1, // Time to send a request (requested until received)
         "avgResp": -1, // Time to recieve a request (responded until receivedAtClient)
         "avgServerProc": -1, // Calculated server-processing time (received until responded)
+        "avgClockOffset": 0, // Running average of clock offset (server clock - frontend clock)
         "maxSamples": 50 // At MAX it throws the first sample (oldest)
     },
     "app": {
@@ -63,6 +64,7 @@ const connections = {
         "avgRtt": -1, // Round trip time for `misc:ping` => `misc:pong` (pingSent until recievedPong)
         "avgReqProc": -1, // Time to send a request plus app processing time (pingSent until appSentRespPong)
         "avgResp": -1, // Time to recieve a request (appSentRespPong until recievedPong)
+        "avgClockOffset": 0, // Running average of clock offset (app clock - frontend clock)
         "maxSamples": 50 // At MAX it throws the first sample (oldest)
     }
 };
@@ -81,6 +83,7 @@ function computeServerAverages() {
     s.avgReq = s.samples.reduce((a, x) => a + x.subvalues.reqTime, 0) / s.samples.length;
     s.avgResp = s.samples.reduce((a, x) => a + x.subvalues.respTime, 0) / s.samples.length;
     s.avgServerProc = s.samples.reduce((a, x) => a + x.subvalues.srvProc, 0) / s.samples.length;
+    s.avgClockOffset = s.samples.reduce((a, x) => a + x.clockDriftOffset, 0) / s.samples.length;
 }
 
 // --- App RTT / Subvalues Calculations ---
@@ -91,6 +94,7 @@ function computeAppAverages() {
     a.avgRtt = a.samples.reduce((acc, x) => acc + x._RTT, 0) / a.samples.length;
     a.avgReqProc = a.samples.reduce((acc, x) => acc + x.subvalues.reqTime, 0) / a.samples.length;
     a.avgResp = a.samples.reduce((acc, x) => acc + x.subvalues.respTime, 0) / a.samples.length;
+    a.avgClockOffset = s.samples.reduce((a, x) => a + x.clockDriftOffset, 0) / s.samples.length;
 }
 
 function renderConnectionTopbar() {
@@ -104,10 +108,10 @@ function renderConnectionTopbar() {
     }
 
     const appRtt = a.avgRtt >= 0 ? a.avgRtt.toFixed(0) + "ms" : "--";
-    const appDetails = `Avg.(ReqProc: ${a.avgReqProc>=0?a.avgReqProc.toFixed(0):"--"}ms, Resp: ${a.avgResp>=0?a.avgResp.toFixed(0):"--"}ms) Last.(Drift: ${a.samples.length ? a.samples[a.samples.length-1].clockDriftOffset.toFixed(0) : "--"}ms, AddRTT: ${a.samples.length ? a.samples[a.samples.length-1].rttAdditive.toFixed(0) : "--"}ms) ${a.samples.length ? a.samples.length : "--"}/${a.maxSamples}`;
+    const appDetails = `Avg.(Proc: ${a.avgReqProc>=0?a.avgReqProc.toFixed(0):"--"}ms, Resp: ${a.avgResp>=0?a.avgResp.toFixed(0):"--"}ms, cΔ: ${a.avgClockOffset>=0?a.avgClockOffset.toFixed(0):"--"}ms) Last.(cΔ: ${a.samples.length ? a.samples[a.samples.length-1].clockDriftOffset.toFixed(1) : "--"}ms, AddRTT: ${a.samples.length ? a.samples[a.samples.length-1].rttAdditive.toFixed(0) : "--"}ms) ${a.samples.length ? a.samples.length : "--"}/${a.maxSamples}`;
 
     const srvRtt = s.avgRtt >= 0 ? s.avgRtt.toFixed(0) + "ms" : "--";
-    const srvDetails = `Avg.(Req: ${s.avgReq>=0?s.avgReq.toFixed(0):"--"}ms, Resp: ${s.avgResp>=0?s.avgResp.toFixed(0):"--"}ms, SrvProc: ${s.avgServerProc>=0?s.avgServerProc.toFixed(0):"--"}ms) Last.(Drift: ${s.samples.length ? s.samples[s.samples.length-1].clockDriftOffset.toFixed(0) : "--"}ms, AddRTT: ${s.samples.length ? s.samples[s.samples.length-1].rttAdditive.toFixed(0) : "--"}ms) ${s.samples.length ? s.samples.length : "--"}/${s.maxSamples}`;
+    const srvDetails = `Avg.(Req: ${s.avgReq>=0?s.avgReq.toFixed(0):"--"}ms, Resp: ${s.avgResp>=0?s.avgResp.toFixed(0):"--"}ms, Proc: ${s.avgServerProc>=0?s.avgServerProc.toFixed(0):"--"}ms, cΔ: ${a.avgClockOffset>=0?a.avgClockOffset.toFixed(0):"--"}ms) Last.(cΔ: ${s.samples.length ? s.samples[s.samples.length-1].clockDriftOffset.toFixed(1) : "--"}ms, AddRTT: ${s.samples.length ? s.samples[s.samples.length-1].rttAdditive.toFixed(0) : "--"}ms) ${s.samples.length ? s.samples.length : "--"}/${s.maxSamples}`;
 
     statusBarText.innerHTML = `
         <span class="status-subtitle">App:</span><span class="status-span">${appStatus}</span><span class="rtt-tooltip">${appRtt}<span class="rtt-details">${appDetails}</span></span> 
