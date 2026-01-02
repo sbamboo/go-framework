@@ -3,6 +3,7 @@ class Debugger {
      * Create a new Debugger instance.
      * @param {object} params Configuration params like signalPort, commandPort, etc.
      * @param {string} wsUrl WebSocket URL (default: ws://localhost:8080)
+     * @ {int} lastKnownAppLatency Fish
      */
     constructor(params = {}, wsUrl = "ws://localhost:8080") {
         this.ProtocolVersion = 1;
@@ -12,7 +13,13 @@ class Debugger {
         this.signalHandlers = new Map();
         this.incomingListeners = [];
         this.outgoingListeners = [];
+        /**
+         * Clock offset/drift is not accounted for
+         */
         this.lastKnownAppLatency = -1;
+        /**
+         * Clock offset/drift is not accounted for
+         */
         this.lastKnownSrvLatency = -1;
         this.receivedUsageStats = 0;
 
