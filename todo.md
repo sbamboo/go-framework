@@ -10,7 +10,6 @@
 
 
 # DEBUGGER
-- App <=> server <=> frontend : Clock desync offset correction
 
 
 # DEBUGGER/FRAMEWORK
