@@ -209,6 +209,9 @@ func TestNet(t *testing.T) {
 		}
 		fmt.Println("Test Case 4 completed reading stream with progressor.")
 	}
+	if report != nil {
+		report.Close()
+	}
 
 	// --- Test Case 5 ---
 	printTestCaseHeader("Test Case 5: Fetch content; not stream; to file; default path; not progressor")
@@ -247,6 +250,9 @@ func TestNet(t *testing.T) {
 		fmt.Printf("Test Case 7 file saved to: %s\n", defaultFileName)
 		cleanupFile(defaultFileName)
 	}
+	if irep != nil {
+		irep.Close()
+	}
 
 	// --- Test Case 8 ---
 	printTestCaseHeader("Test Case 8: Fetch content; stream; to file; default path; with progressor")
@@ -260,6 +266,9 @@ func TestNet(t *testing.T) {
 		defaultFileName = filepath.Base(largeFileTestURL)
 		fmt.Printf("Test Case 8 file saved to: %s\n", defaultFileName)
 		cleanupFile(defaultFileName)
+	}
+	if irep != nil {
+		irep.Close()
 	}
 
 	// --- Test Case 9 ---
@@ -280,6 +289,9 @@ func TestNet(t *testing.T) {
 		fmt.Printf("Test Case 9 file saved to: %s\n", defaultFileName)
 		cleanupFile(defaultFileName)
 	}
+	if irep != nil {
+		irep.Close()
+	}
 
 	// --- Test Case 10 ---
 	printTestCaseHeader("Test Case 10: Fetch content; stream; to file; custom path; with progressor")
@@ -291,6 +303,9 @@ func TestNet(t *testing.T) {
 		irep.Close()
 		fmt.Printf("Test Case 10 file saved to: %s\n", customFilePath)
 		cleanupFile(customFilePath)
+	}
+	if irep != nil {
+		irep.Close()
 	}
 
 	// --- Test Case 11 ---
@@ -335,6 +350,9 @@ func TestNet(t *testing.T) {
 			t.Errorf("Test Case 2 failed: content is empty")
 		}
 		fmt.Printf("Test Case 2 output (first 100 chars): %s...\n", content[:100])
+	}
+	if report != nil {
+		report.Close()
 	}
 
 	// Cleanup
