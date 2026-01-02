@@ -59,7 +59,7 @@ func (indh *FrameworkIndexHandler) GetNewOfIndex(ctx string) int {
 	return indh.GetIndex(ctx)
 }
 
-var FrameworkIndexes = FrameworkIndexHandler{
+var FrameworkIndexes = FrameworkIndexHandler {
 	"netevent": 0,
 }
 
@@ -114,6 +114,7 @@ const (
 	NetStateResponded   NetState = "responded"
 	NetStateTransfer    NetState = "transfer"
 	NetStateFinished    NetState = "finished"
+	NetStateFailed      NetState = "failed"
 )
 
 type NetPriority string

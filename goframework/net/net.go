@@ -103,6 +103,11 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 		if err == io.EOF && pr.Event.NetFetchOptions.AutoReadEOFClose {
 			pr.Close()
 		}
+
+		if err != io.EOF {
+			pr.Event.EventState = fwcommon.NetStateFailed
+		}
+
 		if pr.progressor != nil {
 			if err == io.EOF {
 				pr.progressor(pr, nil)
@@ -260,7 +265,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				EventSuccess:     false,
 				EventStepCurrent: nil,
 				EventStepMax:     options.EventStepMax,
-				EventStepMode: options.EventStepMode,
+				EventStepMode:    options.EventStepMode,
 			},
 			Response:      nil,
 			Content:       nil,
@@ -358,7 +363,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		// Create request
 		req, err := http.NewRequestWithContext(ctx, string(method), remoteUrl, body)
 		if err != nil {
-			progress.Event.EventState = fwcommon.NetStateFinished
+			progress.Event.EventState = fwcommon.NetStateFailed
 			if progressor != nil {
 				progressor(&progress, fmt.Errorf("failed to create request: %w", err))
 			} else {
@@ -404,7 +409,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			}
 
 			// Other errors or no retries left
-			progress.Event.EventState = fwcommon.NetStateFinished
+			progress.Event.EventState = fwcommon.NetStateFailed
 			if progressor != nil {
 				progressor(&progress, err)
 			} else {
@@ -462,7 +467,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		if resp.StatusCode != http.StatusOK {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
-			progress.Event.EventState = fwcommon.NetStateFinished
+			progress.Event.EventState = fwcommon.NetStateFinished // Should this be .NetStateFailed instead? Where do we draw the line of failed or finished-non-ok
 			if progressor != nil {
 				progressor(&progress, fmt.Errorf("non-OK status: %s", resp.Status))
 			} else {
@@ -514,7 +519,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				}
 				wd, err := os.Getwd()
 				if err != nil {
-					progress.Event.EventState = fwcommon.NetStateFinished
+					progress.Event.EventState = fwcommon.NetStateFailed
 					if progressor != nil {
 						progressor(&progress, fmt.Errorf("failed to get working directory: %w", err))
 					} else {
@@ -529,7 +534,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		if file {
 			outputFile, err := os.Create(outputPath)
 			if err != nil {
-				progress.Event.EventState = fwcommon.NetStateFinished
+				progress.Event.EventState = fwcommon.NetStateFailed
 				if progressor != nil {
 					progressor(&progress, fmt.Errorf("failed to create output file %s: %w", outputPath, err))
 				} else {
@@ -553,7 +558,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				}
 				_, writeErr := outputFile.Write(bodyBytes)
 				if writeErr != nil {
-					progress.Event.EventState = fwcommon.NetStateFinished
+					progress.Event.EventState = fwcommon.NetStateFailed
 					if progressor != nil {
 						progressor(&progress, fmt.Errorf("failed to write to file %s: %w", outputPath, writeErr))
 					} else {
@@ -590,7 +595,7 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 		if n > 0 {
 			_, writeErr := dst.Write(buf[:n])
 			if writeErr != nil {
-				progress.Event.EventState = fwcommon.NetStateFinished
+				progress.Event.EventState = fwcommon.NetStateFailed
 				if progress.progressor != nil {
 					progress.progressor(progress, fmt.Errorf("failed to write to destination: %w", writeErr))
 				} else {
@@ -631,9 +636,8 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 				}
 			}
 			break
-		}
-		if err != nil {
-			progress.Event.EventState = fwcommon.NetStateFinished
+		} else if err != nil {
+			progress.Event.EventState = fwcommon.NetStateFailed
 			if progress.progressor != nil {
 				progress.progressor(progress, fmt.Errorf("failed to read from source: %w", err))
 			} else {
