@@ -51,7 +51,6 @@ const connections = {
         "avgReq": -1, // Time to send a request (requested until received)
         "avgResp": -1, // Time to recieve a request (responded until receivedAtClient)
         "avgServerProc": -1, // Calculated server-processing time (received until responded)
-        "clockOffset": 0, // Running average of clock offset (server clock - frontend clock)
         "maxSamples": 50 // At MAX it throws the first sample (oldest)
     },
     "app": {
@@ -64,7 +63,6 @@ const connections = {
         "avgRtt": -1, // Round trip time for `misc:ping` => `misc:pong` (pingSent until recievedPong)
         "avgReqProc": -1, // Time to send a request plus app processing time (pingSent until appSentRespPong)
         "avgResp": -1, // Time to recieve a request (appSentRespPong until recievedPong)
-        "clockOffset": 0, // Running average of clock offset (app clock - frontend clock)
         "maxSamples": 50 // At MAX it throws the first sample (oldest)
     }
 };
@@ -175,7 +173,8 @@ function enableServerPing() {
 }
 
 // --- Server Ack Handler (Patched) ---
-debuggerInstance.RegisterForServerEvent("ackreq.ack", (msg) => {
+debuggerInstance.RegisterForServerEvent("ackreq.ack", (_msg) => {
+    const msg = _msg;
     const receivedAtClient = Date.now();
 
     // T0: Frontend clock - when ackreq was sent
@@ -187,87 +186,24 @@ debuggerInstance.RegisterForServerEvent("ackreq.ack", (msg) => {
     // T3: Frontend clock - when frontend received ackreq.ack
     const T3 = receivedAtClient;
 
-    // Calculate raw RTT for validation
-    const rawRTT = T3 - T0;
-    
-    // Check if received timestamp is stale (not updating properly)
-    // If received is way in the past compared to requested, it's likely stale
-    const receivedAge = T0 - T1_server;
-    const isReceivedStale = receivedAge > 1000; // If received is more than 1 second in the past, it's stale
-    
-    // If received is stale, we can't use it for clock offset calculation
-    // Instead, estimate offset from responded timestamp only
-    let clockOffsetSample;
-    if (isReceivedStale) {
-        // Use a simpler calculation based on responded timestamp
-        // If server_clock = frontend_clock + offset, then T2_server = T2_frontend + offset
-        // We can estimate: offset ≈ T2_server - (T0 + T3) / 2
-        // This assumes the server responded roughly at the midpoint of the round trip
-        clockOffsetSample = T2_server - (T0 + T3) / 2;
-    } else {
-        // Calculate clock offset using NTP-style formula
-        // Clock offset represents: server_clock = frontend_clock + offset
-        // Formula: offset = ((T1_server - T0) + (T2_server - T3)) / 2
-        // This estimates the clock difference assuming symmetric network paths
-        clockOffsetSample = ((T1_server - T0) + (T2_server - T3)) / 2;
-    }
-    
-    // Validate clock offset sample: it should be reasonable relative to RTT
-    // Clock offset should be much smaller than RTT (typically < 10% of RTT)
-    // If the calculated offset is too large, it's likely an error - reject it
-    const maxReasonableOffset = Math.max(Math.abs(rawRTT) * 0.5, 1000); // Allow up to 50% of RTT or 1 second, whichever is larger
-    const isValidOffset = (Math.abs(clockOffsetSample) < maxReasonableOffset || Math.abs(rawRTT) < 100) && !isNaN(clockOffsetSample) && isFinite(clockOffsetSample);
-    
-    // Update running average of clock offset (exponential moving average with alpha=0.05 for stability)
-    // Use smaller alpha to make it more stable and less sensitive to individual samples
-    const alpha = 0.05;
-    if (connections.server.clockOffset === 0) {
-        // First sample: use it directly if valid
-        connections.server.clockOffset = isValidOffset ? clockOffsetSample : 0;
-    } else if (isValidOffset && !isReceivedStale) {
-        // Only update if the sample is valid AND received is not stale
-        // Also check if the change is reasonable (not more than 10ms change per sample)
-        const change = clockOffsetSample - connections.server.clockOffset;
-        if (Math.abs(change) < 10 || Math.abs(rawRTT) < 100) {
-            connections.server.clockOffset = connections.server.clockOffset * (1 - alpha) + clockOffsetSample * alpha;
-        }
-        // Otherwise, don't update (reject outlier)
-    }
-    // If received is stale, don't update clock offset (keep last known good value)
+    // Calculate RTT using only frontend clock values
+    const _RTT = T3 - T0;
 
-    // Convert server timestamps to frontend clock time
+    // Calculate clock offset for THIS sample only using NTP-style formula
+    // Clock offset represents: server_clock = frontend_clock + offset
+    // Formula: offset = ((T1_server - T0) + (T2_server - T3)) / 2
+    // This estimates the clock difference assuming symmetric network paths
+    const clockDriftOffset = ((T1_server - T0) + (T2_server - T3)) / 2;
+
+    // Convert server timestamps to frontend clock time using THIS sample's offset
     // If server_clock = frontend_clock + offset, then frontend_clock = server_clock - offset
-    let reqTime, srvProc, respTime, _RTT;
-    
-    if (isReceivedStale) {
-        // If received is stale, estimate times from raw RTT and responded timestamp
-        // We can still use responded timestamp if we have a clock offset
-        const T2_frontend = T2_server - connections.server.clockOffset;
-        
-        // Estimate breakdown: assume symmetric network paths
-        // reqTime ≈ respTime, and srvProc is minimal
-        reqTime = rawRTT * 0.45;  // Estimate 45% for request
-        srvProc = Math.max(0, T2_frontend - T0 - reqTime); // Calculate from T2 if possible
-        respTime = rawRTT * 0.45; // Estimate 45% for response
-        
-        // If srvProc calculation gives negative or unreasonable value, use estimate
-        if (srvProc < 0 || srvProc > rawRTT * 0.5) {
-            srvProc = rawRTT * 0.1; // Estimate 10% for processing
-            reqTime = rawRTT * 0.45;
-            respTime = rawRTT * 0.45;
-        }
-        
-        _RTT = reqTime + srvProc + respTime;
-    } else {
-        // Normal calculation with all timestamps
-        const T1_frontend = T1_server - connections.server.clockOffset;
-        const T2_frontend = T2_server - connections.server.clockOffset;
-        
-        reqTime  = T1_frontend - T0;        // Request time: frontend->server
-        srvProc  = T2_frontend - T1_frontend; // Server processing time
-        respTime = T3 - T2_frontend;        // Response time: server->frontend
-        _RTT     = reqTime + srvProc + respTime;
-    }
+    const T1_frontend = T1_server - clockDriftOffset;
+    const T2_frontend = T2_server - clockDriftOffset;
+
+    // Calculate times using frontend clock (all timestamps in same clock)
+    const reqTime  = T1_frontend - T0;        // Request time: frontend->server
+    const srvProc  = T2_frontend - T1_frontend; // Server processing time
+    const respTime = T3 - T2_frontend;        // Response time: server->frontend
 
     const sample = {
         "requested": T0,
@@ -275,7 +211,7 @@ debuggerInstance.RegisterForServerEvent("ackreq.ack", (msg) => {
         "responded": T2_server,
         "receivedAtClient": T3,
         "_RTT": _RTT,
-        "clockDriftOffset": connections.server.clockOffset,
+        "clockDriftOffset": clockDriftOffset,
         "subvalues": {
             "reqTime": reqTime,
             "srvProc": srvProc,
@@ -319,53 +255,30 @@ debuggerInstance.RegisterFor("misc:pong", (msg)=>{
     // T2: Frontend clock - when frontend received pong
     const T2 = now;
 
-    // Calculate clock offset for app
+    // Calculate RTT using only frontend clock values
+    const _RTT = T2 - T0;
+
+    // Calculate clock offset for THIS sample only
     // Clock offset represents: app_clock = frontend_clock + offset
     // For 3 timestamps (T0 frontend, T1 app, T2 frontend), we estimate:
     // offset = T1_app - (T0 + T2) / 2 = (2*T1_app - T0 - T2) / 2
     // This assumes the app timestamp is roughly at the midpoint between send and receive
-    const clockOffsetSample = (2 * T1_app - T0 - T2) / 2;
-    
-    // Calculate raw RTT for validation
-    const rawRTT = T2 - T0;
-    
-    // Validate clock offset sample: it should be reasonable relative to RTT
-    // Clock offset should be much smaller than RTT (typically < 10% of RTT)
-    // If the calculated offset is too large, it's likely an error - reject it
-    const maxReasonableOffset = Math.abs(rawRTT) * 0.5; // Allow up to 50% of RTT as offset
-    const isValidOffset = Math.abs(clockOffsetSample) < maxReasonableOffset || Math.abs(rawRTT) < 100;
-    
-    // Update running average of clock offset (exponential moving average with alpha=0.05 for stability)
-    // Use smaller alpha to make it more stable and less sensitive to individual samples
-    const alpha = 0.05;
-    if (connections.app.clockOffset === 0) {
-        // First sample: use it directly if valid
-        connections.app.clockOffset = isValidOffset ? clockOffsetSample : 0;
-    } else if (isValidOffset) {
-        // Only update if the sample is valid
-        // Also check if the change is reasonable (not more than 10ms change per sample)
-        const change = clockOffsetSample - connections.app.clockOffset;
-        if (Math.abs(change) < 10 || Math.abs(rawRTT) < 100) {
-            connections.app.clockOffset = connections.app.clockOffset * (1 - alpha) + clockOffsetSample * alpha;
-        }
-        // Otherwise, don't update (reject outlier)
-    }
+    const clockDriftOffset = (2 * T1_app - T0 - T2) / 2;
 
-    // Convert app timestamp to frontend clock time
+    // Convert app timestamp to frontend clock time using THIS sample's offset
     // If app_clock = frontend_clock + offset, then frontend_clock = app_clock - offset
-    const T1_frontend = T1_app - connections.app.clockOffset;
+    const T1_frontend = T1_app - clockDriftOffset;
 
-    // Now calculate times using frontend clock (all timestamps in same clock)
+    // Calculate times using frontend clock (all timestamps in same clock)
     const reqTime  = T1_frontend - T0;        // Request time: frontend->app (includes app processing)
     const respTime = T2 - T1_frontend;        // Response time: app->frontend
-    const _RTT     = reqTime + respTime;
 
     const sample = {
         "pingSent": T0,
         "appSentRespPong": T1_app,
         "recievedPong": T2,
         "_RTT": _RTT,
-        "clockDriftOffset": connections.app.clockOffset,
+        "clockDriftOffset": clockDriftOffset,
         "subvalues": {
             "reqTime": reqTime,
             "respTime": respTime
@@ -501,11 +414,9 @@ debuggerInstance.ws.addEventListener("close", () => {
 
     connections.server.conknown = false;
     connections.server.lastseen = -1;
-    connections.server.clockOffset = 0; // Reset clock offset on disconnect
     
     connections.app.conknown = false;
     connections.app.lastseen = -1;
-    connections.app.clockOffset = 0; // Reset clock offset on disconnect
 });
 
 debuggerInstance.ws.addEventListener("error", (err) => {
@@ -515,11 +426,9 @@ debuggerInstance.ws.addEventListener("error", (err) => {
 
     connections.server.conknown = false;
     connections.server.lastseen = -1;
-    connections.server.clockOffset = 0; // Reset clock offset on error
     
     connections.app.conknown = false;
     connections.app.lastseen = -1;
-    connections.app.clockOffset = 0; // Reset clock offset on error
 
     try {
         pingAppToggle.checked = false;

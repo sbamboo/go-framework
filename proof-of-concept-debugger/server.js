@@ -114,9 +114,10 @@ wss.on("connection", (ws) => {
     connectedClients.add(ws); // Add new client to the set
     logDebuggerStatus("NEW"); // Log status on new connection
 
-    const received = Date.now();
-
     ws.on("message", (message) => {
+
+        const received = Date.now();
+        
         try {
             const msg = JSON.parse(message);
             const event = msg.event;
