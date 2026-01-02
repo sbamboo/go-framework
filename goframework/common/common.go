@@ -63,15 +63,23 @@ var FrameworkIndexes = FrameworkIndexHandler{
 	"netevent": 0,
 }
 
-type FrameworkFlagHandler map[string]bool
+type FrameworkFlag string
 
-func (flagh *FrameworkFlagHandler) Enable(flag string) {
+const (
+	Net_InternalErrorLog FrameworkFlag = "net.internal_error_log"
+	Update_InternalErrorLog FrameworkFlag = "update.internal_error_log"
+	Net_ProgressorNetUpdate FrameworkFlag = "net.progressor_netupdate"
+)
+
+type FrameworkFlagHandler map[FrameworkFlag]bool
+
+func (flagh *FrameworkFlagHandler) Enable(flag FrameworkFlag) {
 	(*flagh)[flag] = true
 }
-func (flagh *FrameworkFlagHandler) Disable(flag string) {
+func (flagh *FrameworkFlagHandler) Disable(flag FrameworkFlag) {
 	(*flagh)[flag] = false
 }
-func (flagh *FrameworkFlagHandler) IsEnabled(flag string) bool {
+func (flagh *FrameworkFlagHandler) IsEnabled(flag FrameworkFlag) bool {
 	if enabled, ok := (*flagh)[flag]; ok {
 		return enabled
 	}
@@ -79,9 +87,9 @@ func (flagh *FrameworkFlagHandler) IsEnabled(flag string) bool {
 }
 
 var FrameworkFlags = FrameworkFlagHandler{
-	"net.internal_error_log":    true,
-	"update.internal_error_log": true,
-	"net.progressor_netupdate":  true,
+	Net_InternalErrorLog:    true,
+	Update_InternalErrorLog: true,
+	Net_ProgressorNetUpdate:  true,
 }
 
 // MARK: Types

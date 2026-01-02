@@ -39,6 +39,12 @@ func NewFramework(config *fwcommon.FrameworkConfig) *Framework {
 }
 
 // MARK: Exports
+var FrameworkFlags = fwcommon.FrameworkFlags
+type FrameworkFlag = fwcommon.FrameworkFlag
+var Net_InternalErrorLog = fwcommon.Net_InternalErrorLog
+var Update_InternalErrorLog = fwcommon.Update_InternalErrorLog
+var Net_ProgressorNetUpdate = fwcommon.Net_ProgressorNetUpdate
+
 type JSONObject = fwcommon.JSONObject
 
 type FrameworkConfig = fwcommon.FrameworkConfig

@@ -1,5 +1,4 @@
 # FRAMEWORK
-- Framework flags as enum
 - Currently progress updates for both debug and progressor is tied to either blockSize or internal buffer block sizes, aka. very fast, it would be ideal to optionally decouple to set inverval (decouple by time-since-last-report and comparison on send with two config values, progressor and debug)
 - Handling around services like gdrive,dropbox,sprend (+ when we interrupt a fetch for ex. GDrive handling set `interupted` to true on the old event and start a new event, when streaming we consume until identifier or not, if identifier consume fully parse and return new fetch stream, if not showhow restore state, if it's done in the report object it gets abit more complicated)
 - Chibit v1 and v2 (split servies) support
@@ -9,7 +8,6 @@
 
 
 # TESTAPP
-- Check if the progressor sends debug so we don't send it twice when the `net.progressor_netupdate` flag is enabled
 
 
 # DEBUGGER
