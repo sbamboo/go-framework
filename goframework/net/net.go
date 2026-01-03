@@ -396,9 +396,12 @@ func (nh *NetHandler) FetchWithoutHandlers(method fwcommon.HttpMethod, remoteUrl
 			debPtr:        nh.deb,
 		}
 
+		var u *url.URL = nil
+
 		// Define Scheme
 		if resolveAdditionalInfo {
-			u, err := url.Parse(remoteUrl)
+			var err error
+			u, err = url.Parse(remoteUrl)
 			progress.Event.EventState = fwcommon.NetStateFailed
 			if err != nil || u.Host == "" || u == nil {
 				return &progress, fmt.Errorf("invalid URL: %s", remoteUrl)
@@ -475,9 +478,12 @@ func (nh *NetHandler) FetchWithoutHandlers(method fwcommon.HttpMethod, remoteUrl
 
 		// DNS pre-check
 		if options.DNSPreCheck {
-			u, err := url.Parse(remoteUrl)
-			if err != nil || u.Host == "" || u == nil {
-				return &progress, fmt.Errorf("invalid URL: %s", remoteUrl)
+			if u != nil {
+				var err error
+				u, err = url.Parse(remoteUrl)
+				if err != nil || u.Host == "" || u == nil {
+					return &progress, fmt.Errorf("invalid URL: %s", remoteUrl)
+				}
 			}
 			host := u.Hostname()
 			if _, err := net.LookupHost(host); err != nil {
@@ -896,7 +902,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			// Find first matching handler
 			var matchedHandler *fwcommon.ResponsePrefixHandler
 			for _, h := range enabledHandlers {
-				if h.Validator != nil && h.Validator(prefixBuf, resp) {
+				if h.Validator != nil && h.Validator(prefixBuf, resp.Request.URL.String()) {
 					matchedHandler = &h
 					break
 				}
@@ -937,7 +943,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				}
 
 				// Call parser
-				newURL, err = matchedHandler.Parser(fullBuf, resp)
+				newURL, err = matchedHandler.Parser(fullBuf, resp.Request.URL.String())
 				if err != nil {
 					newURL = ""
 					nh.logThroughError(err)

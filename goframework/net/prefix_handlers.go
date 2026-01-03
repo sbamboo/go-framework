@@ -2,20 +2,19 @@ package goframework_net
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
 	fwcommon "github.com/sbamboo/goframework/common"
 )
 
-func isGoogleDriveWarning(prefix []byte, _ *http.Response) bool {
+func isGoogleDriveWarning(prefix []byte, _ string) bool {
     s := string(prefix)
     return strings.Contains(s, "<!DOCTYPE html>") &&
            strings.Contains(s, "Google Drive - Virus scan warning")
 }
 
-func parseGoogleDriveConfirm(body []byte, _ *http.Response) (string, error) {
+func parseGoogleDriveConfirm(body []byte, _ string) (string, error) {
     s := string(body)
 
     // Extract form action
@@ -46,18 +45,17 @@ func parseGoogleDriveConfirm(body []byte, _ *http.Response) (string, error) {
     return action + "?" + params.Encode(), nil
 }
 
-func isDropboxDl0link(_ []byte, resp *http.Response) bool {
-    url := resp.Request.URL.String()
+func isDropboxDl0link(_ []byte, respUrl string) bool {
     // https://www.dropbox.com/scl/fi/{id}/{fn}?...
-    if !strings.Contains(url, "dl=0") {
+    if !strings.Contains(respUrl, "dl=0") {
         return false
     }
 
     // https://www.dropbox.com/scl/fi/{id}/{fn}?...dl=0...
-    if !strings.Contains(url, "?") {
+    if !strings.Contains(respUrl, "?") {
         return  false
     }
-    parts := strings.Split(url, "?")
+    parts := strings.Split(respUrl, "?")
     firstPart := parts[0]
     // https://www.dropbox.com/scl/fi/{id}/{fn}
 
@@ -71,7 +69,7 @@ func isDropboxDl0link(_ []byte, resp *http.Response) bool {
     return false
 }
 
-func parseDropboxDl0link(_ []byte, resp *http.Response) (string, error) {
+func parseDropboxDl0link(_ []byte, respUrl string) (string, error) {
     // s := string(body)
 
     // var rawUrl string
@@ -101,7 +99,7 @@ func parseDropboxDl0link(_ []byte, resp *http.Response) (string, error) {
     // }
 
     // parsedURL, err := url.Parse(rawUrl)
-    parsedURL, err := url.Parse(resp.Request.URL.String())
+    parsedURL, err := url.Parse(respUrl)
 	if err != nil {
 		return "", fmt.Errorf("dropbox: failed to parse URL: %w", err)
 	}
@@ -117,19 +115,17 @@ func parseDropboxDl0link(_ []byte, resp *http.Response) (string, error) {
 }
 
 
-func isSprendLink(_ []byte, resp *http.Response) bool {
-    url := resp.Request.URL.String()
+func isSprendLink(_ []byte, respUrl string) bool {
     // https://sprend.com/download?C={id} | https://sprend.com/{locale}/download?C={id}
 
-    return strings.HasPrefix(url, strings.TrimSpace("https://sprend.com/")) && strings.Contains(url, "download?C=")
+    return strings.HasPrefix(respUrl, strings.TrimSpace("https://sprend.com/")) && strings.Contains(respUrl, "download?C=")
 }
 
-func parseSprendLink(_ []byte, resp *http.Response) (string, error) {
-    url := resp.Request.URL.String()
+func parseSprendLink(_ []byte, respUrl string) (string, error) {
     // https://sprend.com/download?C={id} | https://sprend.com/{locale}/download?C={id}
 
     prefix := strings.TrimSpace("https://sprend.com/")
-    url = strings.TrimPrefix(url, prefix)
+    url := strings.TrimPrefix(respUrl, prefix)
     // download?C={id} | {locale}/download?C={id}
 
     if strings.Contains(url, "/") {
@@ -148,14 +144,13 @@ func parseSprendLink(_ []byte, resp *http.Response) (string, error) {
     // return "", fmt.Errorf("sprend: Failed to parse url.")
 }
 
-func isMediafireLink(_ []byte, resp *http.Response) bool {
-    url := resp.Request.URL.String()
+func isMediafireLink(_ []byte, respUrl string) bool {
     // https://www.mediafire.com/file/{id}/{filename}/file | https://www.mediafire.com/file/{id}/{filename}
 
-    return strings.HasPrefix(url, strings.TrimSpace("https://www.mediafire.com/file/"))
+    return strings.HasPrefix(respUrl, strings.TrimSpace("https://www.mediafire.com/file/"))
 }
 
-func parseMediafireLink(body []byte, _ *http.Response) (string, error) {
+func parseMediafireLink(body []byte, _ string) (string, error) {
     s := string(body)
 
     // Extract download link

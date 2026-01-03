@@ -484,8 +484,8 @@ type UsageStat struct {
 type ResponsePrefixHandler struct {
 	Name string
     PrefixLen int
-    Validator func(prefix []byte, resp *http.Response) bool
-    Parser    func(fullBody []byte, resp *http.Response) (newURL string, err error)
+    Validator func(prefix []byte, respUrl string) bool
+    Parser    func(fullBody []byte, respUrl string) (newURL string, err error)
 	ContentTypeContains string
 	NeedsContent bool
 }
