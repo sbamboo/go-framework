@@ -54,6 +54,9 @@ func isDropboxDl0link(_ []byte, resp *http.Response) bool {
     }
 
     // https://www.dropbox.com/scl/fi/{id}/{fn}?...dl=0...
+    if !strings.Contains(url, "?") {
+        return  false
+    }
     parts := strings.Split(url, "?")
     firstPart := parts[0]
     // https://www.dropbox.com/scl/fi/{id}/{fn}
@@ -100,7 +103,7 @@ func parseDropboxDl0link(_ []byte, resp *http.Response) (string, error) {
     // parsedURL, err := url.Parse(rawUrl)
     parsedURL, err := url.Parse(resp.Request.URL.String())
 	if err != nil {
-		return "", fmt.Errorf("dropbox: failed to parse extracted URL: %w", err)
+		return "", fmt.Errorf("dropbox: failed to parse URL: %w", err)
 	}
 
 	query := parsedURL.Query()
@@ -111,4 +114,36 @@ func parseDropboxDl0link(_ []byte, resp *http.Response) (string, error) {
 	}
 
     return "", fmt.Errorf("dropbox: Failed to convert url.")
+}
+
+
+func isSprendLink(_ []byte, resp *http.Response) bool {
+    url := resp.Request.URL.String()
+    // https://sprend.com/download?C={id} | https://sprend.com/{locale}/download?C={id}
+
+    return strings.HasPrefix(url, strings.TrimSpace("https://sprend.com/")) && strings.Contains(url, "download?C=")
+}
+
+func parseSprendLink(_ []byte, resp *http.Response) (string, error) {
+    url := resp.Request.URL.String()
+    // https://sprend.com/download?C={id} | https://sprend.com/{locale}/download?C={id}
+
+    prefix := strings.TrimSpace("https://sprend.com/")
+    url = strings.TrimPrefix(url, prefix)
+    // download?C={id} | {locale}/download?C={id}
+
+    if strings.Contains(url, "/") {
+        parts := strings.Split(url, "/")
+        if len(parts) > 1 {
+            url = parts[1]
+        }
+    }
+    // download?C={id}
+
+    url = strings.TrimPrefix(url, "download")
+    // ?C={id}
+
+    return "https://sprend.com/d" + url, nil 
+
+    // return "", fmt.Errorf("sprend: Failed to parse url.")
 }

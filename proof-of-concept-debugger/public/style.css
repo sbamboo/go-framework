@@ -292,6 +292,9 @@ body {
     background-color: #fdd835;
     animation: moveLoader 1.5s infinite linear;
 }
+.loader-progress-bar-green::after {
+    background-color: #4caf50;
+}
 .loader-progress-bar-blue::after {
     background-color: #2196f3;
 }

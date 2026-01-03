@@ -233,6 +233,14 @@ func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInt
 				NeedsContent: true,
 			},
 			{
+				Name: "sprend",
+				PrefixLen: 0,
+				Validator: isSprendLink,
+				Parser: parseSprendLink,
+				ContentTypeContains: "text/html",
+				NeedsContent: false,
+			},
+			{
 				Name: "dropbox",
 				PrefixLen: 0,
 				Validator: isDropboxDl0link,

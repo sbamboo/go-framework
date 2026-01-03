@@ -799,7 +799,7 @@ function formatBytes(bytes) {
     return `${value.toFixed(2).replace(".00","")} ${units[i]}`;
 }
 
-function populateRow(row, eventData) {
+function populateRow(row, eventData, keepProgressbar = false) {
     // Ensure omitempty fields by nulling them if not present
     if (!eventData.context) eventData.context = null;
     if (!eventData.initiator) eventData.initiator = null;
@@ -845,36 +845,77 @@ function populateRow(row, eventData) {
     statusCell.dataset.prop = "status";
 
     const progressBarCell = cells[1];
-    progressBarCell.innerHTML = "";
-    if (eventData.size === -1) {
-        if (
-            eventData.event_state === "finished" ||
-            eventData.event_state === "retry" ||
-            eventData.event_state === "transfer"
-        ) {
-            progressBarCell.innerHTML = `<div class="loader-progress-bar"></div>`;
-        } else if (
-            eventData.event_state === "established" ||
-            eventData.event_state === "responded"
-        ) {
-            progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-blue"></div>`;
+    if (!keepProgressbar) {
+        progressBarCell.innerHTML = "";
+        if (eventData.size === -1) {
+            if (
+                eventData.event_state === "finished" ||
+                eventData.event_state === "retry" ||
+                eventData.event_state === "transfer"
+            ) {
+                progressBarCell.innerHTML = `<div class="loader-progress-bar"></div>`;
+            } else if (
+                eventData.event_state === "established" ||
+                eventData.event_state === "responded"
+            ) {
+                progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-blue"></div>`;
+            } else {
+                progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-gray"></div>`;
+            }
         } else {
-            progressBarCell.innerHTML = `<div class="loader-progress-bar loader-progress-bar-gray"></div>`;
+            if (
+                eventData.event_state === "finished" ||
+                eventData.event_state === "retry" ||
+                eventData.event_state === "transfer"
+            ) {
+                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>`;
+            } else if (
+                eventData.event_state === "established" ||
+                eventData.event_state === "responded"
+            ) {
+                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: ${progress}%"></div></div>`;
+            } else {
+                progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: ${progress}%"></div></div>`;
+            }
         }
     } else {
-        if (
-            eventData.event_state === "finished" ||
-            eventData.event_state === "retry" ||
-            eventData.event_state === "transfer"
-        ) {
-            progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>`;
-        } else if (
-            eventData.event_state === "established" ||
-            eventData.event_state === "responded"
-        ) {
-            progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-blue" style="width: ${progress}%"></div></div>`;
+        let progressBarCellLoader;
+        const classes = [];
+        if (eventData.size === -1) {
+            progressBarCellLoader = progressBarCell.querySelector(".loader-progress-bar");
+            if (
+                eventData.event_state === "finished" ||
+                eventData.event_state === "retry" ||
+                eventData.event_state === "transfer"
+            ) {
+                classes.push("loader-progress-bar")
+            } else if (
+                eventData.event_state === "established" ||
+                eventData.event_state === "responded"
+            ) {
+                classes.push("loader-progress-bar", "loader-progress-bar-blue")
+            } else {
+                classes.push("loader-progress-bar", "loader-progress-bar-gray")
+            }
         } else {
-            progressBarCell.innerHTML = `<div class="progress-bar"><div class="progress-fill progress-fill-gray" style="width: ${progress}%"></div></div>`;
+            progressBarCellLoader = progressBarCell.querySelector(".progress-fill");
+            if (
+                eventData.event_state === "finished" ||
+                eventData.event_state === "retry" ||
+                eventData.event_state === "transfer"
+            ) {
+                classes.push("progress-fill")
+            } else if (
+                eventData.event_state === "established" ||
+                eventData.event_state === "responded"
+            ) {
+                classes.push("progress-fill", "progress-fill-blue")
+            } else {
+                classes.push("progress-fill", "progress-fill-gray")
+            }
+        }
+        if (progressBarCellLoader) {
+            progressBarCellLoader.className = classes.join(' ');
         }
     }
     progressBarCell.dataset.prop = "progress";
@@ -1094,13 +1135,15 @@ updateNetworkRow = (msg) => {
     if (!id || !properties) return;
 
     const existingData = networkEvents.get(id) || {};
+    const previousSize = existingData.size ?? -1;
     Object.assign(existingData, properties);
     networkEvents.set(id, existingData);
 
     // Update the existing row with data-id = id (base id row)
     const baseRow = document.querySelector(`tr[data-id="${existingData.__uniqueId__}"]`);
     if (baseRow) {
-        populateRow(baseRow, existingData);
+        const keepProgressbar = previousSize === -1 && (existingData.size ?? -1) === -1;
+        populateRow(baseRow, existingData, keepProgressbar);
         applyColumnVisibility(); // Re-apply visibility after populating
     } else {
         // No base id row exists, create it now with base id
