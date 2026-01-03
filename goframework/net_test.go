@@ -12,7 +12,7 @@ import (
 // -- Helpers --
 func Ptr[T any](v T) *T { return &v }
 
-func SetupFramework() *Framework {
+func SetupFramework(netOptions *NetFetchOptions) *Framework {
 	config := &FrameworkConfig{
 		DebugSendPort:   9000,
 		DebugListenPort: 9001,
@@ -21,10 +21,11 @@ func SetupFramework() *Framework {
 		LoggerFormat:   nil,
 		LoggerCallable: nil,
 
-		NetFetchOptions: (&NetFetchOptions{}).Default(),
+		NetFetchOptions: netOptions,
 
 		LogFrameworkInternalErrors: true,
 	}
+	config.NetFetchOptions.DebuggerInterval = 10
 
 	return NewFramework(config)
 }
@@ -47,13 +48,18 @@ func printTestCaseHeader(name string) {
 }
 
 func TestNet(t *testing.T) {
-	fw := SetupFramework()
+	netOptions := (&NetFetchOptions{}).Default()
+	netOptions.DebuggerInterval = 10
+	
+	fw := SetupFramework(netOptions)
 
 	fw.Debugger.Activate()
 
 	// ---
 
 	testURL := "http://example.com"
+	// largeFileTestURL := "https://drive.google.com/uc?export=download&id=17ruClyBUyGFMQd0zCCNEPoBg9AN-pHuq&confirm=t"
+	// largeFileTestURL := "https://www.dropbox.com/scl/fi/jptq8pvkxlmk71o5w8lbz/custom_item_test.zip?rlkey=9ijo6rl6g2g36fyyn9d55sw33&e=2&st=23vt9ah5&dl=0"
 	largeFileTestURL := "https://proof.ovh.net/files/1Mb.dat"
 
 	var marqueeState int
@@ -156,7 +162,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 1 ---
 	printTestCaseHeader("Test Case 1: Fetch content; not stream; not file; not progressor")
-	report, err := fw.Net.Fetch(MethodGet, testURL, false, false, nil, myProgressor, nil, Ptr("test.1"), nil, (&NetFetchOptions{}).Default())
+	report, err := fw.Net.Fetch(MethodGet, testURL, false, false, nil, myProgressor, nil, Ptr("test.1"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 1 failed: %v", err)
 	} else {
@@ -164,12 +170,16 @@ func TestNet(t *testing.T) {
 		if len(content) == 0 {
 			t.Errorf("Test Case 1 failed: content is empty")
 		}
-		fmt.Printf("Test Case 1 output (first 100 chars): %s...\n", content[:100])
+		end := 100
+		if len(content) < 100 {
+			end = len(content)
+		}
+		fmt.Printf("Test Case 1 output (first %d chars): %s...\n", end, content[:end])
 	}
 
 	// --- Test Case 2 ---
 	printTestCaseHeader("Test Case 2: Fetch content; not stream; not file; with progressor")
-	report, err = fw.Net.Fetch(MethodGet, testURL, false, false, nil, myProgressor, nil, Ptr("test.2"), nil, (&NetFetchOptions{}).Default())
+	report, err = fw.Net.Fetch(MethodGet, testURL, false, false, nil, myProgressor, nil, Ptr("test.2"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 2 failed: %v", err)
 	} else {
@@ -177,12 +187,16 @@ func TestNet(t *testing.T) {
 		if len(content) == 0 {
 			t.Errorf("Test Case 2 failed: content is empty")
 		}
-		fmt.Printf("Test Case 2 output (first 100 chars): %s...\n", content[:100])
+		end := 100
+		if len(content) < 100 {
+			end = len(content)
+		}
+		fmt.Printf("Test Case 2 output (first %d chars): %s...\n", end, content[:end])
 	}
 
 	// --- Test Case 3 ---
 	printTestCaseHeader("Test Case 3: Fetch content; stream; not file; not progressor")
-	report, err = fw.Net.Fetch(MethodGet, testURL, true, false, nil, nil, nil, Ptr("test.3"), nil, (&NetFetchOptions{}).Default())
+	report, err = fw.Net.Fetch(MethodGet, testURL, true, false, nil, nil, nil, Ptr("test.3"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 3 failed: %v", err)
 	} else {
@@ -196,7 +210,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 4 ---
 	printTestCaseHeader("Test Case 4: Fetch content; stream; not file; with progressor")
-	report, err = fw.Net.Fetch(MethodGet, largeFileTestURL, true, false, nil, myProgressor, nil, Ptr("test.4"), nil, (&NetFetchOptions{}).Default())
+	report, err = fw.Net.Fetch(MethodGet, largeFileTestURL, true, false, nil, myProgressor, nil, Ptr("test.4"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 4 failed: %v", err)
 	} else {
@@ -219,7 +233,7 @@ func TestNet(t *testing.T) {
 	if defaultFileName == "" || defaultFileName == "." || defaultFileName == "/" {
 		defaultFileName = "fetched_content"
 	}
-	_, err = fw.Net.Fetch(MethodGet, testURL, false, true, nil, nil, nil, Ptr("test.5"), nil, (&NetFetchOptions{}).Default())
+	_, err = fw.Net.Fetch(MethodGet, testURL, false, true, nil, nil, nil, Ptr("test.5"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 5 failed: %v", err)
 	} else {
@@ -229,7 +243,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 6 ---
 	printTestCaseHeader("Test Case 6: Fetch content; not stream; to file; default path; with progressor")
-	_, err = fw.Net.Fetch(MethodGet, testURL, false, true, nil, myProgressor, nil, Ptr("test.6"), nil, (&NetFetchOptions{}).Default())
+	_, err = fw.Net.Fetch(MethodGet, testURL, false, true, nil, myProgressor, nil, Ptr("test.6"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 6 failed: %v", err)
 	} else {
@@ -239,7 +253,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 7 ---
 	printTestCaseHeader("Test Case 7: Fetch content; stream; to file; default path; not progressor")
-	irep, err := fw.Net.Fetch(MethodGet, largeFileTestURL, true, true, nil, nil, nil, Ptr("test.7"), nil, (&NetFetchOptions{}).Default())
+	irep, err := fw.Net.Fetch(MethodGet, largeFileTestURL, true, true, nil, nil, nil, Ptr("test.7"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 7 failed: %v", err)
 		// fmt.Println("#if this panics investigate, known to sometimes err.500")
@@ -256,7 +270,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 8 ---
 	printTestCaseHeader("Test Case 8: Fetch content; stream; to file; default path; with progressor")
-	irep, err = fw.Net.Fetch(MethodGet, largeFileTestURL, true, true, nil, myProgressor, nil, Ptr("test.8"), nil, (&NetFetchOptions{}).Default())
+	irep, err = fw.Net.Fetch(MethodGet, largeFileTestURL, true, true, nil, myProgressor, nil, Ptr("test.8"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 8 failed: %v", err)
 		// fmt.Println("#if this panics investigate, known to sometimes err.500")
@@ -280,7 +294,7 @@ func TestNet(t *testing.T) {
 		myProgressor(progressPtr, err)
 	}
 
-	irep, err = fw.Net.Fetch(MethodGet, largeFileTestURL, true, true, nil, myProgressorOverrideSize, nil, Ptr("test.9"), nil, (&NetFetchOptions{}).Default())
+	irep, err = fw.Net.Fetch(MethodGet, largeFileTestURL, true, true, nil, myProgressorOverrideSize, nil, Ptr("test.9"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 9 failed: %v", err)
 	} else {
@@ -296,7 +310,7 @@ func TestNet(t *testing.T) {
 	// --- Test Case 10 ---
 	printTestCaseHeader("Test Case 10: Fetch content; stream; to file; custom path; with progressor")
 	customFilePath := "custom_10mb.dat"
-	irep, err = fw.Net.Fetch(MethodGet, largeFileTestURL, true, true, &customFilePath, myProgressor, nil, Ptr("test.10"), nil, (&NetFetchOptions{}).Default())
+	irep, err = fw.Net.Fetch(MethodGet, largeFileTestURL, true, true, &customFilePath, myProgressor, nil, Ptr("test.10"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 10 failed: %v", err)
 	} else {
@@ -310,7 +324,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 11 ---
 	printTestCaseHeader("Test Case 11: Invalid URL")
-	_, err = fw.Net.Fetch(MethodGet, "http://invalid.url.invalid", false, false, nil, nil, nil, Ptr("test.11"), nil, (&NetFetchOptions{}).Default())
+	_, err = fw.Net.Fetch(MethodGet, "http://invalid.url.invalid", false, false, nil, nil, nil, Ptr("test.11"), nil, netOptions)
 	if err == nil {
 		t.Errorf("Test Case 11 failed: expected error for invalid URL")
 	} else {
@@ -319,7 +333,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 12 ---
 	printTestCaseHeader("Test Case 12: Invalid URL with streaming attempt")
-	irep, err = fw.Net.Fetch(MethodGet, "http://invalid.url.invalid", true, false, nil, nil, nil, Ptr("test.12"), nil, (&NetFetchOptions{}).Default())
+	irep, err = fw.Net.Fetch(MethodGet, "http://invalid.url.invalid", true, false, nil, nil, nil, Ptr("test.12"), nil, netOptions)
 	if err == nil {
 		irep.Close()
 		t.Errorf("Test Case 12 failed: expected error for invalid URL with streaming")
@@ -332,7 +346,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 13 ---
 	printTestCaseHeader("Test Case 13: Non-OK HTTP Status (e.g., 404)")
-	_, err = fw.Net.Fetch(MethodGet, "http://example.com/nonexistentpage404", false, false, nil, nil, nil, Ptr("test.13"), nil, (&NetFetchOptions{}).Default())
+	_, err = fw.Net.Fetch(MethodGet, "http://example.com/nonexistentpage404", false, false, nil, nil, nil, Ptr("test.13"), nil, netOptions)
 	if err == nil {
 		t.Errorf("Test Case 13 failed: expected error for 404 status")
 	} else {
@@ -341,7 +355,7 @@ func TestNet(t *testing.T) {
 
 	// --- Test Case 14 ---
 	printTestCaseHeader("Test Case 14: Fetch blob; not stream; not file; with progressor")
-	report, err = fw.Net.Fetch(MethodGet, largeFileTestURL, false, false, nil, myProgressor, nil, Ptr("test.14"), nil, (&NetFetchOptions{}).Default())
+	report, err = fw.Net.Fetch(MethodGet, largeFileTestURL, false, false, nil, myProgressor, nil, Ptr("test.14"), nil, netOptions)
 	if err != nil {
 		t.Errorf("Test Case 2 failed: %v", err)
 	} else {
@@ -349,7 +363,11 @@ func TestNet(t *testing.T) {
 		if len(content) == 0 {
 			t.Errorf("Test Case 2 failed: content is empty")
 		}
-		fmt.Printf("Test Case 2 output (first 100 chars): %s...\n", content[:100])
+		end := 100
+		if len(content) < 100 {
+			end = len(content)
+		}
+		fmt.Printf("Test Case 2 output (first %d chars): %s...\n", end, content[:end])
 	}
 	if report != nil {
 		report.Close()

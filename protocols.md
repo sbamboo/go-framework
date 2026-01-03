@@ -112,7 +112,8 @@ NETEVENT: (Except for `net:start` all fields are optional and id allowed)
     "event_success": bool, // Is the event result successfull?
     "event_step_current": int | NULL, // If the event is stepped in progress what is the current step
     "event_step_max": int | NULL, // If the event is stepped in progress what is the amax step
-    "event_step_mode": "auto" | "manual" // Is step automatically determined by transferred/size
+    "event_step_mode": "auto" | "manual", // Is step automatically determined by transferred/size
+    "interrupted": bool // Have the event been interrupted by an internal handler
 }
 ```
 

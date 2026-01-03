@@ -54,6 +54,7 @@ func SetupFramework() *libfw.Framework {
 	}
 
 	netOptions := (&libfw.NetFetchOptions{}).Default()
+	netOptions.DebuggerInterval = 10
 
 	config := &libfw.FrameworkConfig{
 		DebugSendPort:          9000,
@@ -457,7 +458,7 @@ func main() {
 			filePath := strings.TrimSpace(parts[2])
 			stream := strings.HasPrefix(lct, "sff:")
 
-			_, err := fw.Net.Fetch(
+			report, err := fw.Net.Fetch(
 				method, url,
 				stream, true, // write to file
 				&filePath, // target filename
@@ -465,6 +466,9 @@ func main() {
 				nil, nil, nil,
 				fw.Config.NetFetchOptions,
 			)
+			if report != nil && stream {
+				report.Close()
+			}
 			if err != nil {
 				fmt.Println("[ERR]", err)
 				return nil

@@ -1,6 +1,7 @@
 package goframework_net
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -13,6 +14,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	fwcommon "github.com/sbamboo/goframework/common"
@@ -94,36 +97,52 @@ func (npr *NetProgressReport) ResetSteppingCurrent() {
 	}
 }
 
-// Read implements the io.Reader interface for NetProgressReport.
-func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
-	pr.Event.EventState = fwcommon.NetStateTransfer
-	n, err = pr.Response.Body.Read(p)
-	if n > 0 {
-		pr.Event.Transferred += int64(n)
-		
-		duration := time.Since(pr.Event.MetaGotFirstResp).Seconds()
-		if duration > 0 {
-			pr.Event.MetaSpeed = float64(n*8) / duration / 1_000_000
-		}
+func (pr *NetProgressReport) LenRead(p []byte, start int, maxLen int) (n int, err error) {
+    pr.Event.EventState = fwcommon.NetStateTransfer
+
+    if start < 0 || start > len(p) {
+        return 0, fmt.Errorf("invalid start index %d for buffer of length %d", start, len(p))
+    }
+
+    readBuf := p[start:]
+    if maxLen >= 0 && maxLen < len(readBuf) {
+        readBuf = readBuf[:maxLen]
+    }
+
+    if len(readBuf) == 0 {
+        return 0, nil
+    }
+
+    n, err = pr.Response.Body.Read(readBuf)
+    if n > 0 {
+        pr.Event.Transferred += int64(n)
+
+        duration := time.Since(pr.Event.MetaGotFirstResp).Seconds()
+        if duration > 0 {
+            pr.Event.MetaSpeed = float64(n*8) / duration / 1_000_000
+        }
 
 		// If EventStepMax is not nil calc EventStepCurrent
-		pr.Event.CalcStep()
+        pr.Event.CalcStep()
 
-		if pr.progressor != nil {
-			pr.progressor(pr, nil)
+        if pr.progressor != nil {
+            pr.progressor(pr, nil)
+        } else {
+			// Progress to debugger
+			callNetUpdateFull(pr.debPtr, pr)
 		}
-	}
+    }
 
-	if err != nil {
-		if err == io.EOF && pr.Event.NetFetchOptions.AutoReadEOFClose {
-			pr.Close()
-		}
+    if err != nil {
+        if err == io.EOF && pr.Event.NetFetchOptions.AutoReadEOFClose {
+            pr.Close()
+        }
 
-		if err != io.EOF {
-			pr.Event.EventState = fwcommon.NetStateFailed
-		}
+        if err != io.EOF {
+            pr.Event.EventState = fwcommon.NetStateFailed
+        }
 
-		if pr.progressor != nil {
+        if pr.progressor != nil {
 			if err == io.EOF {
 				pr.progressor(pr, nil)
 			} else {
@@ -136,8 +155,14 @@ func (pr *NetProgressReport) Read(p []byte) (n int, err error) {
 		if err != io.EOF {
 			pr.errorWrapper(err)
 		}
-	}
-	return n, err
+    }
+
+    return n, err
+}
+
+// Read implements the io.Reader interface for NetProgressReport.
+func (pr *NetProgressReport) Read(p []byte) (int, error) {
+	return pr.LenRead(p, 0, -1)
 }
 
 // Close implements the io.Closer interface for NetProgressReport.
@@ -186,6 +211,8 @@ type NetHandler struct {
 	deb        fwcommon.DebuggerInterface // Pointer
 	log        fwcommon.LoggerInterface   // Pointer
 	progressor fwcommon.ProgressorFn
+
+	prefixHandlers []fwcommon.ResponsePrefixHandler
 }
 
 // Implements: fwcommon.FetcherInterface
@@ -195,6 +222,25 @@ func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInt
 		deb:        debPtr,
 		log:        logPtr,
 		progressor: progressor,
+
+		prefixHandlers: []fwcommon.ResponsePrefixHandler{
+			{
+				Name: "gdrive",
+				PrefixLen: 100,
+				Validator: isGoogleDriveWarning,
+				Parser: parseGoogleDriveConfirm,
+				ContentTypeContains: "text/html",
+				NeedsContent: true,
+			},
+			{
+				Name: "dropbox",
+				PrefixLen: 0,
+				Validator: isDropboxDl0link,
+				Parser: parseDropboxDl0link,
+				ContentTypeContains: "text/html",
+				NeedsContent: false,
+			},
+		},
 	}
 }
 
@@ -223,11 +269,16 @@ func callNetUpdateFull(debPtr fwcommon.DebuggerInterface, progressPtr fwcommon.N
 	}
 }
 
-func (nh *NetHandler) DebUpdateFull(progressPtr fwcommon.NetworkProgressReportInterface) {
+func (nh *NetHandler) RegisterPrefixHandler(h fwcommon.ResponsePrefixHandler) {
+    nh.prefixHandlers = append(nh.prefixHandlers, h)
+}
+
+func (nh *NetHandler) debUpdateFull(progressPtr fwcommon.NetworkProgressReportInterface) {
 	callNetUpdateFull(nh.deb, progressPtr)
 }
 
-func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
+// The core network request function
+func (nh *NetHandler) FetchWithoutHandlers(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
 	// If options is nil set options to point to nh.config.NetFetchOptions
 	if options == nil {
 		options = nh.config.NetFetchOptions
@@ -249,7 +300,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 	if progressor != nil {
 		progressor = func(progressPtr fwcommon.NetworkProgressReportInterface, err error) {
 			// Relay progress
-			nh.DebUpdateFull(progressPtr)
+			nh.debUpdateFull(progressPtr)
 
 			// Call original progressor
 			event := progressPtr.GetNetworkEvent()
@@ -331,7 +382,11 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 
 		// Define Scheme
 		if resolveAdditionalInfo {
-			u, _ := url.Parse(remoteUrl)
+			u, err := url.Parse(remoteUrl)
+			progress.Event.EventState = fwcommon.NetStateFailed
+			if err != nil || u.Host == "" || u == nil {
+				return &progress, fmt.Errorf("invalid URL: %s", remoteUrl)
+			}
 			progress.Event.Scheme = u.Scheme
 		}
 
@@ -349,7 +404,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			if progressor != nil {
 				progressor(&progress, nil)
 			} else {
-				nh.DebUpdateFull(&progress)
+				nh.debUpdateFull(&progress)
 			}
 		}
 
@@ -405,7 +460,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		// DNS pre-check
 		if options.DNSPreCheck {
 			u, err := url.Parse(remoteUrl)
-			if err != nil || u.Host == "" {
+			if err != nil || u.Host == "" || u == nil {
 				return &progress, fmt.Errorf("invalid URL: %s", remoteUrl)
 			}
 			host := u.Hostname()
@@ -421,7 +476,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			if progressor != nil {
 				progressor(&progress, fmt.Errorf("failed to create request: %w", err))
 			} else {
-				nh.DebUpdateFull(&progress)
+				nh.debUpdateFull(&progress)
 			}
 			return &progress, nh.logThroughError(fmt.Errorf("failed to create request: %w", err))
 		}
@@ -467,7 +522,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			if progressor != nil {
 				progressor(&progress, err)
 			} else {
-				nh.DebUpdateFull(&progress)
+				nh.debUpdateFull(&progress)
 			}
 			return &progress, nh.logThroughError(fmt.Errorf("failed to fetch URL: %w", err))
 		}
@@ -511,7 +566,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		if progressor != nil {
 			progressor(&progress, nil)
 		} else {
-			nh.DebUpdateFull(&progress)
+			nh.debUpdateFull(&progress)
 		}
 
 		if !stream {
@@ -525,7 +580,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 			if progressor != nil {
 				progressor(&progress, fmt.Errorf("non-OK status: %s", resp.Status))
 			} else {
-				nh.DebUpdateFull(&progress)
+				nh.debUpdateFull(&progress)
 			}
 			return &progress, nh.logThroughError(fmt.Errorf("received non-OK HTTP status: %s", resp.Status))
 		}
@@ -540,7 +595,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 		if progressor != nil {
 			progressor(&progress, nil)
 		} else {
-			nh.DebUpdateFull(&progress)
+			nh.debUpdateFull(&progress)
 		}
 
 		lastProgress = progress
@@ -577,7 +632,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 					if progressor != nil {
 						progressor(&progress, fmt.Errorf("failed to get working directory: %w", err))
 					} else {
-						nh.DebUpdateFull(&progress)
+						nh.debUpdateFull(&progress)
 					}
 					return &progress, nh.logThroughError(fmt.Errorf("failed to get working directory: %w", err))
 				}
@@ -592,7 +647,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 				if progressor != nil {
 					progressor(&progress, fmt.Errorf("failed to create output file %s: %w", outputPath, err))
 				} else {
-					nh.DebUpdateFull(&progress)
+					nh.debUpdateFull(&progress)
 				}
 				return &progress, nh.logThroughError(fmt.Errorf("failed to create output file %s: %w", outputPath, err))
 			}
@@ -616,7 +671,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 					if progressor != nil {
 						progressor(&progress, fmt.Errorf("failed to write to file %s: %w", outputPath, writeErr))
 					} else {
-						nh.DebUpdateFull(&progress)
+						nh.debUpdateFull(&progress)
 					}
 					return &progress, nh.logThroughError(fmt.Errorf("failed to write to file %s: %w", outputPath, writeErr))
 				}
@@ -634,6 +689,281 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 
 	// If we got here, all retries failed due to timeout
 	return &lastProgress, nh.logThroughError(lastErr)
+}
+
+// Internal helper function made to provide the correct interface from fallbacks when using `Fetch()`
+func (nh *NetHandler) _outerFetchInterfaceMatcher(bufferSize int, irep fwcommon.NetworkProgressReportInterface, err error, stream bool, file bool, fileout *string) (fwcommon.NetworkProgressReportInterface, error) {
+	// Takes in a report that is stream=True, file=False, fileout=nil and turns into requested
+	// If stream!=True and file=True and fileout!=nil we consume irep fully and write to file
+	// If stream!=True and file=False we just consume irep fully, set content and return
+	// If stream=True and file=True and fileout!=nil we stream irep to the file
+	// If stream=True and file=False we just return irep,err
+
+	if irep == nil {
+		return nil, err
+	}
+
+	// STREAM = true, FILE = false: just return the irep
+	if stream && !file {
+		return irep, err
+	}
+
+	progress, ok := irep.(*NetProgressReport)
+	if !ok {
+		return nil, fmt.Errorf("expected *NetProgressReport for streaming-to-file")
+	}
+
+	if file && fileout != nil {
+
+		f, openErr := os.Create(*fileout)
+		if openErr != nil {
+
+			progress.Event.EventState = fwcommon.NetStateFailed
+			if progress.progressor != nil {
+				progress.progressor(progress, openErr)
+			} else {
+				nh.debUpdateFull(progress)
+			}
+
+			return nil, nh.logThroughError(openErr)
+		}
+		defer f.Close()
+
+		if stream {
+			// STREAM = true, FILE = true: write to file while streaming
+			writeErr := writeStream(f, progress, bufferSize)
+			if writeErr != nil {
+				irep.Close()
+				return nil, nh.logThroughError(writeErr)
+			}
+
+			// Fully consumed, close the original body
+			irep.Close()
+
+			return irep, nil
+
+		} else {
+			// STREAM = false, FILE = true: io.Readall then write to f
+			bodyBytes, readErr := io.ReadAll(irep)
+			if readErr != nil {
+				return irep, fmt.Errorf("failed to read response body: %w", readErr) // Error already handled by .Read() in .ReadAll()
+			}
+
+			_, writeErr := f.Write(bodyBytes)
+			if writeErr != nil {
+				progress.Event.EventState = fwcommon.NetStateFailed
+				if progress.progressor != nil {
+					progress.progressor(progress, fmt.Errorf("failed to write to file %s: %w", *fileout, writeErr))
+				} else {
+					nh.debUpdateFull(progress)
+				}
+				return irep, nh.logThroughError(fmt.Errorf("failed to write to file %s: %w", *fileout, writeErr))
+			}
+
+			// Fully consumed, close the original body
+			irep.Close()
+
+			return irep, nil
+		}
+	} else {
+		// STREAM = false, FILE = false: io.Readall set as content and return
+		bodyBytes, readErr := io.ReadAll(irep)
+		if readErr != nil {
+			return irep, fmt.Errorf("failed to read response body: %w", readErr) // Error already handled by .Read() in .ReadAll()
+		}
+
+		progress.Content = fwcommon.Ptr(string(bodyBytes))
+
+		progress.Event.EventState = fwcommon.NetStateFinished
+		if progress.progressor != nil {
+			progress.progressor(progress, nil)
+		} else {
+			nh.debUpdateFull(progress)
+		}
+
+		// Fully consumed, close the original body
+		irep.Close()
+
+		return irep, nil
+	}
+}
+
+// Wraps `FetchWithoutHandlers` with prefix-handlers
+func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
+	nh.log.Debug(remoteUrl);
+	// Make an overriding request with stream=True, file=False
+	irep, err := nh.FetchWithoutHandlers(method, remoteUrl, true, false, nil, progressor, body, contextID, initiator, options)
+	
+	// If there was any errors during the transfer we can just return
+	if err != nil {
+		if irep != nil {
+			irep.Close() // Ensure close
+		}
+		return irep, err
+	}
+	if irep == nil {
+		return irep, err
+	}
+
+	resp := irep.GetResponse()
+	event := irep.GetNetworkEvent()
+
+	bufferSize := event.NetFetchOptions.BufferSize
+
+	if bufferSize <= 0 {
+		bufferSize = 32 * 1024
+	}
+
+	// Now that we have a full response object that is known to be stream we can look into the headers and options then stream as we like before returning an interface as requested by the called of Fetch()
+	if resp.Body != nil && len(nh.prefixHandlers) > 0 && event.NetFetchOptions.EnabledPrefixHandlers != nil && len(event.NetFetchOptions.EnabledPrefixHandlers) > 0 {
+		ct := resp.Header.Get("Content-Type")
+			
+		enabledHandlers := []fwcommon.ResponsePrefixHandler{}
+		maxPrefix := -1
+
+		for _, h := range nh.prefixHandlers {
+			if !slices.Contains(event.NetFetchOptions.EnabledPrefixHandlers, h.Name) {
+				continue // not enabled so skip
+			}
+
+			if ct != "" && h.ContentTypeContains != "" && !strings.Contains(ct, h.ContentTypeContains) {
+				continue // Content-Type header existed in response and the handler was registered with a content-type filter and the filter was not contained in the content-type-header we skip
+			}
+
+			if h.PrefixLen < 0 {
+				continue // invalid length
+			}
+
+			enabledHandlers = append(enabledHandlers, h)
+
+			if h.PrefixLen > maxPrefix {
+				maxPrefix = h.PrefixLen
+			}
+		}
+
+		// Since maxPrefix starts with -1 and any handlers that are registered with prefixLen < 0 is ignored if the maxPrefix is still < 0 we dont do anything
+		if len(enabledHandlers) > 0 && maxPrefix > -1 {
+			prefixBuf := make([]byte, maxPrefix)
+			readN := 0
+			if maxPrefix > 0 {
+				// Read up to maxPrefix
+
+				for readN < maxPrefix {
+					n, err := irep.LenRead(prefixBuf, readN, maxPrefix-readN)
+					if n < 0 {
+						n = 0
+					}
+					readN += n
+
+					// Stop if nothing more can be read
+					if n == 0 && err == nil {
+						break
+					}
+
+					if err != nil {
+						if err == io.EOF {
+							break
+						}
+
+						irep.Close() // Ensure closed
+
+						return irep, nh.logThroughError(err)
+					}
+				}
+
+				// Slice safely
+				if readN > len(prefixBuf) {
+					readN = len(prefixBuf)
+				}
+				prefixBuf = prefixBuf[:readN]
+			}
+
+			// Find first matching handler
+			var matchedHandler *fwcommon.ResponsePrefixHandler
+			for _, h := range enabledHandlers {
+				if h.Validator != nil && h.Validator(prefixBuf, resp) {
+					matchedHandler = &h
+					break
+				}
+			}
+
+			// If no matches we continue as usual, else we fetch remaining content (if stream its fully consuming)
+			// Then call the validator .Parse, if the .Parse failed/errored or returned empty URL we return full-original-content / full-replay-stream
+			//   else we set the current progress.Event.Interupted to true, re-call progressor since we changed event state,
+			//   then finally we re-call Fetch() with new url and otherwise all the same parameters
+			matched := matchedHandler != nil && matchedHandler.Parser != nil
+			var newURL string
+			if matched {
+				// Since irep is stream we can read the rest of it
+				fullBuf := append([]byte{}, prefixBuf...)
+
+				// As an optimization prefix-handlers that only rely on the response can just not have the content read further then their prefixSize
+				if matchedHandler.NeedsContent {
+					tmp := make([]byte, bufferSize)
+					for {
+						n, err := irep.LenRead(tmp, 0, -1)
+						if n > 0 {
+							fullBuf = append(fullBuf, tmp[:n]...)
+						}
+						if err != nil {
+							if err == io.EOF {
+								break
+							} else {
+								irep.Close() // Ensure closed
+								return irep, nh.logThroughError(err)
+							}
+						}
+
+						// To prevent infinite loop
+						if n == 0 {
+							break
+						}
+					}
+				}
+
+				// Call parser
+				newURL, err = matchedHandler.Parser(fullBuf, resp)
+				if err != nil {
+					newURL = ""
+					nh.logThroughError(err)
+				}
+
+				// Set interupted attribute
+				if newURL != "" {
+					irep.GetNetworkEvent().Interrupted = true
+					progress, ok := irep.(*NetProgressReport)
+					if !ok {
+						return nil, fmt.Errorf("expected *NetProgressReport for streaming-to-file")
+					}
+					if progress.progressor != nil {
+						progress.progressor(progress, nil)
+					} else {
+						nh.debUpdateFull(irep)
+					}
+				}
+
+				if newURL != "" {
+					// Now the irep is fully consumed or not needed anymore
+					irep.Close()
+
+					// Parser returned a URL => fetch
+					return nh.FetchWithoutHandlers(method, newURL, stream, file, fileout, progressor, body, contextID, initiator, options)
+				}
+			}
+			if !matched || newURL == "" {
+				// No handler matched => prepend prefix for further reads
+				if pr, ok := irep.(*NetProgressReport); ok {
+					pr.Response.Body = io.NopCloser(io.MultiReader(
+						bytes.NewReader(prefixBuf[:readN]),
+						pr.Response.Body,
+					))
+				}
+			}
+		}
+	}
+
+	// Incase no matches match-output
+	return nh._outerFetchInterfaceMatcher(bufferSize, irep, err, stream, file, fileout)
 }
 
 // writeStream helps with writing a stream to a file while reporting progress.

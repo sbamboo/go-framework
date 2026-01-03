@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -186,6 +187,7 @@ type NetworkEvent struct {
 	EventStepCurrent *int     `json:"event_step_current,omitempty"`
 	EventStepMax     *int     `json:"event_step_max,omitempty"`
 	EventStepMode    EventStepMode `json:"event_step_mode"`
+	Interrupted      bool `json:"interrupted"`
 }
 
 func (ev *NetworkEvent) CalcStep() {
@@ -479,6 +481,15 @@ type UsageStat struct {
 	MaxNumThreads             int32                  `json:"max_num_threads"`
 }
 
+type ResponsePrefixHandler struct {
+	Name string
+    PrefixLen int
+    Validator func(prefix []byte, resp *http.Response) bool
+    Parser    func(fullBody []byte, resp *http.Response) (newURL string, err error)
+	ContentTypeContains string
+	NeedsContent bool
+}
+
 //MARK: Interfaces
 
 type DebuggerInterface interface {
@@ -500,6 +511,9 @@ type DebuggerInterface interface {
 }
 
 type FetcherInterface interface {
+	RegisterPrefixHandler(h ResponsePrefixHandler)
+
+	FetchWithoutHandlers(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions) (NetworkProgressReportInterface, error)
 	Fetch(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions) (NetworkProgressReportInterface, error)
 
 	AutoFetch(method HttpMethod, url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
@@ -535,6 +549,7 @@ type NetworkProgressReportInterface interface {
 	IncrSteppingCurrent()
 	ResetSteppingCurrent()
 
+	LenRead(p []byte, start int, maxLen int) (n int, err error)
 	Read(p []byte) (n int, err error)
 	Close() error
 }
@@ -578,6 +593,8 @@ type NetFetchOptions struct {
 
 	ProgressorInterval int `json:"progressor_interval"` // How often do we update progressor during transfer (ms, -1 = always)
 	DebuggerInterval   int `json:"debugger_interval"`   // How often do we update debugger during transfer (ms, -1 = always) (only matters if built with debugging)
+
+	EnabledPrefixHandlers []string // Enabled prefix handlers
 }
 
 // Default all values to a sensible empty: BuffSize=32k, SizeOvr:No, Headers:UseDefault, Client:UseBuiltin, InsecureSkipVerify:false, Timeout:No, Context:No, RetryTimeouts:No, DialTimeout:No, EventStepMax:nil, EventStepMode:manual, ProgressorInterval:-1, DebuggerInterval:-1
@@ -595,6 +612,7 @@ func (op *NetFetchOptions) Empty() *NetFetchOptions {
 	op.EventStepMode = EventStepManual
 	op.ProgressorInterval = -1
 	op.DebuggerInterval = -1
+	op.EnabledPrefixHandlers = []string{}
 	return op
 }
 
@@ -613,5 +631,23 @@ func (op *NetFetchOptions) Default() *NetFetchOptions {
 	op.EventStepMode = EventStepAuto
 	op.ProgressorInterval = -1
 	op.DebuggerInterval = -1
+	op.EnabledPrefixHandlers = []string{"gdrive","dropbox"}
 	return op
+}
+
+//MARK: Full Functions
+
+func ExtractBetween(content, pref, suf string) (string, bool) {
+    i := strings.Index(content, pref)
+    if i == -1 {
+        return "", false
+    }
+    i += len(pref)
+
+    j := strings.Index(content[i:], suf)
+    if j == -1 {
+        return "", false
+    }
+
+    return content[i : i+j], true
 }

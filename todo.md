@@ -1,5 +1,5 @@
 # FRAMEWORK
-- Handling around services like gdrive,dropbox,sprend (+ when we interrupt a fetch for ex. GDrive handling set `interupted` to true on the old event and start a new event, when streaming we consume until identifier or not, if identifier consume fully parse and return new fetch stream, if not showhow restore state, if it's done in the report object it gets abit more complicated)
+- Handling around services like gdrive,dropbox,sprend,mediafire
 - Chibit v1 and v2 (split servies) support
 - Add Win32API fields to platform descriptor
 - include old platform features: add .Terminal (with CLI/Terminal capabilities check), should sixel be libsixel?, add console and cli with formatting and escape codes, auto escape-code to windows legacy etc...

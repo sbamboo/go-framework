@@ -899,6 +899,7 @@ function populateRow(row, eventData) {
         "remote_ip",
         "event_state",
         "bool:event_success",
+        "bool:interrupted",
         "meta_retry_attempt",
         "priority",
         "meta_buffer_size",
