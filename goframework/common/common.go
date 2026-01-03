@@ -631,7 +631,7 @@ func (op *NetFetchOptions) Default() *NetFetchOptions {
 	op.EventStepMode = EventStepAuto
 	op.ProgressorInterval = -1
 	op.DebuggerInterval = -1
-	op.EnabledPrefixHandlers = []string{"gdrive","sprend","dropbox"}
+	op.EnabledPrefixHandlers = []string{"gdrive","sprend","dropbox","mediafire"}
 	return op
 }
 

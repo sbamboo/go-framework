@@ -248,6 +248,14 @@ func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInt
 				ContentTypeContains: "text/html",
 				NeedsContent: false,
 			},
+			{
+				Name: "mediafire",
+				PrefixLen: 0,
+				Validator: isMediafireLink,
+				Parser: parseMediafireLink,
+				ContentTypeContains: "text/html",
+				NeedsContent: true,
+			},
 		},
 	}
 }
@@ -798,7 +806,6 @@ func (nh *NetHandler) _outerFetchInterfaceMatcher(bufferSize int, irep fwcommon.
 
 // Wraps `FetchWithoutHandlers` with prefix-handlers
 func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
-	nh.log.Debug(remoteUrl);
 	// Make an overriding request with stream=True, file=False
 	irep, err := nh.FetchWithoutHandlers(method, remoteUrl, true, false, nil, progressor, body, contextID, initiator, options)
 	

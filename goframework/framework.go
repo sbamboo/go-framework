@@ -109,3 +109,7 @@ type UsageStat = fwcommon.UsageStat
 func GetUsageStats() (*fwcommon.UsageStat, error) {
 	return fwplatform.GetUsageStats()
 }
+
+type ResponsePrefixHandler = fwcommon.ResponsePrefixHandler
+
+var ExtractBetween = fwcommon.ExtractBetween

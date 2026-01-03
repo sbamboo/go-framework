@@ -147,3 +147,22 @@ func parseSprendLink(_ []byte, resp *http.Response) (string, error) {
 
     // return "", fmt.Errorf("sprend: Failed to parse url.")
 }
+
+func isMediafireLink(_ []byte, resp *http.Response) bool {
+    url := resp.Request.URL.String()
+    // https://www.mediafire.com/file/{id}/{filename}/file | https://www.mediafire.com/file/{id}/{filename}
+
+    return strings.HasPrefix(url, strings.TrimSpace("https://www.mediafire.com/file/"))
+}
+
+func parseMediafireLink(body []byte, _ *http.Response) (string, error) {
+    s := string(body)
+
+    // Extract download link
+    downloadUrl, ok := fwcommon.ExtractBetween(s, `href="https://download937.mediafire.com/`, `id="downloadButton"`)
+    if !ok {
+        return "", fmt.Errorf("mediafire: download link not found")
+    }
+
+    return "https://download937.mediafire.com/" + strings.TrimSuffix(strings.TrimSpace(downloadUrl), `"`), nil
+}
