@@ -488,6 +488,7 @@ type ResponsePrefixHandler struct {
     Parser    func(fullBody []byte, respUrl string) (newURL string, err error)
 	ContentTypeContains string
 	NeedsContent bool
+	FilterForUrls []string
 }
 
 //MARK: Interfaces

@@ -231,6 +231,7 @@ func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInt
 				Parser: parseGoogleDriveConfirm,
 				ContentTypeContains: "text/html",
 				NeedsContent: true,
+				FilterForUrls: []string{"drive.google.com", "drive.usercontent.google.com"},
 			},
 			{
 				Name: "sprend",
@@ -239,6 +240,7 @@ func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInt
 				Parser: parseSprendLink,
 				ContentTypeContains: "text/html",
 				NeedsContent: false,
+				FilterForUrls: []string{"sprend.com"},
 			},
 			{
 				Name: "dropbox",
@@ -247,6 +249,7 @@ func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInt
 				Parser: parseDropboxDl0link,
 				ContentTypeContains: "text/html",
 				NeedsContent: false,
+				FilterForUrls: []string{"www.dropbox.com"},
 			},
 			{
 				Name: "mediafire",
@@ -255,6 +258,7 @@ func NewNetHandler(config *fwcommon.FrameworkConfig, debPtr fwcommon.DebuggerInt
 				Parser: parseMediafireLink,
 				ContentTypeContains: "text/html",
 				NeedsContent: true,
+				FilterForUrls: []string{"www.mediafire.com"},
 			},
 		},
 	}
@@ -849,6 +853,24 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 
 			if ct != "" && h.ContentTypeContains != "" && !strings.Contains(ct, h.ContentTypeContains) {
 				continue // Content-Type header existed in response and the handler was registered with a content-type filter and the filter was not contained in the content-type-header we skip
+			}
+
+			if len(h.FilterForUrls) > 0 {
+				// Is any part in FilterForUrls ([]string) in `resp.Request.URL.String()`
+				anyFound := false
+				urlStr := resp.Request.URL.String()
+				nh.log.Debug(urlStr)
+				for _, filter := range h.FilterForUrls {
+					nh.log.Debug(filter)
+					if strings.Contains(urlStr, filter) {
+						// match found
+						anyFound = true
+						break
+					}
+				}
+				if !anyFound {
+					continue
+				}
 			}
 
 			if h.PrefixLen < 0 {
