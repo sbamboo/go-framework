@@ -58,8 +58,6 @@ func TestNet(t *testing.T) {
 	// ---
 
 	testURL := "http://example.com"
-	// largeFileTestURL := "https://drive.google.com/uc?export=download&id=17ruClyBUyGFMQd0zCCNEPoBg9AN-pHuq&confirm=t"
-	// largeFileTestURL := "https://www.dropbox.com/scl/fi/jptq8pvkxlmk71o5w8lbz/custom_item_test.zip?rlkey=9ijo6rl6g2g36fyyn9d55sw33&e=2&st=23vt9ah5&dl=0"
 	largeFileTestURL := "https://proof.ovh.net/files/1Mb.dat"
 
 	var marqueeState int

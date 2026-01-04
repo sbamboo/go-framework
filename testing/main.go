@@ -377,6 +377,8 @@ func main() {
 				fmt.Println("[ERR] Invalid format. Use f:<METHOD>,<URL> or sf:<METHOD>,<URL>")
 				return nil
 			}
+			
+			fmt.Println()
 
 			_method := strings.ToUpper(strings.TrimSpace(parts[0]))
 			method := libfw.MethodGet
@@ -440,6 +442,8 @@ func main() {
 				fmt.Println("[ERR] Invalid format. Use ff:<METHOD>,<URL>,<FILENAME> or sff:<METHOD>,<URL>,<FILENAME>")
 				return nil
 			}
+
+			fmt.Println()
 
 			_method := strings.ToUpper(strings.TrimSpace(parts[0]))
 			method := libfw.MethodGet
