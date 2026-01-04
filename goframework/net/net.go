@@ -313,7 +313,7 @@ func (nh *NetHandler) debUpdateFull(progressPtr fwcommon.NetworkProgressReportIn
 }
 
 // The core network request function
-func (nh *NetHandler) FetchWithoutHandlers(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
+func (nh *NetHandler) FetchWithoutHandlers(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions, parentID *string) (fwcommon.NetworkProgressReportInterface, error) {
 	// If options is nil set options to point to nh.config.NetFetchOptions
 	if options == nil {
 		options = nh.config.NetFetchOptions
@@ -371,6 +371,7 @@ func (nh *NetHandler) FetchWithoutHandlers(method fwcommon.HttpMethod, remoteUrl
 		progress := NetProgressReport{
 			Event: &fwcommon.NetworkEvent{
 				ID:        fmt.Sprintf("Fw.Net.Fetch:%d", fwcommon.FrameworkIndexes.GetNewOfIndex("netevent")),
+				Parent:    parentID,
 				Context:   contextID,
 				Initiator: initiator,
 				Method:    method,
@@ -833,9 +834,9 @@ func (nh *NetHandler) _outerFetchInterfaceMatcher(bufferSize int, irep fwcommon.
 }
 
 // Wraps `FetchWithoutHandlers` with prefix-handlers
-func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions) (fwcommon.NetworkProgressReportInterface, error) {
+func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions, parentID *string) (fwcommon.NetworkProgressReportInterface, error) {
 	// Make an overriding request with stream=True, file=False
-	irep, err := nh.FetchWithoutHandlers(method, remoteUrl, true, false, nil, progressor, body, contextID, initiator, options)
+	irep, err := nh.FetchWithoutHandlers(method, remoteUrl, true, false, nil, progressor, body, contextID, initiator, options, parentID)
 	
 	// If there was any errors during the transfer we can just return
 	if err != nil {
@@ -1008,7 +1009,7 @@ func (nh *NetHandler) Fetch(method fwcommon.HttpMethod, remoteUrl string, stream
 					irep.Close()
 
 					// Parser returned a URL => fetch
-					return nh.FetchWithoutHandlers(method, newURL, stream, file, fileout, progressor, body, contextID, initiator, options)
+					return nh.FetchWithoutHandlers(method, newURL, stream, file, fileout, progressor, body, contextID, initiator, options, &irep.GetNetworkEvent().ID)
 				}
 			}
 			if !matched || newURL == "" {
@@ -1092,7 +1093,7 @@ func writeStream(dst io.Writer, progress *NetProgressReport, bufferSize int) err
 func (nh *NetHandler) AutoFetch(method fwcommon.HttpMethod, url string, stream bool, file bool, fileout *string, body io.Reader) (fwcommon.NetworkProgressReportInterface, error) {
 	// Options can be nil since NetHandler.Fetch auto's it to NetHandler.Config
 	// progressor can be nil since NetHandler.Fetch auto's it to NetHandler.progressor
-	return nh.Fetch(method, url, stream, file, fileout, nil, body, fwcommon.Ptr(fmt.Sprintf("Fw.Net.AutoFetch.%s", method)), nil, nil)
+	return nh.Fetch(method, url, stream, file, fileout, nil, body, fwcommon.Ptr(fmt.Sprintf("Fw.Net.AutoFetch.%s", method)), nil, nil, nil)
 }
 
 // Function wrapping NetHandler.Fetch for a GET request

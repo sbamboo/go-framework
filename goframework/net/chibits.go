@@ -104,7 +104,7 @@ func (nh *NetHandler) _outerFetchWithChibitsInterfaceMatcher(bufferSize int, ire
 	return irep,err
 }
 
-func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions, defaultChibitRepo *string, chckPtr fwcommon.ChckInterface) (fwcommon.NetworkProgressReportInterface, error) {
+func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor fwcommon.ProgressorFn, body io.Reader, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions, defaultChibitRepo *string, chckPtr fwcommon.ChckInterface, parentID *string) (fwcommon.NetworkProgressReportInterface, error) {
 	// Check if the remoteURL is using the chibit protocol if not call Fetch
 
 	// chibit:{chibit-uuid}
@@ -114,7 +114,7 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 
 	// Non chibit, call Fetch
 	if !strings.HasPrefix(remoteUrl, "chibit:") {
-		return nh.Fetch(method, remoteUrl, stream, file, fileout, progressor, body, contextID, initiator, options)
+		return nh.Fetch(method, remoteUrl, stream, file, fileout, progressor, body, contextID, initiator, options, parentID)
 	} else {
 		var fallback *string
 		chibitRepo := defaultChibitRepo
@@ -136,8 +136,10 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 			}
 		}
 
+		debEventId := fmt.Sprintf("Fw.Net.Chibit:%d", fwcommon.FrameworkIndexes.GetNewOfIndex("netevent"))
 		debEvent := fwcommon.NetworkEvent{
-			ID: fmt.Sprintf("Fw.Net.Chibit:%d", fwcommon.FrameworkIndexes.GetNewOfIndex("netevent")),
+			ID: debEventId,
+			Parent: parentID,
 			Remote: remoteUrl,
 			Interrupted: true,
 			EventSuccess: true,
@@ -149,19 +151,24 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 		nh.deb.NetCreate(debEvent)
 		nh.deb.NetStop(debEvent.ID)
 
-		entry, err := nh.FetchChibitUUID(uuid, progressor, contextID, initiator, options, *chibitRepo)
+		entry, err := nh.FetchChibitUUID(uuid, progressor, contextID, initiator, options, *chibitRepo, fwcommon.Ptr(debEventId))
 		if err != nil || entry == nil {
 			if fallback != nil {
 				// Failed to fetch entry, use fallback
-				return nh.Fetch(method, *fallback, stream, file, fileout, progressor, body, contextID, prependElementIdentifier(initiator, "Fw.Net.Chibit.Fallback"), options)
+				return nh.Fetch(method, *fallback, stream, file, fileout, progressor, body, contextID, prependElementIdentifier(initiator, "Fw.Net.Chibit.Fallback"), options, fwcommon.Ptr(debEventId))
 			} else {
 				return nil, nh.logThroughError(fmt.Errorf("Failed to fetch chibit repo, and no fallback provided."))
 			}
 		}
 
+		localParentID := entry.evID
+		if localParentID == nil || *localParentID == "" {
+			localParentID = parentID
+		}
+
 		// If entry resolved to a redirection url we fetch that
 		if entry.redirUrl != "" {
-			return nh.Fetch(method, entry.redirUrl, stream, file, fileout, progressor, body, contextID, prependElementIdentifier(initiator, "Fw.Net.Chibit.Redirect"), options)
+			return nh.Fetch(method, entry.redirUrl, stream, file, fileout, progressor, body, contextID, prependElementIdentifier(initiator, "Fw.Net.Chibit.Redirect"), options, fwcommon.Ptr(debEventId))
 		} else {
 
 			// Else we use metadata + chunks to resolve actuall
@@ -180,6 +187,7 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 					contextID,
 					prependElementIdentifier(initiator, "Fw.Net.Chibit.Redirect"),
 					options,
+					localParentID,
 				)
 		
 			case Single, Split:
@@ -199,6 +207,7 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 						contextID,
 						prependElementIdentifier(prependElementIdentifier(initiator, uuid + "." + fmt.Sprint(i)), "Fw.Net.Chibit.Chunk"),
 						options,
+						localParentID,
 					)
 					if err != nil {
 						return nil, err
@@ -230,6 +239,7 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 				// Build response using buffer directly
 				event := &fwcommon.NetworkEvent{
 					// ID
+					Parent: localParentID,
 					Context: contextID,
 					Initiator: prependElementIdentifier(initiator, "Fw.Net.Chibit.Result"),
 					Method: method,
@@ -300,6 +310,7 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 type ChibitEntry struct {
 	redirUrl string
 	metadata ChibitMetadata
+	evID *string
 }
 
 type ChibitChecksumEntry struct {
@@ -331,7 +342,7 @@ type ChibitMetadata struct {
 	chibitVersion ChibitVersionId
 }
 
-func (nh *NetHandler) FetchChibitUUID(uuid string, progressor fwcommon.ProgressorFn, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions, chibitRepo string) (*ChibitEntry, error) {
+func (nh *NetHandler) FetchChibitUUID(uuid string, progressor fwcommon.ProgressorFn, contextID *string, initiator *fwcommon.ElementIdentifier, options *fwcommon.NetFetchOptions, chibitRepo string, parentID *string) (*ChibitEntry, error) {
 	entry := &ChibitEntry{}
 	
 	// For V1 we fetch {repo}/chibits/chibits.json which is {"uuid": "entry-json-url"} then fetch that into V1ChibitEntry
@@ -364,6 +375,7 @@ func (nh *NetHandler) FetchChibitUUID(uuid string, progressor fwcommon.Progresso
 		contextID,
 		fwcommon.Ptr(fwcommon.ElementIdentifier("Fw.Net.Chibit.Index::" + uuid)),
 		options,
+		parentID,
 	)
 	if err != nil {
 		return nil, err
@@ -395,10 +407,12 @@ func (nh *NetHandler) FetchChibitUUID(uuid string, progressor fwcommon.Progresso
 		contextID,
 		fwcommon.Ptr(fwcommon.ElementIdentifier("Fw.Net.Chibit.Entry::" + uuid)),
 		options,
+		&indexReport.GetNetworkEvent().ID,
 	)
 	if err != nil {
 		return nil, err
 	}
+	entry.evID = &entryReport.GetNetworkEvent().ID
 
 	entryContent := entryReport.GetNonStreamContent()
 	if entryContent == nil {
@@ -455,7 +469,6 @@ func (nh *NetHandler) FetchChibitUUID(uuid string, progressor fwcommon.Progresso
 			v1.chunks = append(v1.chunks, c.(string))
 		}
 
-		// Fill YOUR entry
 		entry.metadata = *v1
 
 		if v1.chibitType == Redirect && len(v1.chunks) > 0 {

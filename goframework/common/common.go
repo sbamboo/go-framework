@@ -147,6 +147,7 @@ const (
 type NetworkEvent struct {
 	// Identifier
 	ID        string             `json:"id"`
+	Parent    *string            `json:"parent"`
 	Context   *string            `json:"context,omitempty"`
 	Initiator *ElementIdentifier `json:"initiator,omitempty"`
 	Method    HttpMethod         `json:"method"`
@@ -514,8 +515,8 @@ type DebuggerInterface interface {
 type FetcherInterface interface {
 	RegisterPrefixHandler(h ResponsePrefixHandler)
 
-	FetchWithoutHandlers(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions) (NetworkProgressReportInterface, error)
-	Fetch(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions) (NetworkProgressReportInterface, error)
+	FetchWithoutHandlers(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions, parentID *string) (NetworkProgressReportInterface, error)
+	Fetch(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions, parentID *string) (NetworkProgressReportInterface, error)
 
 	AutoFetch(method HttpMethod, url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
 

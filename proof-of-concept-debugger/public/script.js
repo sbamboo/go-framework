@@ -948,6 +948,7 @@ function populateRow(row, eventData, keepProgressbar = false) {
         "nstms:meta_time_to_first_byte", // NanoSeconds to be displayed as Milliseconds
         "meta_got_first_resp",
         "id:ID",
+        "parent:parent",
     ];
 
     // iterate cell_properties
@@ -997,6 +998,18 @@ function populateRow(row, eventData, keepProgressbar = false) {
                     break;
                 case "id":
                     createExpandableCell(cells[cell_ind], {"id": value || eventData.__preEmptiveId__, "unique": eventData.__uniqueId__ }, `exp-${eventData.__uniqueId__}-${prop}`);
+                    break;
+                case "parent":
+                    if (value !== null && value !== undefined) {
+                        let foundParentUnique;
+                        for (const [eKey, eValue] of networkEvents.entries()) {
+                            if (eKey === value) {
+                                foundParentUnique = eValue.__uniqueId__;
+                                break; // stop at the first match
+                            }
+                        }
+                        createExpandableCell(cells[cell_ind], {"parent": value, "unique?": foundParentUnique }, `exp-${eventData.__uniqueId__}-${prop}`);
+                    }
                     break;
                 case "nstms":
                     if (value === null || value === undefined || value === "") {

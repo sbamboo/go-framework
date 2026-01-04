@@ -84,6 +84,7 @@ NETEVENT: (Except for `net:start` all fields are optional and id allowed)
 ```json
 {
     "id": "string",
+    "parent": "string" | NULL, // ID of parent event
     "context": "string", // Optional context string
     "initiator": "string" | [int:indexes,...], // Optional element identifier
     "method": "string:httpmethod", // The HTTP method: GET, POST, PUT, DELETE, PATCH, HEAD, CONNECT, OPTIONS, TRACE
@@ -95,20 +96,20 @@ NETEVENT: (Except for `net:start` all fields are optional and id allowed)
     "meta_speed": float, // <0 for unknown, in Mbit/s
     "meta_time_to_con": int, // Nanoseconds, duration until connection
     "meta_time_to_first_byte": int, // Nanoseconds, duration until first byte received
-    "meta_got_first_resp": string, // When did we get the first response ("YYYY-MM-DDThh:mm:ssZ")
+    "meta_got_first_resp": "string", // When did we get the first response ("YYYY-MM-DDThh:mm:ssZ")
     "meta_retry_attempt": int, // The numbers of attempts made (1 is first attempt)
     "status": int, // The current HTTP status
-    "client_ip": string:IP, // IP making the request
-    "remote": string, // Remote address of the request
-    "remote_ip": string:IP, // IP of the remote
-    "protocol": string, // Web protocol for the request
-    "scheme": string, // Scheme of the request (HTTP/HTTPS etc.)
-    "content_type": string, // MIME type of response content
+    "client_ip": "string:IP", // IP making the request
+    "remote": "string", // Remote address of the request
+    "remote_ip": "string:IP", // IP of the remote
+    "protocol": "string", // Web protocol for the request
+    "scheme": "string", // Scheme of the request (HTTP/HTTPS etc.)
+    "content_type": "string", // MIME type of response content
     "headers": {...}, // Headers sent with the request
     "resp_headers": {...}, // Headers in response
     "transferred": int, // How many bytes have been transferred
     "size": int, // What is the expected size of the response content, -1 if unknown
-    "event_state": string:EventState, // The state of the network event: "waiting", "paused", "retry", "established", "responded", "transfer", "finished"
+    "event_state": "string:EventState", // The state of the network event: "waiting", "paused", "retry", "established", "responded", "transfer", "finished"
     "event_success": bool, // Is the event result successfull?
     "event_step_current": int | NULL, // If the event is stepped in progress what is the current step
     "event_step_max": int | NULL, // If the event is stepped in progress what is the amax step

@@ -412,6 +412,7 @@ func main() {
 				fw.Config.NetFetchOptions,
 				Ptr("https://sbamboo.github.io/theaxolot77/storage/"),
 				fw.Chck,
+				nil,
 			)
 			if err != nil {
 				fmt.Println("[ERR]", err)
@@ -476,6 +477,7 @@ func main() {
 				fw.Config.NetFetchOptions,
 				Ptr("https://sbamboo.github.io/theaxolot77/storage/"),
 				fw.Chck,
+				nil,
 			)
 			if report != nil && stream {
 				report.Close()
