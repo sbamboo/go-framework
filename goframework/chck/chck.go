@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"hash"
 	"hash/crc32"
 	"io"
@@ -65,19 +66,29 @@ func (cptr *Chck) parsePublicKey(pemBytes []byte) (any, error) {
 	return pubKey, nil
 }
 
-// Get the checksum of a file
+// Get the checksum of a file (CRC32 is string of int)
 func (cptr *Chck) Hash(file string, algo fwcommon.HashAlgorithm) string {
-	h, err := cptr.newHasher(algo)
-	if err != nil {
-		return ""
-	}
-
 	f, err := os.Open(file)
 	if err != nil {
 		cptr.log.LogThroughError(err)
 		return ""
 	}
 	defer f.Close()
+
+	if algo == fwcommon.CRC32 {
+		// For files, read the whole content to calculate CRC32IEEE
+		data, err := io.ReadAll(f)
+		if err != nil {
+			cptr.log.LogThroughError(err)
+			return ""
+		}
+		return fmt.Sprint(crc32.ChecksumIEEE(data))
+	}
+
+	h, err := cptr.newHasher(algo)
+	if err != nil {
+		return ""
+	}
 
 	if _, err := io.Copy(h, f); err != nil {
 		cptr.log.LogThroughError(err)
@@ -87,7 +98,7 @@ func (cptr *Chck) Hash(file string, algo fwcommon.HashAlgorithm) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// Get the checksum of a byte buffer
+// Get the checksum of a byte buffer (CRC32 is string of int)
 func (cptr *Chck) HashBuff(buf []byte, algo fwcommon.HashAlgorithm) string {
 	h, err := cptr.newHasher(algo)
 	if err != nil {
@@ -95,10 +106,16 @@ func (cptr *Chck) HashBuff(buf []byte, algo fwcommon.HashAlgorithm) string {
 	}
 
 	_, _ = h.Write(buf)
+
+	if algo == fwcommon.CRC32 {
+		// crc32.ChecksumIEEE returns a uint32 directly
+		return fmt.Sprint(crc32.ChecksumIEEE(buf))
+	}
+
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// Get the checksum of a content string
+// Get the checksum of a content string (CRC32 is string of int)
 func (cptr *Chck) HashStr(content string, algo fwcommon.HashAlgorithm) string {
 	h, err := cptr.newHasher(algo)
 	if err != nil {
@@ -106,6 +123,11 @@ func (cptr *Chck) HashStr(content string, algo fwcommon.HashAlgorithm) string {
 	}
 
 	_, _ = io.Copy(h, strings.NewReader(content))
+
+	if algo == fwcommon.CRC32 {
+		return fmt.Sprint(crc32.ChecksumIEEE([]byte(content)))
+	}
+
 	return hex.EncodeToString(h.Sum(nil))
 }
 

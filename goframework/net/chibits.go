@@ -206,6 +206,8 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 				}
 			
 				// Checksum check using binary-safe ChckBuff
+				nh.log.Debug(string(entry.metadata.checksum.hash))
+				nh.log.Debug(chckPtr.HashBuff(buffer, entry.metadata.checksum.algorithm))
 				if !chckPtr.ChckBuff(
 					buffer,
 					entry.metadata.checksum.hash,
@@ -409,10 +411,33 @@ func (nh *NetHandler) FetchChibitUUID(uuid string, progressor fwcommon.Progresso
 		v1.maxSize = int(raw["max-size"].(float64))
 		v1.chibitVersion = version
 
-		checksum := raw["checksum"].(map[string]any)
-		v1.checksum = ChibitChecksumEntry{
-			algorithm: fwcommon.HashAlgorithm(checksum["algorithm"].(string)),
-			hash:      fmt.Sprint(checksum["hash"]),
+		v1.checksum = ChibitChecksumEntry{}
+		checksumRaw := raw["checksum"].(map[string]any)
+		v1.checksum.algorithm = fwcommon.HashAlgorithm(checksumRaw["algorithm"].(string))
+
+		// Safely extract the hash and convert it to its integer string representation
+		switch v1.checksum.algorithm {
+			case fwcommon.CRC32:
+				// JSON unmarshals large integers as float64 by default when using interface{}
+				if hashFloat, ok := checksumRaw["hash"].(float64); ok {
+					v1.checksum.hash = fmt.Sprint(uint32(hashFloat)) // Convert float to uint32, then to string
+				} else if hashStr, ok := checksumRaw["hash"].(string); ok {
+					// In case the hash was already a string in the JSON
+					v1.checksum.hash = hashStr
+				} else {
+					// Handle other unexpected types or errors
+					return nil, fmt.Errorf("unexpected type for CRC32 hash: %T", checksumRaw["hash"])
+				}
+			case fwcommon.SHA1, fwcommon.SHA256:
+				// These are typically strings already
+				if hashStr, ok := checksumRaw["hash"].(string); ok {
+					v1.checksum.hash = hashStr
+				} else {
+					return nil, fmt.Errorf("unexpected type for SHA hash: %T", checksumRaw["hash"])
+				}
+			default:
+				// Fallback for other hash types if any, or error
+				return nil, fmt.Errorf("unsupported hash algorithm for parsing: %s", v1.checksum.algorithm)
 		}
 
 		for _, c := range raw["chunks"].([]any) {
