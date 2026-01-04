@@ -206,8 +206,6 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 				}
 			
 				// Checksum check using binary-safe ChckBuff
-				nh.log.Debug(string(entry.metadata.checksum.hash))
-				nh.log.Debug(chckPtr.HashBuff(buffer, entry.metadata.checksum.algorithm))
 				if !chckPtr.ChckBuff(
 					buffer,
 					entry.metadata.checksum.hash,
