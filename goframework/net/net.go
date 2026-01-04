@@ -29,6 +29,7 @@ type NetProgressReport struct {
 	Event    *fwcommon.NetworkEvent
 	Response *http.Response
 	Content  *string // Nil if stream
+	ContentBytes []byte  // binary content (nil if stream)
 
 	progressor    fwcommon.ProgressorFn
 	orgProgressor fwcommon.ProgressorFn
@@ -49,6 +50,20 @@ func (npr *NetProgressReport) GetResponse() *http.Response {
 }
 func (npr *NetProgressReport) GetNonStreamContent() *string {
 	return npr.Content
+}
+func (npr *NetProgressReport) GetNonStreamBytes() []byte {
+	// Prefer binary buffer if present
+	if npr.ContentBytes != nil {
+		return npr.ContentBytes
+	}
+
+	// Fallback: convert string content once
+	if npr.Content != nil {
+		npr.ContentBytes = []byte(*npr.Content)
+		return npr.ContentBytes
+	}
+
+	return nil
 }
 func (npr *NetProgressReport) GetLastSentProgressor() *time.Time {
 	return npr.lastSentProgressor
@@ -394,6 +409,7 @@ func (nh *NetHandler) FetchWithoutHandlers(method fwcommon.HttpMethod, remoteUrl
 			},
 			Response:      nil,
 			Content:       nil,
+			ContentBytes:  nil,
 			progressor:    progressor,
 			orgProgressor: orgProgressor,
 			errorWrapper:  nh.logThroughError,
@@ -708,6 +724,7 @@ func (nh *NetHandler) FetchWithoutHandlers(method fwcommon.HttpMethod, remoteUrl
 			if readErr != nil {
 				return &progress, fmt.Errorf("failed to read response body: %w", readErr) // Error already handled by .Read() in .ReadAll()
 			}
+			progress.ContentBytes = bodyBytes
 			progress.Content = fwcommon.Ptr(string(bodyBytes))
 			return &progress, nil
 		}
@@ -798,6 +815,7 @@ func (nh *NetHandler) _outerFetchInterfaceMatcher(bufferSize int, irep fwcommon.
 			return irep, fmt.Errorf("failed to read response body: %w", readErr) // Error already handled by .Read() in .ReadAll()
 		}
 
+		progress.ContentBytes = bodyBytes
 		progress.Content = fwcommon.Ptr(string(bodyBytes))
 
 		progress.Event.EventState = fwcommon.NetStateFinished

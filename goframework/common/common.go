@@ -537,6 +537,7 @@ type NetworkProgressReportInterface interface {
 	GetNetworkEvent() *NetworkEvent
 	GetResponse() *http.Response
 	GetNonStreamContent() *string // Nill if stream
+	GetNonStreamBytes() []byte // binary content (nil if stream)
 
 	GetLastSentProgressor() *time.Time
 	SetLastSentProgressor(t time.Time)
@@ -553,6 +554,19 @@ type NetworkProgressReportInterface interface {
 	LenRead(p []byte, start int, maxLen int) (n int, err error)
 	Read(p []byte) (n int, err error)
 	Close() error
+}
+
+type ChckInterface interface {
+	Hash(file string, algo HashAlgorithm) string
+	HashBuff(buf []byte, algo HashAlgorithm) string
+	HashStr(content string, algo HashAlgorithm) string
+	Chck(file string, sum string, algo HashAlgorithm) bool
+	ChckBuff(buf []byte, sum string, algo HashAlgorithm) bool
+	ChckStr(content string, sum string, algo HashAlgorithm) bool
+	Sig(file string, algo SigAlgorithm, pubKeyPEM []byte, signature []byte) bool
+	SigBuff(buf []byte, algo SigAlgorithm, pubKeyPEM []byte, signature []byte) bool
+	SigStr(content string, algo SigAlgorithm, pubKeyPEM []byte, signature []byte) bool
+	GuessAlgo(sum string) HashAlgorithm
 }
 
 type GithubUpdateFetcherInterface interface {

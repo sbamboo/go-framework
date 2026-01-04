@@ -270,10 +270,17 @@ var myProgressor func(progressPtr libfw.NetworkProgressReportInterface, err erro
 
 	if event.Size != -1 {
 		// Known total size – render full progress bar
-		const barWidth = 40
+		barWidth := 40
 		percent := float64(event.Transferred) / float64(event.Size) * 100
 		completed := int(float64(barWidth) * percent / 100)
-		bar := strings.Repeat("=", completed) + strings.Repeat("-", barWidth-completed)
+		if completed < 0 {
+			completed = 0
+		}
+		bwc := barWidth-completed
+		if bwc < 0 {
+			bwc = 0
+		}
+		bar := strings.Repeat("=", completed) + strings.Repeat("-", bwc)
 		if completed < barWidth {
 			bar = bar[:completed] + ">" + bar[completed+1:]
 		}
@@ -396,13 +403,15 @@ func main() {
 			url := strings.TrimSpace(parts[1])
 			stream := strings.HasPrefix(lct, "sf:")
 
-			report, err := fw.Net.Fetch(
+			report, err := fw.Net.FetchWithChibits(
 				method, url,
 				stream, false, // not writing to file
 				nil, // default path
 				myProgressor,
 				nil, nil, nil,
 				fw.Config.NetFetchOptions,
+				Ptr("https://sbamboo.github.io/theaxolot77/storage/"),
+				fw.Chck,
 			)
 			if err != nil {
 				fmt.Println("[ERR]", err)
@@ -458,13 +467,15 @@ func main() {
 			filePath := strings.TrimSpace(parts[2])
 			stream := strings.HasPrefix(lct, "sff:")
 
-			report, err := fw.Net.Fetch(
+			report, err := fw.Net.FetchWithChibits(
 				method, url,
 				stream, true, // write to file
 				&filePath, // target filename
 				myProgressor,
 				nil, nil, nil,
 				fw.Config.NetFetchOptions,
+				Ptr("https://sbamboo.github.io/theaxolot77/storage/"),
+				fw.Chck,
 			)
 			if report != nil && stream {
 				report.Close()

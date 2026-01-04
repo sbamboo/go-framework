@@ -19,6 +19,7 @@ import (
 	fwcommon "github.com/sbamboo/goframework/common"
 )
 
+// Implements fwcommon.ChckInterface
 type Chck struct {
 	log fwcommon.LoggerInterface // Pointer
 }
@@ -86,6 +87,17 @@ func (cptr *Chck) Hash(file string, algo fwcommon.HashAlgorithm) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// Get the checksum of a byte buffer
+func (cptr *Chck) HashBuff(buf []byte, algo fwcommon.HashAlgorithm) string {
+	h, err := cptr.newHasher(algo)
+	if err != nil {
+		return ""
+	}
+
+	_, _ = h.Write(buf)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 // Get the checksum of a content string
 func (cptr *Chck) HashStr(content string, algo fwcommon.HashAlgorithm) string {
 	h, err := cptr.newHasher(algo)
@@ -100,6 +112,12 @@ func (cptr *Chck) HashStr(content string, algo fwcommon.HashAlgorithm) string {
 // Checksum compare of file
 func (cptr *Chck) Chck(file string, sum string, algo fwcommon.HashAlgorithm) bool {
 	hash := cptr.Hash(file, algo)
+	return hash != "" && strings.EqualFold(hash, sum)
+}
+
+// Checksum compare of a byte buffer
+func (cptr *Chck) ChckBuff(buf []byte, sum string, algo fwcommon.HashAlgorithm) bool {
+	hash := cptr.HashBuff(buf, algo)
 	return hash != "" && strings.EqualFold(hash, sum)
 }
 
@@ -168,6 +186,11 @@ func (cptr *Chck) Sig(file string, algo fwcommon.SigAlgorithm, pubKeyPEM []byte,
 	}
 
 	return cptr.verifySignature(data, algo, pubKeyPEM, signature)
+}
+
+// Verifies the signature of a signed byte buffer (priv/pub)
+func (cptr *Chck) SigBuff(buf []byte, algo fwcommon.SigAlgorithm, pubKeyPEM []byte, signature []byte) bool {
+	return cptr.verifySignature(buf, algo, pubKeyPEM, signature)
 }
 
 // Verifies the signature of a signed content string (priv/pub)
