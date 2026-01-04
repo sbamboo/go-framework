@@ -136,6 +136,19 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 			}
 		}
 
+		debEvent := fwcommon.NetworkEvent{
+			ID: fmt.Sprintf("Fw.Net.Chibit:%d", fwcommon.FrameworkIndexes.GetNewOfIndex("netevent")),
+			Remote: remoteUrl,
+			Interrupted: true,
+			EventSuccess: true,
+			EventState: fwcommon.NetStateFinished,
+			EventStepCurrent: fwcommon.Ptr(1),
+			EventStepMax: fwcommon.Ptr(1),
+			Status: 200,
+		}
+		nh.deb.NetCreate(debEvent)
+		nh.deb.NetStop(debEvent.ID)
+
 		entry, err := nh.FetchChibitUUID(uuid, progressor, contextID, initiator, options, *chibitRepo)
 		if err != nil || entry == nil {
 			if fallback != nil {
@@ -174,7 +187,7 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 				totalSize := 0
 			
 				// Fetch chunks in order
-				for _, chunkUrl := range entry.metadata.chunks {
+				for i, chunkUrl := range entry.metadata.chunks {
 					chunkReport, err := nh.Fetch(
 						method,
 						chunkUrl,
@@ -184,7 +197,7 @@ func (nh *NetHandler) FetchWithChibits(method fwcommon.HttpMethod, remoteUrl str
 						progressor,
 						nil,
 						contextID,
-						prependElementIdentifier(initiator, "Fw.Net.Chibit.Chunk"),
+						prependElementIdentifier(prependElementIdentifier(initiator, uuid + "." + fmt.Sprint(i)), "Fw.Net.Chibit.Chunk"),
 						options,
 					)
 					if err != nil {
