@@ -380,7 +380,7 @@ func (nh *NetHandler) FetchChibitUUID(uuid string, progressor fwcommon.Progresso
 		progressor,
 		nil,
 		contextID,
-		fwcommon.Ptr(fwcommon.ElementIdentifier("Fw.Net.Entry.Index::" + uuid)),
+		fwcommon.Ptr(fwcommon.ElementIdentifier("Fw.Net.Chibit.Entry::" + uuid)),
 		options,
 	)
 	if err != nil {
