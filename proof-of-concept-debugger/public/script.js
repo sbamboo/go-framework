@@ -801,6 +801,7 @@ function formatBytes(bytes) {
 
 function populateRow(row, eventData, keepProgressbar = false) {
     // Ensure omitempty fields by nulling them if not present
+    if (!eventData.parent) eventData.parent = null;
     if (!eventData.context) eventData.context = null;
     if (!eventData.initiator) eventData.initiator = null;
     if (!eventData.headers) eventData.headers = null;
@@ -826,20 +827,28 @@ function populateRow(row, eventData, keepProgressbar = false) {
 
     const cells = row.children;
     const statusCell = cells[0];
-    if (eventData.status == 0) {
-        statusCell.textContent = "0";
-    } else {
-        statusCell.textContent = eventData.status || "N/A";
+
+    // Does the statusCell have a child if not add one
+    let statusCellChild = statusCell.firstElementChild;
+    if (!statusCellChild) {
+        statusCellChild = document.createElement('div');
+        statusCell.appendChild(statusCellChild);
     }
-    statusCell.classList.remove("http-status-ok", "http-status-warn", "http-status-notok");
+
+    if (eventData.status == 0) {
+        statusCellChild.textContent = "0";
+    } else {
+        statusCellChild.textContent = eventData.status || "N/A";
+    }
+    statusCellChild.classList.remove("http-status-ok", "http-status-warn", "http-status-notok");
     const statusCode = parseInt(eventData.status || 0, 10);
     if (!isNaN(statusCode) && statusCode >= 0) {
         if (statusCode >= 200 && statusCode < 300) {
-            statusCell.classList.add("http-status-ok");
+            statusCellChild.classList.add("http-status-ok");
         } else if (statusCode >= 300 && statusCode < 400) {
-            statusCell.classList.add("http-status-warn");
+            statusCellChild.classList.add("http-status-warn");
         } else {
-            statusCell.classList.add("http-status-notok");
+            statusCellChild.classList.add("http-status-notok");
         }
     }
     statusCell.dataset.prop = "status";
@@ -920,6 +929,35 @@ function populateRow(row, eventData, keepProgressbar = false) {
     }
     progressBarCell.dataset.prop = "progress";
 
+    let foundParentUnique = null;
+    let ourIndex = null;
+    let aboveUniqueID = null;
+    
+    if (eventData.parent !== null && eventData.parent !== undefined) {
+        let eventIndex = 0;
+        let lastEventUniqueKey = null;
+        for (const [eKey, eValue] of networkEvents.entries()) {
+            if (eKey === eventData.parent) {
+                if (foundParentUnique === null) {
+                    foundParentUnique = eValue.__uniqueId__;
+                }
+            }
+
+            if (eValue.__uniqueId__ === eventData.__uniqueId__) {
+                ourIndex = eventIndex;
+                aboveUniqueID = lastEventUniqueKey;
+            }
+
+            lastEventUniqueKey = eValue.__uniqueId__;
+
+            eventIndex += 1;
+        }
+    }
+
+    if (ourIndex !== null && aboveUniqueID !== null) {
+        // Calculate family-tree depth
+    }
+
     const cell_properties = [
         "method",
         "remote",
@@ -974,6 +1012,11 @@ function populateRow(row, eventData, keepProgressbar = false) {
         // Add the property as data to the cell
         cells[cell_ind].dataset.prop = prop;
 
+        // If we have a parent and is on status cell add class
+        if (foundParentUnique !== null && i === 0) {
+            // cells[i].classList.add("network-event-has-parent");
+        }
+
         // Add cells
         try {
             switch (type) {
@@ -1001,13 +1044,6 @@ function populateRow(row, eventData, keepProgressbar = false) {
                     break;
                 case "parent":
                     if (value !== null && value !== undefined) {
-                        let foundParentUnique;
-                        for (const [eKey, eValue] of networkEvents.entries()) {
-                            if (eKey === value) {
-                                foundParentUnique = eValue.__uniqueId__;
-                                break; // stop at the first match
-                            }
-                        }
                         createExpandableCell(cells[cell_ind], {"parent": value, "unique?": foundParentUnique }, `exp-${eventData.__uniqueId__}-${prop}`);
                     }
                     break;

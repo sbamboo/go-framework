@@ -5,6 +5,7 @@
 */workspace
 */builds/TEST*
 */builds/.TEST*
+*/builds/app.log
 
 workspace
 signing

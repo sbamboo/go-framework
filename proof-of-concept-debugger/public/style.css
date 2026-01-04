@@ -216,8 +216,20 @@ body {
 
 #network-table th, #network-table td {
     border: 1px solid #ccc;
-    padding: 0.5rem;
     text-align: left;
+}
+#network-table th, #network-table td:not(:first-child) {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    padding-right: 0.5rem;
+}
+#network-table td:first-child {
+    padding-top: 0;
+    padding-bottom: 0;
+    padding-right: 0;
+}
+#network-table th, #network-table td:not(.network-event-has-parent) {
+    padding-left: 0.5rem;
 }
 
 .network-row.stopped {
@@ -309,4 +321,33 @@ body {
     100% {
         transform: translateX(250%); /* Move past the end to create the continuous effect */
     }
+}
+
+:root {
+    --has-parent-padding: 1rem;
+}
+
+.network-event-has-parent {
+    padding-left: var(--has-parent-padding);
+}
+
+tr td {
+    position: relative;
+}
+
+tr td:first-child > div {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+    align-items: center;     /* vertical (Y) */
+    justify-content: center; /* horizontal (X) */
+}
+
+tr td.network-event-has-parent:first-child > div {
+    left: var(--has-parent-padding);
+    width: calc(100% - var(--has-parent-padding));
 }
