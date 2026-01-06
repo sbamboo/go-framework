@@ -1,4 +1,8 @@
 # FRAMEWORK
+- argparse module ? (if so disable on .dll build)
+- ConfigRead / LangSys modules ?
+- Add `custom` field input to descriptor generator to hold ex. app version data
+- Add exe/args stuff from usage:stats to descriptors
 - Chibit v2 (split servies) support
 - Add Win32API fields to platform descriptor
 - include old platform features: add .Terminal (with CLI/Terminal capabilities check), should sixel be libsixel?, add console and cli with formatting and escape codes, auto escape-code to windows legacy etc...

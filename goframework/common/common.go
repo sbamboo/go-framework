@@ -517,6 +517,7 @@ type FetcherInterface interface {
 
 	FetchWithoutHandlers(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions, parentID *string) (NetworkProgressReportInterface, error)
 	Fetch(method HttpMethod, url string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions, parentID *string) (NetworkProgressReportInterface, error)
+	FetchWithChibits(method HttpMethod, remoteUrl string, stream bool, file bool, fileout *string, progressor ProgressorFn, body io.Reader, contextID *string, initiator *ElementIdentifier, options *NetFetchOptions, defaultChibitRepo *string, chckPtr ChckInterface, parentID *string) (NetworkProgressReportInterface, error)
 
 	AutoFetch(method HttpMethod, url string, stream bool, file bool, fileout *string, body io.Reader) (NetworkProgressReportInterface, error)
 
