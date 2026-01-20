@@ -1,6 +1,5 @@
 # FRAMEWORK
-- argparse module ? (if so disable on .dll build)
-- ConfigRead / LangSys modules ?
+- ConfigRead / LangSys modules ? In that case language would be `loc("...")` each loc call assigns new `locXXX` adress that is increment index, then .dump() returns each adress to text and can load file which remapps adresses like `loc("hello world")        loc1="hej vrälden"`
 - Add `custom` field input to descriptor generator to hold ex. app version data
 - Add exe/args stuff from usage:stats to descriptors
 - Chibit v2 (split servies) support

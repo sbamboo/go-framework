@@ -59,7 +59,7 @@ func SetupFramework() *libfw.Framework {
 	config := &libfw.FrameworkConfig{
 		DebugSendPort:          9000,
 		DebugListenPort:        9001,
-		DebugSendUsage:         false,
+		DebugSendUsage:         true,
 		DebugSendUsageInterval: 1000,
 		DebugOverrideHost:      DebuggerHost,
 
@@ -276,7 +276,7 @@ var myProgressor func(progressPtr libfw.NetworkProgressReportInterface, err erro
 		if completed < 0 {
 			completed = 0
 		}
-		bwc := barWidth-completed
+		bwc := barWidth - completed
 		if bwc < 0 {
 			bwc = 0
 		}
@@ -377,7 +377,7 @@ func main() {
 				fmt.Println("[ERR] Invalid format. Use f:<METHOD>,<URL> or sf:<METHOD>,<URL>")
 				return nil
 			}
-			
+
 			fmt.Println()
 
 			_method := strings.ToUpper(strings.TrimSpace(parts[0]))
