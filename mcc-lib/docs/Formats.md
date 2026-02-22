@@ -31,26 +31,30 @@
         //   The "builtin.java" type is a placeholder for future declarative installations.
         "runtimes": [
             {
-                "id": "jdk-17",
-                // Sources are just where this resource gets downloaded from based on platform, if a source fails and another is avaliable for valid platform those can be fallbacked on, i.e multiple sources for same platforms are allowed.
-                "sources": [
-                    {
-                        "type": "builtin.java",
-                        "platforms": ["win"], // Short identifiers for the platforms this resource/source is for.
-                        // All other fields are known by type, and not same for different types
-                        "source": "https://aka.ms/download-jdk/microsoft-jdk-17.0.8.1-windows-x64.zip"
-                    },
-                    {
-                        "type": "builtin.java",
-                        "platforms": ["lnx"],
-                        "source": "https://aka.ms/download-jdk/microsoft-jdk-17.0.8.1-linux-x64.tar.gz"
-                    },
-                    {
-                        "type": "builtin.java",
-                        "platforms": ["mac"],
-                        "source": "https://aka.ms/download-jdk/microsoft-jdk-17.0.8.1-macOS-x64.tar.gz"
+                "id": "jdk",
+                "versions": {
+                    "17": {
+                        // Sources are just where this resource gets downloaded from based on platform, if a source fails and another is avaliable for valid platform those can be fallbacked on, i.e multiple sources for same platforms are allowed.
+                        "sources": [
+                            {
+                                "type": "builtin.java",
+                                "platforms": ["win"], // Short identifiers for the platforms this resource/source is for.
+                                // All other fields are known by type, and not same for different types
+                                "source": "https://aka.ms/download-jdk/microsoft-jdk-17.0.8.1-windows-x64.zip"
+                            },
+                            {
+                                "type": "builtin.java",
+                                "platforms": ["lnx"],
+                                "source": "https://aka.ms/download-jdk/microsoft-jdk-17.0.8.1-linux-x64.tar.gz"
+                            },
+                            {
+                                "type": "builtin.java",
+                                "platforms": ["mac"],
+                                "source": "https://aka.ms/download-jdk/microsoft-jdk-17.0.8.1-macOS-x64.tar.gz"
+                            }
+                        ]
                     }
-                ]
+                }
             }
         ],
 
@@ -58,28 +62,40 @@
         //   The "builtin..." types are placeholders for future declarative installations.
         "loaders": [
             {
-                "id": "fabric-any",
-                "sources": [
-                    {
-                        "type": "builtin.fabric.installer",
-                        "platforms": ["*"], // * matches any defined short-platform-identifier
-                        "source": "https://maven.fabricmc.net/net/fabricmc/fabric-installer/0.11.2/fabric-installer-0.11.2.jar"
+                "id": "fabric",
+                "versions": {
+                    "any": {
+                        "sources": [
+                            {
+                                "type": "builtin.fabric.installer",
+                                "platforms": ["*"], // * matches any defined short-platform-identifier
+                                "source": "https://maven.fabricmc.net/net/fabricmc/fabric-installer/0.11.2/fabric-installer-0.11.2.jar"
+                            }
+                        ]
                     }
-                ]
+                }
             },
 
             {
-                "id": "forge-any",
-                "sources": [
-                    {
-                        "type": "builtin.forge.verlist",
-                        "platforms": ["*"]
+                "id": "forge",
+                "versions": {
+                    "any": {
+                        "sources": [
+                            {
+                                "type": "builtin.forge.verlist",
+                                "platforms": ["*"]
+                            }
+                        ]
                     }
-                ]
+                }
             }
         ],
 
-        // 
+        // Mods
+
+        // Resourcepacks
+
+        // Modpacks
     }
 }
 ```
