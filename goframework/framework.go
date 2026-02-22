@@ -100,6 +100,11 @@ var RSA = fwcommon.RSA
 
 type LogLevel = fwcommon.LogLevel
 
+var DEBUG = fwcommon.DEBUG
+var INFO = fwcommon.INFO
+var WARN = fwcommon.WARN
+var ERROR = fwcommon.ERROR
+
 func GetDescriptor() *fwcommon.PlatformDescriptor {
 	return fwplatform.GetDescriptor()
 }

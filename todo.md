@@ -1,14 +1,21 @@
 # FRAMEWORK
-- ConfigRead / LangSys modules ? In that case language would be `loc("...")` each loc call assigns new `locXXX` adress that is increment index, then .dump() returns each adress to text and can load file which remapps adresses like `loc("hello world")        loc1="hej vrälden"`
+- ConfigRead / LangSys modules ? In that case language would be `loc("...")` each loc call assigns new `locXXX` adress that is increment index, then .dump() returns each adress to text and can load file which remapps adresses like `loc("hello world")        loc1="hej vrälden"`; or just you know a regular lang key system to make them version-stable
 - Add `custom` field input to descriptor generator to hold ex. app version data
 - Add exe/args stuff from usage:stats to descriptors
-- Chibit v2 (split servies) support
+- Chibit v2 (split services) support
 - Add Win32API fields to platform descriptor
-- include old platform features: add .Terminal (with CLI/Terminal capabilities check), should sixel be libsixel?, add console and cli with formatting and escape codes, auto escape-code to windows legacy etc...
 - after fix of debugger go back to defering .Close() in update
 
 
-# TESTAPP
+# MCC Project
+- CLI args/params parsing with optional --fw- / -fw- args to change any field of framework setup config
+- CLI color libary that determines term-color-capabilities and auto-show-color-as-supported
+- CLI Sixel/Kitty detect and common display interface, falls back to colored halfblocks using the auto-show-color-as-supported library
+- MCC v3 repo format & MCC v3 project format
+- MCC lib with prio support for v3
+- MCC TUI toolkit building on auto-show-color-as-supported library and optionally Sixel/Kitty, atleast have same menu as old mcc-installer
+- MCC App
+- Optionally we have `-c config.json` which can load in "unattended" and options, or we for just use a rediciulus amount of CLI params for that :P
 
 
 # DEBUGGER
