@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node graph – DOM inspector style</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            padding: 8px;
+        }
+
+        .node-graph {
+            --indent: 16px;
+            --connector-width: 12px;
+            user-select: none;
+        }
+
+        .node-graph .node {
+            position: relative;
+            display: block;
+            padding-left: var(--connector-width);
+            margin-left: 0;
+            min-height: 18px;
+        }
+
+        .node-graph .node-children {
+            margin-left: var(--indent);
+            padding-left: 4px;
+        }
+
+        .node-graph .node-connector {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: var(--connector-width);
+            pointer-events: none;
+        }
+
+        .node-graph .node-connector::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 8px;
+            bottom: -2px;
+            width: 0;
+            border-left: 1px solid #808080;
+        }
+
+        .node-graph .node-connector.node-connector-weak::before {
+            border-left: none;
+            width: 2px;
+            left: 5px;
+            background-image: radial-gradient(circle, #606060 1px, transparent 1px);
+            background-size: 2px 4px;
+            background-repeat: repeat-y;
+            background-position: 0 0;
+        }
+
+        .node-graph>.node>.node-connector::before {
+            display: none;
+        }
+
+        .node-graph summary,
+        .node-graph .node-label {
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 2px;
+            display: inline-block;
+            max-width: 100%;
+        }
+
+        .node-graph summary:hover,
+        .node-graph .node-label:hover {
+            background: #2a2d2e;
+        }
+
+        .node-graph summary {
+            list-style: none;
+        }
+
+        .node-graph summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .node-graph summary::before {
+            content: '⯈';
+            display: inline-block;
+            width: 12px;
+            font-size: 10px;
+            color: #808080;
+        }
+
+        .node-graph details[open]>summary::before {
+            content: '⯆';
+        }
+
+        .node-graph .node-type-element {
+            color: #4ec9b0;
+        }
+
+        .node-graph .node-type-text {
+            color: #ce9178;
+        }
+
+        .node-graph .node-type-component {
+            color: #dcdcaa;
+        }
+
+        .node-graph .node-type-virtual {
+            color: #808080;
+            font-style: italic;
+        }
+
+        .node-graph .node-type-attribute {
+            color: #9cdcfe;
+        }
+
+        .node-graph .node-type-event {
+            color: #c586c0;
+        }
+
+        .node-graph .node-type-ref {
+            color: #569cd6;
+        }
+
+        .node-graph .node-type-slot {
+            color: #4fc1ff;
+        }
+
+        .node-graph .node-info {
+            margin-left: 4px;
+            color: #606060;
+            cursor: help;
+        }
+
+        .node-graph .node-info:hover {
+            color: #a0a0a0;
+        }
+    </style>
+</head>
+
+<body>
+    <h1 style="color:#ccc; font-size:14px; margin:0 0 8px 0;">Node graph</h1>
+    <div id="graph-root" class="node-graph"></div>
+
+    <script>
+        /**
+         * Renders a tree of nodes with collapsible children, weak/parent connectors,
+         * showUnder virtual parents, and DOM-inspector style.
+         * @param {Object[]} nodes - Array of node objects
+         * @param {HTMLElement} container - Element to append to
+         */
+        function showNodeGraph(nodes, container) {
+            if (!nodes || !Array.isArray(nodes)) return;
+
+            for (const node of nodes) {
+                const isParent = node.children && node.children.length > 0;
+                const type = node.type != null ? String(node.type) : '';
+                const typeClass = type ? ' node-type-' + type : '';
+                const parentClass = isParent ? ' node-parent' : '';
+                const connectorClass = (node.weak === true) ? ' node-connector-weak' : '';
+
+                const wrap = document.createElement('div');
+                wrap.className = 'node' + parentClass + typeClass;
+
+                const connector = document.createElement('span');
+                connector.className = 'node-connector' + connectorClass;
+                connector.setAttribute('aria-hidden', 'true');
+                wrap.appendChild(connector);
+
+                const label = document.createElement('span');
+                label.className = 'node-label';
+                label.textContent = node.name ? ? '';
+
+                if (isParent) {
+                    const details = document.createElement('details');
+                    if (node.collapsed !== true) details.open = true;
+                    const summary = document.createElement('summary');
+                    summary.appendChild(label);
+                    if (node.info) {
+                        const infoIcon = document.createElement('span');
+                        infoIcon.className = 'node-info';
+                        infoIcon.title = node.info;
+                        infoIcon.textContent = '\uD83D\uDEC8';
+                        infoIcon.setAttribute('aria-label', 'info');
+                        summary.appendChild(infoIcon);
+                    }
+                    details.appendChild(summary);
+                    const childrenBox = document.createElement('div');
+                    childrenBox.className = 'node-children';
+                    buildAndAppendChildren(node.children, childrenBox);
+                    details.appendChild(childrenBox);
+                    wrap.appendChild(details);
+                } else {
+                    wrap.appendChild(label);
+                    if (node.info) {
+                        const infoIcon = document.createElement('span');
+                        infoIcon.className = 'node-info';
+                        infoIcon.title = node.info;
+                        infoIcon.textContent = '\uD83D\uDEC8';
+                        infoIcon.setAttribute('aria-label', 'info');
+                        wrap.appendChild(infoIcon);
+                    }
+                }
+
+                container.appendChild(wrap);
+            }
+        }
+
+        /**
+         * Groups children by showUnder and builds virtual nodes where needed,
+         * then appends the resulting node list to container.
+         */
+        function buildAndAppendChildren(children, container) {
+            if (!children || children.length === 0) return;
+
+            const byShowUnder = new Map(); // undefined -> direct, "B" -> [nodes with showUnder "B"]
+            for (const c of children) {
+                const key = c.showUnder;
+                if (!byShowUnder.has(key)) byShowUnder.set(key, []);
+                byShowUnder.get(key).push(c);
+            }
+
+            // Direct children (no showUnder)
+            const direct = byShowUnder.get(undefined);
+            if (direct && direct.length) showNodeGraph(direct, container);
+
+            // Virtual parents (showUnder "X") – strip showUnder so children don't re-group infinitely
+            byShowUnder.forEach((group, key) => {
+                if (key === undefined) return;
+                const virtualNode = {
+                    name: key,
+                    type: 'virtual',
+                    children: group.map(function (c) {
+                        var copy = Object.assign({}, c);
+                        delete copy.showUnder;
+                        return copy;
+                    }),
+                    weak: false,
+                    collapsed: false
+                };
+                showNodeGraph([virtualNode], container);
+            });
+        }
+
+        // ---------- Example: large node tree with wide variation ----------
+        const exampleNodes = [{
+            name: 'document',
+            type: 'element',
+            info: 'Root document node',
+            children: [{
+                name: 'html',
+                type: 'element',
+                info: 'Root HTML element',
+                children: [{
+                        name: 'head',
+                        type: 'element',
+                        info: 'Document metadata',
+                        collapsed: true,
+                        children: [{
+                                name: 'meta charset="utf-8"',
+                                type: 'element',
+                                info: 'Character encoding'
+                            },
+                            {
+                                name: 'title',
+                                type: 'element',
+                                info: 'Page title',
+                                children: [{
+                                    name: '"My App"',
+                                    type: 'text',
+                                    info: 'Title text'
+                                }]
+                            },
+                            {
+                                name: 'link rel="stylesheet"',
+                                type: 'element',
+                                weak: true,
+                                info: 'External stylesheet'
+                            }
+                        ]
+                    },
+                    {
+                        name: 'body',
+                        type: 'element',
+                        info: 'Document body',
+                        children: [{
+                            name: 'div#app',
+                            type: 'element',
+                            info: 'Root app mount',
+                            children: [{
+                                    name: 'Header',
+                                    type: 'component',
+                                    info: 'React/Vue header component',
+                                    children: [{
+                                            name: 'props.title',
+                                            type: 'attribute',
+                                            showUnder: 'props',
+                                            info: 'Title prop'
+                                        },
+                                        {
+                                            name: 'props.theme',
+                                            type: 'attribute',
+                                            showUnder: 'props',
+                                            info: 'Theme prop'
+                                        },
+                                        {
+                                            name: 'onClick',
+                                            type: 'event',
+                                            showUnder: 'events',
+                                            info: 'Click handler'
+                                        },
+                                        {
+                                            name: 'onFocus',
+                                            type: 'event',
+                                            showUnder: 'events',
+                                            info: 'Focus handler'
+                                        }
+                                    ]
+                                },
+                                {
+                                    name: 'main',
+                                    type: 'element',
+                                    info: 'Main content area',
+                                    children: [{
+                                            name: 'RouterView',
+                                            type: 'component',
+                                            collapsed: true,
+                                            info: 'Vue router outlet',
+                                            children: [{
+                                                    name: 'PageHome',
+                                                    type: 'component',
+                                                    info: 'Home page'
+                                                },
+                                                {
+                                                    name: 'PageAbout',
+                                                    type: 'component',
+                                                    info: 'About page'
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            name: 'section.sidebar',
+                                            type: 'element',
+                                            info: 'Sidebar section',
+                                            children: [{
+                                                    name: 'NavLink to="/"',
+                                                    type: 'component',
+                                                    weak: true,
+                                                    info: 'Nav link'
+                                                },
+                                                {
+                                                    name: 'NavLink to="/about"',
+                                                    type: 'component',
+                                                    weak: true,
+                                                    info: 'Nav link'
+                                                },
+                                                {
+                                                    name: 'Tree',
+                                                    type: 'component',
+                                                    info: 'Recursive tree component',
+                                                    children: [{
+                                                            name: 'TreeNode (0)',
+                                                            type: 'component',
+                                                            info: 'First branch',
+                                                            children: [{
+                                                                name: 'TreeNode (0.0)',
+                                                                type: 'component',
+                                                                info: 'Leaf'
+                                                            }]
+                                                        },
+                                                        {
+                                                            name: 'TreeNode (1)',
+                                                            type: 'component',
+                                                            collapsed: true,
+                                                            info: 'Collapsed branch',
+                                                            children: [{
+                                                                name: 'TreeNode (1.0)',
+                                                                type: 'component',
+                                                                info: 'Hidden leaf'
+                                                            }]
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    name: 'Footer',
+                                    type: 'component',
+                                    info: 'Footer component',
+                                    children: [{
+                                            name: 'ref="footerEl"',
+                                            type: 'ref',
+                                            info: 'Template ref'
+                                        },
+                                        {
+                                            name: 'default',
+                                            type: 'slot',
+                                            showUnder: 'slots',
+                                            info: 'Default slot'
+                                        },
+                                        {
+                                            name: 'actions',
+                                            type: 'slot',
+                                            showUnder: 'slots',
+                                            info: 'Named slot'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }]
+                    }
+                ]
+            }]
+        }];
+
+        const root = document.getElementById('graph-root');
+        showNodeGraph(exampleNodes, root);
+    </script>
+</body>
+
+</html>
