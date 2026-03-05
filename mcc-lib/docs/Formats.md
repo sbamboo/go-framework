@@ -12,7 +12,7 @@
     "author": "MinecraftCustomClient / Axo", // Display author  (Optional)
     "version": "2.0",                        // Display version (Optional)
     "created": "2026-02-22",                 // When was this file created
-    "lastUpdated": "2026-02-22",             // When was this file last updated
+    "last_updated": "2026-02-22",             // When was this file last updated
 
     // Resources are the actuall content
     "resources": {
@@ -69,7 +69,10 @@
                             {
                                 "type": "builtin.fabric.installer",
                                 "platforms": ["*"], // * matches any defined short-platform-identifier
-                                "source": "https://maven.fabricmc.net/net/fabricmc/fabric-installer/0.11.2/fabric-installer-0.11.2.jar"
+                                "source": "https://maven.fabricmc.net/net/fabricmc/fabric-installer/0.11.2/fabric-installer-0.11.2.jar",
+                                "depends": [
+                                    "runtimes.jdk-*"
+                                ]
                             }
                         ]
                     }
@@ -83,7 +86,10 @@
                         "sources": [
                             {
                                 "type": "builtin.forge.verlist",
-                                "platforms": ["*"]
+                                "platforms": ["*"],
+                                "depends": [
+                                    "runtimes.jdk-*"
+                                ]
                             }
                         ]
                     }
@@ -92,10 +98,72 @@
         ],
 
         // Mods
+        //   It's important to note that it's indented for modpacks to contain the links to mods, mods here are for self distributed mods and not indented for re-links.
+        //   Officially the types supported should be "url" and "base64", however it's possible in the future modrinth/curseforge can be allowed here for linking.
+        "mods": [
+            {
+                "id": "example",
+                "versions": {
+                    "example-fabric-1.21.11": {
+                        "sources": [
+                            {
+                                "type": "url",
+                                "platforms": ["*"],
+                                "mcver": "1.21.11", // Uses js/npm semantic version naming
+                                "source": "https://example.com/example_fabric.jar",
+                                "depends": [
+                                    "loaders.fabric-*"
+                                ]
+                            }
+                        ]
+                    },
+                    "example-forge-1.21.11": {
+                        "sources": [
+                            {
+                                "type": "url",
+                                "platforms": ["*"],
+                                "mcver": "1.21.11",
+                                "source": "https://example.com/example_forge.jar",
+                                "depends": [
+                                    "minecraft-1.21.11",
+                                    "loaders.forge-*"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
 
         // Resourcepacks
+        //   It's important to note that it's indented for modpacks to contain the links to resourcepacks, resourcepacks here are for self distributed resourcepacks and not indented for re-links.
+        //   Officially the types supported should be "url" and "base64", however it's possible in the future modrinth/curseforge can be allowed here for linking.
+        "resourcepacks": [
+            {
+                "id": "example",
+                "versions": {
+                    "example-1.21.11": {
+                        "sources": [
+                            {
+                                "type": "url",
+                                "mcver": "1.21.11",
+                                "source": "https://example.com/example_fabric.jar",
+                                "depends": [
+                                    "loaders.fabric-*"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        ],
 
         // Modpacks
+        "modpacks": [
+            {
+                
+            }
+        ]
     }
 }
 ```
