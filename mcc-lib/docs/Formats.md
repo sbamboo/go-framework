@@ -12,9 +12,10 @@
     "author": "MinecraftCustomClient / Axo", // Display author  (Optional)
     "version": "2.0",                        // Display version (Optional)
     "created": "2026-02-22",                 // When was this file created
-    "last_updated": "2026-02-22",             // When was this file last updated
+    "last_updated": "2026-02-22",            // When was this file last updated
 
     // Resources are the actuall content
+    //   Mods, Resourcepacks and Modpacks are classified as content while other is classified as declarative-resources/dependencies.
     "resources": {
         // Resources.Sources are technically overrides for defaults in the app to allow changing where stuff are pulled from. NOTE! Incompatabilies are not garanteed to be handled.
         //   (All fields here are optional)
@@ -27,13 +28,14 @@
             "forge_version_promos": "https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json"
         },
 
-        // Runtimes that other resources can depend on, ids are resolved as "jdk-17" or "jdk-*"
+        // Runtimes that other resources can depend on, ids are resolved as "jdk:17" or "jdk:*"
         //   The "builtin.java" type is a placeholder for future declarative installations.
         "runtimes": [
             {
                 "id": "jdk",
                 "versions": {
                     "17": {
+                        "created": "2026-02-22",  // When was this entry created
                         // Sources are just where this resource gets downloaded from based on platform, if a source fails and another is avaliable for valid platform those can be fallbacked on, i.e multiple sources for same platforms are allowed.
                         "sources": [
                             {
@@ -58,20 +60,23 @@
             }
         ],
 
-        // Mod loaders that other resources can depend on, -any is not the same as -*, but -* will match against -any, any just means this single resource is for "any" version while wildcard matches any amount of sources.
+        // Mod loaders that other resources can depend on, :any is not the same as :*, but :* will match against :any, any just means this single resource is for "any" version while wildcard matches any amount of sources.
         //   The "builtin..." types are placeholders for future declarative installations.
         "loaders": [
             {
                 "id": "fabric",
+                "name": "Fabric loader",
+                "description": "",
                 "versions": {
                     "any": {
+                        "created": "2026-02-22",
                         "sources": [
                             {
                                 "type": "builtin.fabric.installer",
                                 "platforms": ["*"], // * matches any defined short-platform-identifier
                                 "source": "https://maven.fabricmc.net/net/fabricmc/fabric-installer/0.11.2/fabric-installer-0.11.2.jar",
                                 "depends": [
-                                    "runtimes.jdk-*"
+                                    "runtimes:jdk:*"
                                 ]
                             }
                         ]
@@ -81,14 +86,17 @@
 
             {
                 "id": "forge",
+                "name": "Forge loader",
+                "description": "",
                 "versions": {
                     "any": {
+                        "created": "2026-02-22",
                         "sources": [
                             {
                                 "type": "builtin.forge.verlist",
                                 "platforms": ["*"],
                                 "depends": [
-                                    "runtimes.jdk-*"
+                                    "runtimes:jdk:*"
                                 ]
                             }
                         ]
@@ -103,30 +111,39 @@
         "mods": [
             {
                 "id": "example",
+                "name": "Example mod!",
+                "description": "This is a beautiful description of things",
+                "icon": "https://example.com/example.png", // Either an url, base64-URI or resourcekey (resourcekeys are named resources that are handled by reader of repo)
+                "hidden": false, // Mark as hidden?
+                // Meta contains any further metadata
+                "meta": {
+                    "supported": true
+                },
                 "versions": {
                     "example-fabric-1.21.11": {
+                        "created": "2026-02-22",
+                        "mcver": "1.21.11", // Uses js/npm semantic version naming
                         "sources": [
                             {
                                 "type": "url",
                                 "platforms": ["*"],
-                                "mcver": "1.21.11", // Uses js/npm semantic version naming
                                 "source": "https://example.com/example_fabric.jar",
                                 "depends": [
-                                    "loaders.fabric-*"
+                                    "loaders:fabric:*"
                                 ]
                             }
                         ]
                     },
                     "example-forge-1.21.11": {
+                        "created": "2026-02-22",
+                        "mcver": "1.21.11",
                         "sources": [
                             {
                                 "type": "url",
                                 "platforms": ["*"],
-                                "mcver": "1.21.11",
                                 "source": "https://example.com/example_forge.jar",
                                 "depends": [
-                                    "minecraft-1.21.11",
-                                    "loaders.forge-*"
+                                    "loaders:forge:*"
                                 ]
                             }
                         ]
@@ -141,16 +158,23 @@
         "resourcepacks": [
             {
                 "id": "example",
+                "name": "Example resourcepack!",
+                "description": "This is a beautiful description of things",
+                "icon": "https://example.com/resourcepack.png", // Either an url, base64-URI or resourcekey
+                "hidden": false, // Mark as hidden?
+                // Meta contains any further metadata
+                "meta": {
+                    "supported": true
+                },
                 "versions": {
                     "example-1.21.11": {
+                        "created": "2026-02-22",
+                        "mcver": "1.21.11",
                         "sources": [
                             {
                                 "type": "url",
-                                "mcver": "1.21.11",
-                                "source": "https://example.com/example_fabric.jar",
-                                "depends": [
-                                    "loaders.fabric-*"
-                                ]
+                                "source": "https://example.com/example_rsp.jar",
+                                "depends": [] // Resourcepacks may technically depend on mods/loaders but resourcepack dependencies are not prioritized in implementation.
                             }
                         ]
                     }
@@ -160,8 +184,62 @@
 
         // Modpacks
         "modpacks": [
+            // Modpacks exists in three versions, JSON right here in the repo, a link to a JSON file or a archive containing a listing.json file where the archive is linked with json/base64.
+            // For the sake of giving examples here is a inline modpack
             {
-                
+                "type": "inline", // "inline" | "json" | "archive" | "archive.b64"
+                "format": 3, // V3 Formats begin at 3, as of now 3 is the only V3 format number but future changes will increase it so we might get V3 format:4 etc.
+                "id": "example-repo-inline",
+                "name": "Example repo inline",
+                "description": "This is a beautiful description of things",
+                "icon": "https://example.com/example-repo-inline.png", // Either an url, base64-URI or resourcekey 
+                "hidden": false, // Mark as hidden?
+                // Meta contains any further metadata
+                "meta": {
+                    "supported": true
+                },
+                "versions": {
+                    // Version naming does not have to include mcver since its defined inside, but its recommended to be descriptive.
+                    "0.0.1-1.21.11": {
+                        "created": "2026-02-22",
+                        "mcver": "1.21.11",
+                        // Dependencies for the modpack, technically optional as each resource has dependencies
+                        "depends": [
+                            "loaders:fabric:1.18.4"
+                        ],
+                        // Resources are the actuall main content
+                        "resources": {
+                            "mods": [
+                                {
+                                    "optional": false,
+                                    "library": false
+                                }
+                            ],
+                            "resourcepacks": [
+                                {}
+                            ]
+                        },
+                        // Variants are optional additional content
+                        "variants": {
+                            "e4mc": {
+                                "description": "Uses the e4mc mod to share singleplayer worlds.",
+                                // Same as outer
+                                "resources": {...},
+                                "overrides": {...}
+                            },
+                            "essential": {
+                                "description": "Uses the essential mod to share singleplayer worlds.",
+                                "resources": {...},
+                                "overrides": {...}
+                            }
+                        },
+                        // Overrides are content that is not linked as a resource, when the modpack entry is an archive it is expected that any other files then the listing.json is override content, for clarity the modpack entry can have type "in-archive". Otherwise url/base64 is for an archive file containging overrides. 
+                        "overrides": {
+                            "type": "url", // "url" | "base64" | "in-archive"
+                            "source": "https://example.com/example-repo-inline.zip" // For type=url this is the url, for base64 its the data and for archive this field is optional and can provide a relative path for the folder.
+                        }
+                    }
+                }
             }
         ]
     }

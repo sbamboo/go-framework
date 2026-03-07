@@ -182,7 +182,7 @@
 
                 const label = document.createElement('span');
                 label.className = 'node-label';
-                label.textContent = node.name ? ? '';
+                label.textContent = node.name ?? '';
 
                 if (isParent) {
                     const details = document.createElement('details');
