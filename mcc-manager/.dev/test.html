@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCC Manager</title>
+
+    <script type="module">
+        import * as monaco from "https://cdn.jsdelivr.net/npm/monaco-editor@0.55.1/+esm";
+        window.monaco = monaco;
+    </script>
+
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/nodes.css">
+    <link rel="stylesheet" href="../css/monaco.css">
+
+    <script src="../js/theme.js"></script>
+    <script src="../js/nodes.js"></script>
+    <script src="../js/monaco.js"></script>
+    <script src="../js/main.js"></script>
+</head>
+<body>
+    hi
+
+    <button onclick="setTheme(getCurrentTheme() === 'light' ? 'dark' : 'light')">theme.toggle</button>
+
+    <div id="monaco-test" style="height:20rem;"></div>
+
+    <div id="graph-root-1"></div>
+    <div id="graph-root-2"></div>
+
+    <style>
+        .node-graph .node-type-element {
+            color: #4ec9b0;
+        }
+
+        .node-graph .node-type-text {
+            color: #ce9178;
+        }
+
+        .node-graph .node-type-component {
+            color: #dcdcaa;
+        }
+
+        .node-graph .node-type-virtual {
+            color: #808080;
+            font-style: italic;
+        }
+
+        .node-graph .node-type-attribute {
+            color: #9cdcfe;
+        }
+
+        .node-graph .node-type-event {
+            color: #c586c0;
+        }
+
+        .node-graph .node-type-ref {
+            color: #569cd6;
+        }
+
+        .node-graph .node-type-slot {
+            color: #4fc1ff;
+        }
+    </style>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            new MonacoEditor(document.getElementById("monaco-test"));
+        });
+
+        // ---------- Example: large node tree with wide variation ----------
+        const exampleNodes = [{
+            name: 'document',
+            type: 'element',
+            info: 'Root document node',
+            children: [{
+                name: 'html',
+                type: 'element',
+                info: 'Root HTML element',
+                children: [{
+                        name: 'head',
+                        type: 'element',
+                        info: 'Document metadata',
+                        collapsed: true,
+                        children: [{
+                                name: 'meta charset="utf-8"',
+                                type: 'element',
+                                info: 'Character encoding'
+                            },
+                            {
+                                name: 'title',
+                                type: 'element',
+                                info: 'Page title',
+                                children: [{
+                                    name: '"My App"',
+                                    type: 'text',
+                                    info: 'Title text'
+                                }]
+                            },
+                            {
+                                name: 'link rel="stylesheet"',
+                                type: 'element',
+                                weak: true,
+                                info: 'External stylesheet'
+                            }
+                        ]
+                    },
+                    {
+                        name: 'body',
+                        type: 'element',
+                        info: 'Document body',
+                        children: [{
+                            name: 'div#app',
+                            type: 'element',
+                            info: 'Root app mount',
+                            children: [{
+                                    name: 'Header',
+                                    type: 'component',
+                                    info: 'React/Vue header component',
+                                    children: [{
+                                            name: 'props.title',
+                                            type: 'attribute',
+                                            showUnder: 'props',
+                                            info: 'Title prop'
+                                        },
+                                        {
+                                            name: 'props.theme',
+                                            type: 'attribute',
+                                            showUnder: 'props',
+                                            info: 'Theme prop'
+                                        },
+                                        {
+                                            name: 'onClick',
+                                            type: 'event',
+                                            showUnder: 'events',
+                                            info: 'Click handler'
+                                        },
+                                        {
+                                            name: 'onFocus',
+                                            type: 'event',
+                                            showUnder: 'events',
+                                            info: 'Focus handler'
+                                        }
+                                    ]
+                                },
+                                {
+                                    name: 'main',
+                                    type: 'element',
+                                    info: 'Main content area',
+                                    children: [{
+                                            name: 'RouterView',
+                                            type: 'component',
+                                            collapsed: true,
+                                            info: 'Vue router outlet',
+                                            children: [{
+                                                    name: 'PageHome',
+                                                    type: 'component',
+                                                    info: 'Home page'
+                                                },
+                                                {
+                                                    name: 'PageAbout',
+                                                    type: 'component',
+                                                    info: 'About page'
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            name: 'section.sidebar',
+                                            type: 'element',
+                                            info: 'Sidebar section',
+                                            children: [{
+                                                    name: 'NavLink to="/"',
+                                                    type: 'component',
+                                                    weak: true,
+                                                    info: 'Nav link'
+                                                },
+                                                {
+                                                    name: 'NavLink to="/about"',
+                                                    type: 'component',
+                                                    weak: true,
+                                                    info: 'Nav link'
+                                                },
+                                                {
+                                                    name: 'Tree',
+                                                    type: 'component',
+                                                    info: 'Recursive tree component',
+                                                    children: [{
+                                                            name: 'TreeNode (0)',
+                                                            type: 'component',
+                                                            info: 'First branch',
+                                                            children: [{
+                                                                name: 'TreeNode (0.0)',
+                                                                type: 'component',
+                                                                info: 'Leaf'
+                                                            }]
+                                                        },
+                                                        {
+                                                            name: 'TreeNode (1)',
+                                                            type: 'component',
+                                                            collapsed: true,
+                                                            info: 'Collapsed branch',
+                                                            children: [{
+                                                                name: 'TreeNode (1.0)',
+                                                                type: 'component',
+                                                                info: 'Hidden leaf'
+                                                            }]
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    name: 'Footer',
+                                    type: 'component',
+                                    info: 'Footer component',
+                                    children: [{
+                                            name: 'ref="footerEl"',
+                                            type: 'ref',
+                                            info: 'Template ref'
+                                        },
+                                        {
+                                            name: 'default',
+                                            type: 'slot',
+                                            showUnder: 'slots',
+                                            info: 'Default slot'
+                                        },
+                                        {
+                                            name: 'actions',
+                                            type: 'slot',
+                                            showUnder: 'slots',
+                                            info: 'Named slot'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }]
+                    }
+                ]
+            }]
+        }];
+
+        const root1 = document.getElementById('graph-root-1');
+        showNodeGraph(exampleNodes, root1);
+
+        const root2 = document.getElementById('graph-root-2');
+        root2.innerHTML = "Loading...";
+        nodeGraphOfChunked(document, (graph) => {
+            root2.innerHTML = "";
+            showNodeGraph(graph, root2);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+/* Editor page layout */
+.editor-page {
+    --editor-toolbar-height: 48px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.editor-page .editor-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.editor-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.editor-panel-gui {
+    display: flex;
+    flex-direction: row;
+    height: calc(100vh - var(--editor-toolbar-height));
+    padding: 0;
+    overflow: hidden;
+}
+
+.editor-gui-sidebar {
+    width: 280px;
+    min-width: 280px;
+    flex-shrink: 0;
+    height: calc(100vh - var(--editor-toolbar-height));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-color);
+    background: var(--card-bg);
+    transition: width 0.2s, min-width 0.2s;
+}
+
+.editor-gui-sidebar--collapsed {
+    width: 0;
+    min-width: 0;
+    overflow: hidden;
+    border-right-width: 0;
+}
+
+.editor-sidebar-view-toggle {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0;
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.editor-sidebar-view-btn {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 0.75rem;
+    color: var(--text-color);
+    background: var(--dropdown-bg);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.editor-sidebar-view-btn:first-of-type {
+    border-radius: 4px 0 0 4px;
+    border-right-width: 0;
+}
+
+.editor-sidebar-view-btn:last-of-type {
+    border-radius: 0 4px 4px 0;
+}
+
+.editor-sidebar-view-btn.is-active {
+    background: var(--dropdown-hover);
+    color: var(--text-color-hover);
+    border-color: var(--text-secondary);
+}
+
+.editor-sidebar-view-btn:hover:not(.is-active) {
+    background: var(--dropdown-hover);
+}
+
+.editor-gui-sidebar-panel {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 16px;
+    min-width: 0;
+    font-size: 0.8125rem;
+}
+
+.editor-gui-sidebar-panel.hidden {
+    display: none;
+}
+
+.editor-gui-sidebar-graph {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 0;
+    min-width: 0;
+    font-size: 0.8125rem;
+}
+
+.editor-gui-main {
+    flex: 1;
+    min-width: 0;
+    height: calc(100vh - var(--editor-toolbar-height));
+    overflow: auto;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+/* Sidebar toggle button (left of Back) */
+.editor-sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    color: var(--text-color);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.editor-sidebar-toggle:hover {
+    background: var(--dropdown-hover);
+    color: var(--text-color-hover);
+}
+
+.editor-sidebar-icon {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+}
+
+.editor-sidebar-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+}
+
+.editor-sidebar-icon[hidden] {
+    display: none;
+}
+
+.editor-panel-json {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.editor-panel-json .monaco-surface {
+    flex: 1;
+    min-height: 0;
+}
+
+/* GUI / JSON view toggle (center of toolbar) */
+.editor-view-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.editor-view-btn {
+    padding: 6px 14px;
+    font-size: 0.8125rem;
+    color: var(--text-color);
+    background: var(--dropdown-bg);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.editor-view-btn:first-of-type {
+    border-radius: 6px 0 0 6px;
+    border-right-width: 0;
+}
+
+.editor-view-btn:last-of-type {
+    border-radius: 0 6px 6px 0;
+}
+
+.editor-view-btn.is-active {
+    background: var(--dropdown-hover);
+    color: var(--text-color-hover);
+    border-color: var(--text-secondary);
+}
+
+.editor-view-btn:hover:not(.is-active) {
+    background: var(--dropdown-hover);
+}
+
+.editor-page .editor-error {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+}
+
+.editor-error-message {
+    font-size: 1rem;
+    color: var(--text-color);
+    margin-bottom: 16px;
+}
+
+.editor-error-try-again {
+    font-size: 0.9375rem;
+    color: var(--link-color);
+    text-decoration: underline;
+}
+
+.editor-error-try-again:hover {
+    color: var(--link-color-hover);
+}
+
+/* Editor toolbar left (inside header): back | filename | download */
+.editor-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8125rem;
+    color: var(--text-color);
+}
+
+.editor-toolbar-left .editor-status-sep {
+    color: var(--text-secondary);
+}
+
+.editor-toolbar-left .editor-status-btn {
+    padding: 4px 8px;
+    font-size: 0.8125rem;
+    color: var(--text-color);
+    background: var(--dropdown-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.editor-toolbar-left .editor-status-btn:hover {
+    background: var(--dropdown-hover);
+    color: var(--text-color-hover);
+    border-color: var(--text-secondary);
+}
+
+.editor-toolbar-left .editor-status-label {
+    color: var(--text-color);
+}
+
+
+#editor-gui-sidebar .node-children {
+    margin-left: 0;
+}
+
+/* Node graph type colors (from REPO_KEYPATH_SCHEMA + value types) */
+.node-graph .node-type-property {
+    color: var(--node-type-property);
+}
+.node-graph .node-type-array {
+    color: var(--node-type-array);
+}
+.node-graph .node-type-object {
+    color: var(--node-type-object);
+}
+.node-graph .node-type-id {
+    color: var(--node-type-id);
+}
+.node-graph .node-type-bool {
+    color: var(--node-type-bool);
+}
+.node-graph .node-type-property-value {
+    color: var(--node-type-property-value);
+}
+.node-graph .node-type-bool-value {
+    color: var(--node-type-bool-value);
+}
+.node-graph .node-type-number-value {
+    color: var(--node-type-number-value);
+}
+.node-graph .node-type-null {
+    color: var(--node-type-null);
+}
