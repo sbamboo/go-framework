@@ -8,6 +8,7 @@
 ```jsonc
 {
     "format": 3,                             // V3 Formats begin at 3, as of now 3 is the only V3 format number but future changes will increase it so we might get V3 format:4 etc.
+    "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // Required identifier
     "name": "Official MCC Repository",       // Display name    (Optional)
     "author": "MinecraftCustomClient / Axo", // Display author  (Optional)
     "version": "2.0",                        // Display version (Optional)
@@ -39,6 +40,7 @@
         "runtimes": [
             {
                 "id": "jdk",
+                "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
                 "versions": {
                     "17": {
                         "created": "2026-02-22",  // When was this entry created
@@ -76,6 +78,7 @@
         "loaders": [
             {
                 "id": "fabric",
+                "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
                 "name": "Fabric loader",
                 "description": "",
                 "versions": {
@@ -127,12 +130,14 @@
         "mods": [
             {
                 "id": "example",
+                "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
                 "name": "Example mod!",
                 "description": "This is a beautiful description of things",
+                "author": "MinecraftCustomClient / Axo",
                 "icon": "https://example.com/example.png", // Either an url, base64-URI or resourcekey (resourcekeys are named resources that are handled by reader of repo)
                 "hidden": false, // Mark as hidden?
                 "group": "examples", // Optional group this resource is part of, just a categorization
-                // Meta contains any further metadata
+                // Meta contains any further metadata, good for future expansion
                 "meta": {
                     "side": "client", // "client" | "server" | "both"
                     "supported": true
@@ -184,8 +189,10 @@
         "resourcepacks": [
             {
                 "id": "example",
+                "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
                 "name": "Example resourcepack!",
                 "description": "This is a beautiful description of things",
+                "author": "MinecraftCustomClient / Axo",
                 "icon": "https://example.com/resourcepack.png", // Either an url, base64-URI or resourcekey
                 "hidden": false, // Mark as hidden?
                 "group": "examples", // Optional group this resource is part of, just a categorization
@@ -223,15 +230,18 @@
                 "type": "inline", // "inline" | "json" | "archive" | "archive.b64"
                 "format": 3, // V3 Formats begin at 3, as of now 3 is the only V3 format number but future changes will increase it so we might get V3 format:4 etc.
                 "id": "example-repo-inline",
+                "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
                 "name": "Example repo inline",
                 "description": "This is a beautiful description of things",
+                "author": "MinecraftCustomClient / Axo",
                 "icon": "https://example.com/example-repo-inline.png", // Either an url, base64-URI or resourcekey 
                 "group": "examples", // Optional group this resource is part of, just a categorization
                 "hidden": false, // Mark as hidden?
-                // Meta contains any further metadata
+                // Meta contains any further metadata, good for future expansion
                 "meta": {
                     "side": "client", // "client" | "server" | "both"
-                    "supported": true
+                    "supported": true,
+                    "icon_rendering": "pixelated" // meta.icon_rendering is allowed in all places where "meta" field is sibling to "icon" field.
                 },
                 "versions": {
                     // Version naming does not have to include mcver since its defined inside, but its recommended to be descriptive.
@@ -247,6 +257,7 @@
                             "mods": [
                                 {
                                     "id": "sodium",
+                                    "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
                                     "optional": false,
                                     "disabled": false, // Disabled by default?
                                     "meta": {
@@ -254,8 +265,8 @@
                                     },
                                     "sources": [
                                         {
-                                            // For modrinth mods name, description and icon is fetched from their API
-                                            "type": "modrinth",
+                                            // For modrinth mods name, description, author and icon is fetched from their API, fields can be provided as fallback incase api lookup failiure, and are in that case provided in root of mod siblings to "id" field.
+                                            "type": "modrinth", // "modrinth" | "curseforge" | "url" | "base64" | "repo"
                                             "platforms": ["*"], // optionally platform here too
                                             "projslug": "AANobbMI",
                                             "verslug": "59wygFUQ",
