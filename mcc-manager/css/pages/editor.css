@@ -1,7 +1,67 @@
 /* CSS for the editor page */
 
-:root {}
+:root {
+    --editor-button-height: 2.25rem;
+    --editor-button-padding-x: 0.65rem;
+    --editor-button-radius: 10px;
+    --editor-button-font-size: 0.95rem;
+}
 
-[data-theme="dark"] {}
+[data-theme="dark"] {
+    --editor-button-bg: rgba(255, 255, 255, 0.06);
+    --editor-button-bg-hover: rgba(255, 255, 255, 0.10);
+    --editor-button-border: rgba(255, 255, 255, 0.12);
+}
 
-[data-theme="light"] {}
+[data-theme="light"] {
+    --editor-button-bg: rgba(0, 0, 0, 0.04);
+    --editor-button-bg-hover: rgba(0, 0, 0, 0.08);
+    --editor-button-border: rgba(0, 0, 0, 0.10);
+}
+
+main.editor-no-repo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - var(--header-height));
+    text-align: center;
+}
+
+.editor-no-repo-message {
+    padding: 1.5rem;
+    max-width: 28rem;
+}
+
+.editor-no-repo-message a {
+    color: var(--text-color);
+    text-decoration: underline;
+}
+
+.editor-no-repo-message a:hover {
+    text-decoration: none;
+}
+
+.header-vertical-separator {
+    width: 0.175rem;
+    height: 70%;
+    border-radius: 0.25rem;
+    background-color: var(--shadow-i-1);
+}
+
+.editor-back-button {
+    margin-left: 0.75rem;
+
+    height: var(--editor-button-height);
+    padding: 0 var(--editor-button-padding-x);
+    border-radius: var(--editor-button-radius);
+    color: var(--text-color);
+    background: var(--editor-button-bg);
+    border: 1px solid var(--editor-button-border);
+    font-size: var(--editor-button-font-size);
+    flex: 0 0 auto;
+    cursor: pointer;
+}
+
+.editor-back-button:hover {
+    background: var(--editor-button-bg-hover);
+}

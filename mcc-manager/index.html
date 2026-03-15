@@ -98,53 +98,82 @@
 
     <main>
         <section class="start-cards" aria-label="Start actions">
-            <div class="start-card" role="region" aria-labelledby="repo-card-title">
-                <h3 class="start-card-title" id="repo-card-title">Fetch or Upload Repository File</h3>
+            <div class="start-cards-row">
+                <div class="start-card" role="region" aria-labelledby="repo-card-title">
+                    <h3 class="start-card-title" id="repo-card-title">Fetch or Upload Repository File</h3>
 
-                <div class="start-form">
-                    <div class="start-field">
-                        <div class="start-field-label">Base file</div>
-                        <div class="start-field-row start-field-row-repo">
-                            <span class="start-field-prefix">From:</span>
-                            <button type="button" class="start-toggle" id="repo-source-toggle" aria-pressed="false">
-                                Local
-                            </button>
-                            <div class="start-input-wrap">
-                                <input type="file" class="start-input" id="repo-source-input" aria-label="Base file" accept="application/json,.repo,.jrepo,.mccr,.mccrepo,.mrepo,.mRepo" />
+                    <div class="start-form">
+                        <div class="start-field">
+                            <div class="start-field-label">Base file</div>
+                            <div class="start-field-row start-field-row-repo">
+                                <span class="start-field-prefix">From:</span>
+                                <button type="button" class="start-toggle" id="repo-source-toggle" aria-pressed="false">
+                                    Local
+                                </button>
+                                <div class="start-input-wrap">
+                                    <input type="file" class="start-input" id="repo-source-input" aria-label="Base file" accept="application/json,.repo,.jrepo,.mccr,.mccrepo,.mrepo,.mRepo" />
+                                </div>
                             </div>
                         </div>
+                        <div class="start-actions">
+                            <button type="button" class="start-primary" id="repo-fetch" disabled>
+                                Fetch
+                            </button>
+                        </div>
+                        <div class="start-error" id="repo-error" role="alert" aria-live="polite"></div>
                     </div>
-                    <div class="start-actions">
-                        <button type="button" class="start-primary" id="repo-fetch" disabled>
-                            Fetch
-                        </button>
+                </div>
+
+                <div class="start-card" role="region" aria-labelledby="folder-card-title">
+                    <h3 class="start-card-title" id="folder-card-title">Open a local folder</h3>
+                    <div class="start-form">
+                        <div class="start-actions">
+                            <button type="button" class="start-primary" id="folder-open" disabled>
+                                Open folder
+                            </button>
+                        </div>
+                        <div id="folder-base-row" class="start-field" style="display: none;">
+                            <div class="start-field-row">
+                                <span class="start-field-prefix">Base repo:</span>
+                                <div class="start-input-wrap">
+                                    <select class="start-input" id="folder-base-select" aria-label="Base repo file">
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="start-actions" id="folder-load-wrap" style="display: none;">
+                            <button type="button" class="start-primary" id="folder-load">
+                                Load
+                            </button>
+                        </div>
                     </div>
-                    <div class="start-error" id="repo-error" role="alert" aria-live="polite"></div>
                 </div>
             </div>
 
-            <div class="start-card start-card-soon" role="region" aria-labelledby="api-card-title">
-                <h3 class="start-card-title" id="api-card-title">Connect to API</h3>
+            <div class="start-cards-row start-cards-row-single">
+                <div class="start-card start-card-soon" role="region" aria-labelledby="api-card-title">
+                    <h3 class="start-card-title" id="api-card-title">Connect to API</h3>
 
-                <div class="start-form">
-                    <div class="start-field">
-                        <label class="start-field-row start-field-row-api" for="api-address">
-                            <span class="start-field-prefix">Adress:</span>
-                            <div class="start-input-wrap">
-                                <input type="url" class="start-input" id="api-address" placeholder="https://example.com" />
-                            </div>
-                        </label>
+                    <div class="start-form">
+                        <div class="start-field">
+                            <label class="start-field-row start-field-row-api" for="api-address">
+                                <span class="start-field-prefix">Adress:</span>
+                                <div class="start-input-wrap">
+                                    <input type="url" class="start-input" id="api-address" placeholder="https://example.com" />
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="start-actions">
+                            <button type="button" class="start-primary" id="api-connect" disabled>
+                                Connect
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="start-actions">
-                        <button type="button" class="start-primary" id="api-connect" disabled>
-                            Connect
-                        </button>
+                    <div class="start-card-soon-overlay" aria-hidden="true">
+                        <span class="start-card-soon-text">Comming soon</span>
                     </div>
-                </div>
-
-                <div class="start-card-soon-overlay" aria-hidden="true">
-                    <span class="start-card-soon-text">Comming soon</span>
                 </div>
             </div>
         </section>

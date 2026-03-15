@@ -1,5 +1,3 @@
-/* General JS shared across all pages - Storage handling */
-
 class Serializer {
     static encode(value) {
         return JSON.stringify(value, (_, v) => {
@@ -341,34 +339,6 @@ class StorageHandler {
             /* ignore */
         }
     }
-
-    async unsetFromAllBackends(key) {
-        try {
-            const idb = new IndexedDBBackend()
-            await idb.init()
-            await idb.unset(key)
-        } catch (e) {
-            /* ignore */
-        }
-        try {
-            const session = new SessionStorageBackend()
-            await session.unset(key)
-        } catch (e) {
-            /* ignore */
-        }
-        try {
-            const local = new LocalStorageBackend()
-            await local.unset(key)
-        } catch (e) {
-            /* ignore */
-        }
-    }
 }
 
-window.StorageHandler = new StorageHandler();
-
-if (typeof hasAcceptedStorage === "function" &&
-    window.StorageHandler &&
-    typeof window.StorageHandler.setPersistenceAllowed === "function") {
-    window.StorageHandler.setPersistenceAllowed(hasAcceptedStorage());
-}
+window.StorageHandler = new StorageHandler()

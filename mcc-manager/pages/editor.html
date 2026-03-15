@@ -30,7 +30,26 @@
 </head>
 <body>
     <div id="overlay-container">
-        <div id="popup-container"></div>
+        <div id="popup-container">
+            <div id="is-modified-warn" class="popup-modal" style="display: none;">
+                <div class="popup-header">
+                    <h2 class="popup-title">Unsaved changes</h2>
+                </div>
+                <div class="popup-body">
+                    <p class="popup-text">
+                        You have unsaved changes. Go back anyway?
+                    </p>
+                </div>
+                <div class="popup-footer">
+                    <button type="button" id="is-modified-confirm" class="start-primary">
+                        Go back anyway
+                    </button>
+                    <button type="button" id="is-modified-cancel" class="start-secondary">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
         <div id="portal-container"></div>
     </div>
 
@@ -40,6 +59,10 @@
         <h1 class="page-header-title"></h1>
 
         <div class="header-vertical-separator"></div>
+
+        <button type="button" class="editor-back-button" id="editor-go-back">
+            Go back
+        </button>
 
         <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" data-bind="true">
             <span class="theme-icon theme-icon-sun" aria-hidden="true" hidden>
@@ -55,8 +78,10 @@
         </button>
     </header>
 
-    <main>
-        
+    <main id="editor-main">
+        <div id="editor-no-repo" class="editor-no-repo-message" style="display: none;">
+            No repository loaded, choose one on the <a id="editor-no-repo-link" href="../index.html">start page</a>.
+        </div>
     </main>
 </body>
 </html>

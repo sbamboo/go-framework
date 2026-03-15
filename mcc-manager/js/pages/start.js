@@ -20,63 +20,40 @@ document.addEventListener("DOMContentLoaded", function () {
     var currentPartials = null;
     var currentBaseText = null;
     var currentBaseData = null;
+    var currentFolderHandle = null;
+    var currentFolderFileNames = [];
+    var currentPartialsFolderHandle = null;
+    var currentSaveType = "fetched";
 
-    function buildEditorUrl() {
-        var target = "./pages/editor.html";
-        try {
-            var url = new URL(window.location.href);
-            if (url.searchParams.has("ls-declined")) {
-                var sep = target.indexOf("?") === -1 ? "?" : "&";
-                target += sep + "ls-declined";
-            }
-        } catch (e) {
-            // Ignore URL parsing errors.
-        }
-        return target;
+    var storage = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
+    if (storage && typeof hasAcceptedStorage === "function") {
+        storage.setPersistenceAllowed(hasAcceptedStorage());
     }
 
-    async function saveAndRedirectToEditor(partialsResult) {
-        var payload = {
-            base: {
-                text: currentBaseText,
-                data: currentBaseData
-            },
-            partials: partialsResult || {}
-        };
-
-        var savePromise = Promise.resolve();
-        if (window.StorageHandler && typeof window.StorageHandler.set === "function") {
-            try {
-                if (typeof hasAcceptedStorage === "function" &&
-                    typeof window.StorageHandler.setPersistenceAllowed === "function") {
-                    window.StorageHandler.setPersistenceAllowed(hasAcceptedStorage());
-                }
-                savePromise = window.StorageHandler.set("current-repo", payload);
-            } catch (e) {
-                setRepoError("Storage error: " + (e && e.message ? e.message : String(e)));
-            }
+    function buildEditorHref() {
+        var href = "./pages/editor.html";
+        if (window.location.href.indexOf("ls-declined") !== -1) {
+            href += href.indexOf("?") !== -1 ? "&ls-declined" : "?ls-declined";
         }
+        return href;
+    }
 
-        var redirect = function () {
-            window.location.href = buildEditorUrl();
-        };
-
-        try {
-            await Promise.race([
-                savePromise,
-                new Promise(function (_, reject) {
-                    setTimeout(function () {
-                        reject(new Error("Storage timeout"));
-                    }, 5000);
-                })
-            ]);
-        } catch (e) {
-            if (repoError) {
-                repoError.textContent = "";
+    if (storage) {
+        storage.get("loadedRepo").then(function (loadedRepo) {
+            if (loadedRepo) {
+                window.location.href = buildEditorHref();
             }
-        }
+        });
+    }
 
-        redirect();
+    function saveAndRedirectToEditor(payload) {
+        if (!storage) {
+            window.location.href = "./pages/editor.html";
+            return;
+        }
+        storage.set("loadedRepo", payload).then(function () {
+            window.location.href = buildEditorHref();
+        });
     }
 
     function isValidUrl(value) {
@@ -93,26 +70,24 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function isRepoFetchEnabled() {
-        if (!repoSourceInput) {
+        var input = document.getElementById("repo-source-input");
+        if (!input) {
             return false;
         }
-
-        if (repoSourceInput.type === "file") {
-            return repoSourceInput.files && repoSourceInput.files.length > 0;
+        if (input.type === "file") {
+            return input.files && input.files.length > 0;
         }
-
-        if (repoSourceInput.type === "url" || repoSourceInput.type === "text") {
-            return isValidUrl(repoSourceInput.value);
+        if (input.type === "url" || input.type === "text") {
+            return isValidUrl(input.value);
         }
-
         return false;
     }
 
     function updateRepoFetchState() {
-        if (!repoFetchButton) {
-            return;
+        var btn = document.getElementById("repo-fetch");
+        if (btn) {
+            btn.disabled = !isRepoFetchEnabled();
         }
-        repoFetchButton.disabled = !isRepoFetchEnabled();
     }
 
     function setRepoError(message) {
@@ -136,8 +111,22 @@ document.addEventListener("DOMContentLoaded", function () {
         partialsError.textContent = message || "";
     }
 
-    function buildPartialsModal(partials) {
+    var repoFileExtensions = [".json", ".repo", ".jrepo", ".mccr", ".mccrepo", ".mrepo", ".mRepo"];
+
+    function isRepoFileName(name) {
+        if (!name || typeof name !== "string") return false;
+        var lower = name.toLowerCase();
+        return repoFileExtensions.some(function (ext) {
+            return lower === ext.toLowerCase() || lower.endsWith(ext.toLowerCase());
+        });
+    }
+
+    function buildPartialsModal(partials, options) {
         currentPartials = partials || null;
+        var folderFileNames = (options && options.folderFileNames) || [];
+        var hasFolder = folderFileNames.length > 0 && (options && options.folderHandle);
+        currentPartialsFolderHandle = hasFolder ? options.folderHandle : null;
+        currentSaveType = hasFolder ? "local" : "fetched";
 
         if (!partialsTableBody) {
             return;
@@ -171,8 +160,13 @@ document.addEventListener("DOMContentLoaded", function () {
             var toggleButton = document.createElement("button");
             toggleButton.type = "button";
             toggleButton.className = "start-toggle partials-source-toggle";
-            toggleButton.textContent = "Url";
-            toggleButton.setAttribute("aria-pressed", "true");
+            if (hasFolder) {
+                toggleButton.textContent = "File";
+                toggleButton.setAttribute("aria-pressed", "true");
+            } else {
+                toggleButton.textContent = "Url";
+                toggleButton.setAttribute("aria-pressed", "true");
+            }
 
             var inputWrap = document.createElement("div");
             inputWrap.className = "start-input-wrap";
@@ -187,39 +181,92 @@ document.addEventListener("DOMContentLoaded", function () {
                 input.value = partialUrl;
             }
 
+            var selectEl = null;
+            if (hasFolder) {
+                selectEl = document.createElement("select");
+                selectEl.className = "start-input partials-source-select";
+                folderFileNames.forEach(function (fileName) {
+                    var opt = document.createElement("option");
+                    opt.value = fileName;
+                    opt.textContent = fileName;
+                    selectEl.appendChild(opt);
+                });
+            }
+
             var lastUrlValue = input.value || "";
 
-            inputWrap.appendChild(input);
             fieldRow.appendChild(toggleButton);
             fieldRow.appendChild(inputWrap);
+            if (selectEl) {
+                inputWrap.appendChild(selectEl);
+            }
+            inputWrap.appendChild(input);
+            if (hasFolder) {
+                input.style.display = "none";
+            }
 
             sourceCell.appendChild(fieldRow);
             row.appendChild(sourceCell);
 
-            toggleButton.addEventListener("click", function () {
-                var isLocal = toggleButton.textContent.trim().toLowerCase() === "local";
-
-                if (isLocal) {
-                    // Switch to Url: restore previous URL value
-                    toggleButton.textContent = "Url";
-                    toggleButton.setAttribute("aria-pressed", "true");
-                    input.type = "url";
-                    input.removeAttribute("accept");
-                    input.setAttribute("placeholder", "https://example.com/partial.json");
-                    input.value = lastUrlValue;
-                } else {
-                    // Switch to Local: remember current URL before changing input type
-                    if (input.type === "url") {
-                        lastUrlValue = input.value || "";
+            function setMode(mode) {
+                var isFile = mode === "file";
+                var isLocal = mode === "local";
+                var isUrl = mode === "url";
+                if (selectEl) {
+                    selectEl.style.display = isFile ? "block" : "none";
+                }
+                if (input) {
+                    input.style.display = isFile ? "none" : "block";
+                    input.type = isUrl ? "url" : "file";
+                    if (isUrl) {
+                        input.value = lastUrlValue;
+                        input.setAttribute("placeholder", "https://example.com/partial.json");
+                    } else {
+                        if (input.type === "url") lastUrlValue = input.value || "";
+                        input.value = "";
+                        input.removeAttribute("placeholder");
+                        input.setAttribute("accept", repoAccept);
                     }
-                    toggleButton.textContent = "Local";
-                    toggleButton.setAttribute("aria-pressed", "false");
-                    input.value = "";
-                    input.type = "file";
-                    input.removeAttribute("placeholder");
-                    input.setAttribute("accept", "application/json,.repo,.jrepo,.mccr,.mccrepo,.mrepo,.mRepo");
+                }
+                toggleButton.textContent = isFile ? "File" : (isLocal ? "Local" : "Url");
+            }
+
+            toggleButton.addEventListener("click", function () {
+                var label = toggleButton.textContent.trim().toLowerCase();
+                if (hasFolder) {
+                    if (label === "file") {
+                        lastUrlValue = input.value || "";
+                        setMode("local");
+                    } else if (label === "local") {
+                        setMode("url");
+                    } else {
+                        if (input.type === "url") lastUrlValue = input.value || "";
+                        setMode("file");
+                    }
+                } else {
+                    var isLocal = label === "local";
+                    if (isLocal) {
+                        toggleButton.textContent = "Url";
+                        toggleButton.setAttribute("aria-pressed", "true");
+                        input.type = "url";
+                        input.removeAttribute("accept");
+                        input.setAttribute("placeholder", "https://example.com/partial.json");
+                        input.value = lastUrlValue;
+                    } else {
+                        if (input.type === "url") lastUrlValue = input.value || "";
+                        toggleButton.textContent = "Local";
+                        toggleButton.setAttribute("aria-pressed", "false");
+                        input.value = "";
+                        input.type = "file";
+                        input.removeAttribute("placeholder");
+                        input.setAttribute("accept", repoAccept);
+                    }
                 }
             });
+
+            if (hasFolder) {
+                setMode("file");
+            }
 
             partialsTableBody.appendChild(row);
         });
@@ -284,51 +331,83 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    if (repoSourceToggle && repoSourceInput) {
-        repoSourceToggle.addEventListener("click", function () {
-            var isLocal = repoSourceToggle.textContent.trim().toLowerCase() === "local";
-
-            setRepoError("");
-
-            if (isLocal) {
-                repoSourceToggle.textContent = "Url";
-                repoSourceToggle.setAttribute("aria-pressed", "true");
-                repoSourceInput.value = "";
-                repoSourceInput.type = "url";
-                repoSourceInput.removeAttribute("accept");
-                repoSourceInput.setAttribute("placeholder", "https://example.com/repository-file.json");
-            } else {
-                repoSourceToggle.textContent = "Local";
-                repoSourceToggle.setAttribute("aria-pressed", "false");
-                repoSourceInput.value = "";
-                repoSourceInput.type = "file";
-                repoSourceInput.removeAttribute("placeholder");
-                repoSourceInput.setAttribute("accept", repoAccept);
+    function readPartialFromFolder(key, folderHandle, fileName) {
+        return folderHandle.getFileHandle(fileName).then(function (fileHandle) {
+            return fileHandle.getFile();
+        }).then(function (file) {
+            return file.text();
+        }).then(function (text) {
+            var data = null;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                data = null;
             }
-
-            updateRepoFetchState();
+            return { text: text, data: data };
+        }).catch(function (e) {
+            throw new Error('Failed to read partial "' + key + '" from folder: ' + (e && e.message ? e.message : String(e)));
         });
-
-        repoSourceInput.addEventListener("change", updateRepoFetchState);
-        repoSourceInput.addEventListener("input", updateRepoFetchState);
     }
 
-    if (repoFetchButton) {
-        repoFetchButton.addEventListener("click", async function () {
-            setRepoError("");
+    document.addEventListener("click", function (e) {
+        if (!e.target || e.target.id !== "repo-source-toggle") {
+            return;
+        }
+        var toggle = e.target;
+        var input = document.getElementById("repo-source-input");
+        if (!input) {
+            return;
+        }
+        setRepoError("");
+        var isLocal = toggle.getAttribute("aria-pressed") === "false";
 
-            if (!repoSourceInput || repoSourceInput.type !== "file") {
-                setRepoError("Fetch currently only supports Local files.");
-                return;
-            }
+        if (isLocal) {
+            toggle.textContent = "Url";
+            toggle.setAttribute("aria-pressed", "true");
+            input.value = "";
+            input.type = "url";
+            input.removeAttribute("accept");
+            input.setAttribute("placeholder", "https://example.com/repository-file.json");
+        } else {
+            toggle.textContent = "Local";
+            toggle.setAttribute("aria-pressed", "false");
+            input.value = "";
+            input.type = "file";
+            input.removeAttribute("placeholder");
+            input.setAttribute("accept", repoAccept);
+        }
+        updateRepoFetchState();
+    });
 
-            if (!repoSourceInput.files || repoSourceInput.files.length === 0) {
-                setRepoError("No file selected.");
-                return;
-            }
+    document.addEventListener("change", function (e) {
+        if (e.target && e.target.id === "repo-source-input") {
+            updateRepoFetchState();
+        }
+    });
+    document.addEventListener("input", function (e) {
+        if (e.target && e.target.id === "repo-source-input") {
+            updateRepoFetchState();
+        }
+    });
 
-            for (var i = 0; i < repoSourceInput.files.length; i++) {
-                var file = repoSourceInput.files[i];
+    document.addEventListener("click", function (e) {
+        if (!e.target || e.target.id !== "repo-fetch") {
+            return;
+        }
+        var repoSourceInputEl = document.getElementById("repo-source-input");
+        if (!repoSourceInputEl || repoSourceInputEl.type !== "file") {
+            setRepoError("Fetch currently only supports Local files.");
+            return;
+        }
+        if (!repoSourceInputEl.files || repoSourceInputEl.files.length === 0) {
+            setRepoError("No file selected.");
+            return;
+        }
+        setRepoError("");
+
+        var runFetch = async function () {
+            for (var i = 0; i < repoSourceInputEl.files.length; i++) {
+                var file = repoSourceInputEl.files[i];
                 try {
                     var textContent = await file.text();
                     var data = JSON.parse(textContent);
@@ -352,18 +431,131 @@ document.addEventListener("DOMContentLoaded", function () {
                                 }
                             }
                         } else {
-                            await saveAndRedirectToEditor({});
+                            saveAndRedirectToEditor({
+                                base: { text: currentBaseText, data: currentBaseData },
+                                partials: {},
+                                type: "fetched"
+                            });
                         }
                     } else {
-                        await saveAndRedirectToEditor({});
+                        saveAndRedirectToEditor({
+                            base: { text: currentBaseText, data: currentBaseData },
+                            partials: {},
+                            type: "fetched"
+                        });
                     }
                 } catch (e) {
                     setRepoError("Failed to parse JSON: " + (e && e.message ? e.message : String(e)));
                     return;
                 }
             }
-        });
+        };
+        runFetch();
+    });
+
+    var folderOpenSupported = typeof window.showDirectoryPicker === "function";
+    var folderOpenBtn = document.getElementById("folder-open");
+    if (folderOpenBtn) {
+        folderOpenBtn.disabled = !folderOpenSupported;
     }
+
+    document.addEventListener("click", function (e) {
+        if (!e.target || e.target.id !== "folder-open") {
+            return;
+        }
+        window.showDirectoryPicker().then(function (dirHandle) {
+            currentFolderHandle = dirHandle;
+            return (async function () {
+                var list = [];
+                var iter = dirHandle.values();
+                while (true) {
+                    var entry = await iter.next();
+                    if (entry.done) break;
+                    var item = entry.value;
+                    if (item.kind === "file" && isRepoFileName(item.name)) {
+                        list.push(item.name);
+                    }
+                }
+                return list;
+            })();
+        }).then(function (list) {
+            currentFolderFileNames = list || [];
+            currentFolderFileNames.sort();
+            var baseRow = document.getElementById("folder-base-row");
+            var loadWrap = document.getElementById("folder-load-wrap");
+            var selectEl = document.getElementById("folder-base-select");
+            if (baseRow) baseRow.style.display = "block";
+            if (loadWrap) loadWrap.style.display = "flex";
+            if (selectEl) {
+                selectEl.innerHTML = "";
+                currentFolderFileNames.forEach(function (name) {
+                    var opt = document.createElement("option");
+                    opt.value = name;
+                    opt.textContent = name;
+                    selectEl.appendChild(opt);
+                });
+            }
+        }).catch(function (err) {
+            if (err && err.name !== "AbortError") {
+                setRepoError(err.message || "Failed to open folder.");
+            }
+        });
+    });
+
+    document.addEventListener("click", function (e) {
+        if (!e.target || e.target.id !== "folder-load") {
+            return;
+        }
+        var selectEl = document.getElementById("folder-base-select");
+        if (!currentFolderHandle || !selectEl || !selectEl.value) {
+            setRepoError("Select a base repo file.");
+            return;
+        }
+        setRepoError("");
+        var fileName = selectEl.value;
+        currentFolderHandle.getFileHandle(fileName).then(function (fileHandle) {
+            return fileHandle.getFile();
+        }).then(function (file) {
+            return file.text();
+        }).then(function (textContent) {
+            var data = JSON.parse(textContent);
+            currentBaseText = textContent;
+            currentBaseData = data;
+
+            if (data && typeof data === "object" && data.partials && typeof data.partials === "object") {
+                var partialKeys = Object.keys(data.partials);
+                if (partialKeys.length > 0) {
+                    buildPartialsModal(data.partials, {
+                        folderFileNames: currentFolderFileNames,
+                        folderHandle: currentFolderHandle
+                    });
+                    if (popupsInstance) {
+                        popupsInstance.showAsOverlay("partials-modal", true, false, true, false);
+                        var closer = document.getElementById("settings-closer");
+                        if (closer) {
+                            closer.onclick = function () {
+                                popupsInstance.hideAsOverlay("partials-modal");
+                            };
+                        }
+                    }
+                } else {
+                    saveAndRedirectToEditor({
+                        base: { text: currentBaseText, data: currentBaseData },
+                        partials: {},
+                        type: "local"
+                    });
+                }
+            } else {
+                saveAndRedirectToEditor({
+                    base: { text: currentBaseText, data: currentBaseData },
+                    partials: {},
+                    type: "local"
+                });
+            }
+        }).catch(function (err) {
+            setRepoError(err && err.message ? err.message : "Failed to load file.");
+        });
+    });
 
     if (partialsOkButton && partialsTableBody) {
         partialsOkButton.addEventListener("click", async function () {
@@ -388,17 +580,25 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     var toggle = row.querySelector(".partials-source-toggle");
                     var input = row.querySelector(".partials-source-input");
+                    var select = row.querySelector(".partials-source-select");
 
-                    if (!toggle || !input) {
+                    if (!toggle) {
                         continue;
                     }
 
-                    var isLocal = toggle.textContent.trim().toLowerCase() === "local";
+                    var mode = toggle.textContent.trim().toLowerCase();
 
-                    if (isLocal) {
+                    if (mode === "file" && select && currentPartialsFolderHandle) {
+                        var fileName = select.value;
+                        if (!fileName) {
+                            throw new Error('No file selected for partial "' + key + '".');
+                        }
+                        var folderResult = await readPartialFromFolder(key, currentPartialsFolderHandle, fileName);
+                        result[key] = folderResult;
+                    } else if (mode === "local" && input) {
                         var fileResult = await readPartialFromFile(key, input);
                         result[key] = fileResult;
-                    } else {
+                    } else if ((mode === "url" || !mode) && input) {
                         if (!isValidUrl(input.value)) {
                             throw new Error('Invalid URL for partial "' + key + '".');
                         }
@@ -411,7 +611,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            await saveAndRedirectToEditor(result);
+            if (popupsInstance) {
+                popupsInstance.hideAsOverlay("partials-modal");
+            }
+
+            saveAndRedirectToEditor({
+                base: { text: currentBaseText, data: currentBaseData },
+                partials: result,
+                type: currentSaveType
+            });
         });
     }
 
