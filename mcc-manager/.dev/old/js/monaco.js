@@ -1,5 +1,3 @@
-/* General JS shared across all pages - Monaco Editor handling */
-
 let globalListenersAttached = false;
 const instances = new Set();
 const autoThemeInstances = new Set();

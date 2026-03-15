@@ -1,5 +1,3 @@
-/* General JS shared across all pages - Theme handling */
-
 let localstorageAcceptedTheme = false;
 const THEME_STORAGE_KEY = "theme-preference";
 let currentThemeSetting = "auto";
@@ -88,40 +86,3 @@ if (hasAcceptedLocalstorage()) {
 } else {
     setTheme("auto");
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-    const toggle = document.querySelector('#theme-toggle[data-bind="true"]');
-    if (!toggle) return;
-
-    const updateToggleFromTheme = (theme) => {
-        const effectiveTheme = theme || getCurrentTheme();
-        const isDark = effectiveTheme === "dark";
-
-        toggle.setAttribute("data-theme", effectiveTheme);
-        toggle.setAttribute("aria-pressed", isDark ? "true" : "false");
-
-        const sunIcon = toggle.querySelector(".theme-icon-sun");
-        const moonIcon = toggle.querySelector(".theme-icon-moon");
-
-        if (sunIcon && moonIcon) {
-            if (isDark) {
-                sunIcon.setAttribute("hidden", "");
-                moonIcon.removeAttribute("hidden");
-            } else {
-                moonIcon.setAttribute("hidden", "");
-                sunIcon.removeAttribute("hidden");
-            }
-        }
-    };
-
-    updateToggleFromTheme();
-
-    subscribeToThemeChange(updateToggleFromTheme);
-
-    toggle.addEventListener("click", () => {
-        const current = getCurrentTheme();
-        const next = current === "dark" ? "light" : "dark";
-        setTheme(next);
-        updateToggleFromTheme(next);
-    });
-});

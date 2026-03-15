@@ -1,0 +1,115 @@
+/* General styles shared across all pages - Shared cookies / storage consent styles */
+
+:root {
+    --ls-consent-radius: 0.25rem;
+    --ls-consent-padding-y: 1rem;
+    --ls-consent-padding-x: 1rem;
+    --ls-consent-max-width: 40rem;
+
+    --ls-consent-btn-radius: 0.25rem;
+    --ls-consent-btn-padding-y: 0.35rem;
+    --ls-consent-btn-padding-x: 0.9rem;
+    --ls-consent-btn-font-size: 0.85rem;
+    --ls-consent-btn-gap: 0.5rem;
+}
+
+[data-theme="dark"] {
+    --ls-consent-bg: #030712;
+    --ls-consent-text: #f9fafb;
+    --ls-consent-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+
+    --ls-consent-btn-border: rgba(249, 250, 251, 0.3);
+    --ls-consent-btn-hover-bg: rgba(249, 250, 251, 0.12);
+
+    --ls-consent-btn-accept-bg: #10b981;
+    --ls-consent-btn-accept-border: #10b981;
+    --ls-consent-btn-accept-text: #0b1120;
+    --ls-consent-btn-accept-hover-bg: #34d399;
+    --ls-consent-btn-accept-hover-border: #34d399;
+}
+
+[data-theme="light"] {
+    --ls-consent-bg: #111827;
+    --ls-consent-text: #f9fafb;
+    --ls-consent-shadow: 0 -4px 16px rgba(0, 0, 0, 0.35);
+
+    --ls-consent-btn-border: rgba(249, 250, 251, 0.3);
+    --ls-consent-btn-hover-bg: rgba(249, 250, 251, 0.12);
+
+    --ls-consent-btn-accept-bg: #10b981;
+    --ls-consent-btn-accept-border: #10b981;
+    --ls-consent-btn-accept-text: #0b1120;
+    --ls-consent-btn-accept-hover-bg: #34d399;
+    --ls-consent-btn-accept-hover-border: #34d399;
+}
+
+.localstorage-consent {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 50;
+    display: flex;
+    justify-content: center;
+    padding: var(--ls-consent-padding-y) var(--ls-consent-padding-x);
+    box-sizing: border-box;
+}
+
+.localstorage-consent.hidden {
+    display: none;
+}
+
+.localstorage-consent > div,
+.localstorage-consent {
+    max-width: var(--ls-consent-max-width);
+}
+
+.localstorage-consent {
+    margin-inline: auto;
+    background-color: var(--ls-consent-bg);
+    color: var(--ls-consent-text);
+    border-radius: var(--ls-consent-radius) var(--ls-consent-radius) 0 0;
+    box-shadow: var(--ls-consent-shadow);
+}
+
+.localstorage-consent-text {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.localstorage-consent-actions {
+    display: flex;
+    gap: var(--ls-consent-btn-gap);
+    justify-content: flex-end;
+}
+
+.localstorage-consent-btn {
+    cursor: pointer;
+    border-radius: var(--ls-consent-btn-radius);
+    padding: var(--ls-consent-btn-padding-y) var(--ls-consent-btn-padding-x);
+    font-size: var(--ls-consent-btn-font-size);
+    font-weight: 500;
+    border: 1px solid var(--ls-consent-btn-border);
+    background: transparent;
+    color: inherit;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.localstorage-consent-btn:hover {
+    background-color: var(--ls-consent-btn-hover-bg);
+}
+
+.localstorage-consent-btn[data-consent-accept] {
+    background-color: var(--ls-consent-btn-accept-bg);
+    border-color: var(--ls-consent-btn-accept-border);
+    color: var(--ls-consent-btn-accept-text);
+}
+
+.localstorage-consent-btn[data-consent-accept]:hover {
+    background-color: var(--ls-consent-btn-accept-hover-bg);
+    border-color: var(--ls-consent-btn-accept-hover-border);
+}
+
+.localstorage-consent-btn[data-consent-decline] {
+    background-color: transparent;
+}

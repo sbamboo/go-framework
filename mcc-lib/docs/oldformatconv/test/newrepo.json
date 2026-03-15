@@ -1,0 +1,227 @@
+{
+    "format": 3,
+    "uuid": "c2d7d3f8-3ac7-4351-9ca0-c9b9838964db",
+    "name": "Converted legacy repository",
+    "author": "MinecraftCustomClient / Axo",
+    "version": "1.0",
+    "created": "2023-09-22",
+    "last_updated": "2026-01-07",
+    "resources": {
+        "modpacks": [
+            {
+                "type": "inline",
+                "format": 3,
+                "id": "832c9d93-1eec-43ed-ac9c-93916d864994",
+                "name": "TestingPkg_urlListing",
+                "description": "Internal test pgk for urlListing sourceType.",
+                "author": "MinecraftCustomClient",
+                "group": "TEST",
+                "meta": {
+                    "supported": false
+                },
+                "versions": {
+                    "1.0": {
+                        "created": "2024-02-12",
+                        "mcver": "1.20.4",
+                        "depends": [
+                            "loaders:fabric:0.15.6"
+                        ],
+                        "resources": {
+                            "mods": [
+                                {
+                                    "id": "BadOptimizations-1.6.3",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://cdn.modrinth.com/data/g96Z4WVZ/versions/tfPcVhXP/BadOptimizations-1.6.3.jar",
+                                            "filename": "BadOptimizations-1.6.3.jar"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "bettermounthud-1.2.2",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://edge.forgecdn.net/files/4574/355/bettermounthud-1.2.2.jar",
+                                            "filename": "bettermounthud-1.2.2.jar"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://raw.githubusercontent.com/sbamboo/MinecraftCustomClient/main/v2/Experiments/TestingPkg/invalidTestJar.jar",
+                                            "filename": "invalidTestJar.jar"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar-1",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://raw.githubusercontent.com/sbamboo/MinecraftCustomClient/main/v2/Experiments/TestingPkg/invalidTestJar.zip",
+                                            "filename": "invalidTestJar.zip"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar-2",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://raw.githubusercontent.com/sbamboo/MinecraftCustomClient/main/v2/Experiments/TestingPkg/invalidTestJar.package",
+                                            "filename": "invalidTestJar.package"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar-3",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "",
+                                            "filename": "invalidTestJar.jar"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar-4",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "",
+                                            "filename": "invalidTestJar.zip"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "resource_counts": {
+                            "mods": 7,
+                            "resourcepacks": 0
+                        },
+                        "overrides": {
+                            "type": "url",
+                            "source": "https://raw.githubusercontent.com/sbamboo/MinecraftCustomClient/main/v2/Experiments/TestingPkg/listingPkg.mlisting"
+                        }
+                    }
+                },
+                "hidden": true,
+                "icon": "mcc:icon128"
+            },
+            {
+                "type": "inline",
+                "format": 3,
+                "id": "541598dc-b746-44ac-8859-4ee5f8486a15",
+                "name": "TestingPkg_included",
+                "description": "Internal test pgk for included sourceType.",
+                "author": "MinecraftCustomClient",
+                "group": "TEST",
+                "meta": {
+                    "supported": false
+                },
+                "versions": {
+                    "1.0": {
+                        "created": "2024-02-12",
+                        "mcver": "1.20.4",
+                        "depends": [
+                            "loaders:fabric:0.15.6"
+                        ],
+                        "resources": {
+                            "mods": [
+                                {
+                                    "id": "BadOptimizations-1.6.3",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://cdn.modrinth.com/data/g96Z4WVZ/versions/tfPcVhXP/BadOptimizations-1.6.3.jar",
+                                            "filename": "BadOptimizations-1.6.3.jar"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "bettermounthud-1.2.2",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://edge.forgecdn.net/files/4574/355/bettermounthud-1.2.2.jar",
+                                            "filename": "bettermounthud-1.2.2.jar"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://raw.githubusercontent.com/sbamboo/MinecraftCustomClient/main/v2/Experiments/TestingPkg/invalidTestJar.jar",
+                                            "filename": "invalidTestJar.jar"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar-1",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://raw.githubusercontent.com/sbamboo/MinecraftCustomClient/main/v2/Experiments/TestingPkg/invalidTestJar.zip",
+                                            "filename": "invalidTestJar.zip"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar-2",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "https://raw.githubusercontent.com/sbamboo/MinecraftCustomClient/main/v2/Experiments/TestingPkg/invalidTestJar.package",
+                                            "filename": "invalidTestJar.package"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar-3",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "",
+                                            "filename": "invalidTestJar.jar"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "id": "invalidTestJar-4",
+                                    "sources": [
+                                        {
+                                            "type": "url",
+                                            "source": "",
+                                            "filename": "invalidTestJar.zip"
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "resource_counts": {
+                            "mods": 7,
+                            "resourcepacks": 0
+                        }
+                    }
+                },
+                "hidden": true,
+                "icon": "mcc:icon128"
+            }
+        ],
+        "resource_counts": {
+            "sources": 0,
+            "runtimes": 0,
+            "loaders": 0,
+            "mods": 0,
+            "resourcepacks": 0,
+            "modpacks": 2
+        }
+    }
+}

@@ -1,5 +1,3 @@
-/* General styles shared across all pages - Shared node styles */
-
 [data-theme="dark"] {
     --node-graph-background: transparent; /* #2a2d2e */
     --node-graph-content: #808080;

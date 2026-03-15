@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="./assets/images/favicon_128.png">
     <title>MCC Manager</title>
 
     <script type="module">
@@ -10,25 +11,79 @@
         window.monaco = monaco;
     </script>
 
+    <link rel="stylesheet" href="css/popups.css">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/cookies.css">
     <link rel="stylesheet" href="css/nodes.css">
     <link rel="stylesheet" href="css/monaco.css">
+    <link rel="stylesheet" href="css/pages/start.css">
 
+    <script src="js/popups.js"></script>
     <script src="js/theme.js"></script>
     <script src="js/cookies.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/nodes_renderonly.js"></script>
     <script src="js/nodes.js"></script>
     <script src="js/monaco.js"></script>
-    <script src="js/main.js"></script>
-    <script src="js/choice-source.js"></script>
+    <script src="js/pages/start.js"></script>
 </head>
 <body>
-    <header class="toolbar">
-        <div class="choice-toolbar-left hidden" id="choice-toolbar-back-wrap">
-            <button type="button" id="choice-repo-back" class="toolbar-back-btn">← Back</button>
+    <div id="overlay-container">
+        <div id="popup-container">
+            <div id="partials-modal" class="popup-modal" style="display: none;">
+                <div class="popup-header">
+                    <h2 class="popup-title">Repository has partials</h2>
+                    <button id="settings-closer" class="popup-closer" type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                            <path d="M18 6l-12 12" /><path d="M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="popup-body">
+                    <p class="popup-text">
+                        Verify where you want to fetch partials from:
+                    </p>
+
+                    <div class="partials-table-wrap">
+                        <table class="partials-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Key path</th>
+                                    <th scope="col">Source</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partials-table-body">
+                                <!-- Filled dynamically based on loaded partials -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="partials-error" class="start-error" role="alert" aria-live="polite"></div>
+                </div>
+
+                <div class="popup-footer">
+                    <button type="button" id="partials-ok" class="start-primary">
+                        OK
+                    </button>
+                    <button type="button" id="partials-cancel" class="start-secondary">
+                        Cancel
+                    </button>
+                </div>
+            </div>
         </div>
-        <div class="toolbar-spacer"></div>
-        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
-            <span class="theme-icon theme-icon-sun" aria-hidden="true">
+        
+        <div id="portal-container"></div>
+    </div>
+
+    <header class="page-header">
+        <img src="./assets/images/favicon2_128.png" alt="MCC Manager" class="page-header-logo"/>
+
+        <h1 class="page-header-title">MCC Manager</h1>
+
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" data-bind="true">
+            <span class="theme-icon theme-icon-sun" aria-hidden="true" hidden>
                 <svg focusable="false" aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5M2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1m18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1M11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1m0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1M5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0z"/>
                 </svg>
@@ -41,54 +96,58 @@
         </button>
     </header>
 
-    <main class="choice-source">
-        <p id="choice-source-error" class="choice-source-error hidden" role="alert">
-            <span id="choice-source-error-text"></span>
-        </p>
+    <main>
+        <section class="start-cards" aria-label="Start actions">
+            <div class="start-card" role="region" aria-labelledby="repo-card-title">
+                <h3 class="start-card-title" id="repo-card-title">Fetch or Upload Repository File</h3>
 
-        <div id="choice-source-initial" class="choice-source-step">
-            <h1 class="choice-source-title">Choice Source</h1>
-            <div class="choice-source-cards">
-                <article class="choice-card">
-                    <h2 class="choice-card-title">Fetch/Upload a repo file</h2>
-                    <p class="choice-card-description">Load configuration from a repository URL or upload a file from your device.</p>
-                </article>
-                <article class="choice-card choice-card--coming-soon">
-                    <div class="choice-card-overlay" aria-hidden="true">
-                        <span class="choice-card-overlay-text">Coming Soon</span>
+                <div class="start-form">
+                    <div class="start-field">
+                        <div class="start-field-label">Base file</div>
+                        <div class="start-field-row start-field-row-repo">
+                            <span class="start-field-prefix">From:</span>
+                            <button type="button" class="start-toggle" id="repo-source-toggle" aria-pressed="false">
+                                Local
+                            </button>
+                            <div class="start-input-wrap">
+                                <input type="file" class="start-input" id="repo-source-input" aria-label="Base file" accept="application/json,.repo,.jrepo,.mccr,.mccrepo,.mrepo,.mRepo" />
+                            </div>
+                        </div>
                     </div>
-                    <h2 class="choice-card-title">Use API</h2>
-                    <p class="choice-card-description">Connect to the API to load and manage configurations programmatically.</p>
-                </article>
+                    <div class="start-actions">
+                        <button type="button" class="start-primary" id="repo-fetch" disabled>
+                            Fetch
+                        </button>
+                    </div>
+                    <div class="start-error" id="repo-error" role="alert" aria-live="polite"></div>
+                </div>
             </div>
-        </div>
 
-        <div id="choice-repo-step" class="choice-source-step hidden">
-            <h1 class="choice-source-title">Fetch or upload JSON</h1>
-            <div class="choice-source-cards">
-                <article id="choice-repo-upload-card" class="choice-card choice-card--action">
-                    <h2 class="choice-card-title">Upload JSON file</h2>
-                    <p class="choice-card-description">Choose a .json file from your device.</p>
-                </article>
-                <article class="choice-card choice-card--action">
-                    <h2 class="choice-card-title">Fetch from URL</h2>
-                    <form id="choice-repo-fetch-form" class="choice-repo-fetch-form">
-                        <label for="choice-repo-url" class="visually-hidden">JSON URL</label>
-                        <input type="url" id="choice-repo-url" class="choice-repo-url" placeholder="https://example.com/config.json" required>
-                        <button type="submit" class="choice-repo-fetch-btn">Fetch</button>
-                    </form>
-                </article>
+            <div class="start-card start-card-soon" role="region" aria-labelledby="api-card-title">
+                <h3 class="start-card-title" id="api-card-title">Connect to API</h3>
+
+                <div class="start-form">
+                    <div class="start-field">
+                        <label class="start-field-row start-field-row-api" for="api-address">
+                            <span class="start-field-prefix">Adress:</span>
+                            <div class="start-input-wrap">
+                                <input type="url" class="start-input" id="api-address" placeholder="https://example.com" />
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="start-actions">
+                        <button type="button" class="start-primary" id="api-connect" disabled>
+                            Connect
+                        </button>
+                    </div>
+                </div>
+
+                <div class="start-card-soon-overlay" aria-hidden="true">
+                    <span class="start-card-soon-text">Comming soon</span>
+                </div>
             </div>
-            <input type="file" id="choice-repo-file" accept=".json,application/json" class="hidden" aria-hidden="true">
-        </div>
+        </section>
     </main>
-
-    <div id="localstorage-consent" class="localstorage-consent hidden" role="dialog" aria-label="Storage preference">
-        <p class="localstorage-consent-text">Can this page use localStorage to save your preferences (e.g. theme)?</p>
-        <div class="localstorage-consent-actions">
-            <button type="button" class="localstorage-consent-btn" data-consent-accept>Accept</button>
-            <button type="button" class="localstorage-consent-btn" data-consent-decline>Decline</button>
-        </div>
-    </div>
 </body>
 </html>
