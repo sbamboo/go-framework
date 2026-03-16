@@ -302,7 +302,20 @@ function buildRawTabsFromLoadedRepo() {
             type: "base"
         });
 
-        if (loaded.partials && typeof loaded.partials === "object") {
+        if (Array.isArray(loaded.partials)) {
+            for (var i = 0; i < loaded.partials.length; i++) {
+                var p = loaded.partials[i];
+                if (!p || typeof p !== "object") continue;
+                var kp = p.kp != null ? p.kp : p.keypath;
+                var label = (p.filename != null && p.filename !== "") ? p.filename : (kp || "partial-" + i);
+                tabs.push({
+                    id: "partial-" + i,
+                    label: label,
+                    type: "partial",
+                    keypath: kp
+                });
+            }
+        } else if (loaded.partials && typeof loaded.partials === "object") {
             var partialKeysForTabs = Object.keys(loaded.partials);
             for (var i = 0; i < partialKeysForTabs.length; i++) {
                 var kp = partialKeysForTabs[i];
@@ -751,13 +764,11 @@ async function afterLoadingRepo(content) {
             "text": "...",
             "data": {...}
         },
-        "partials": {
-            "keypath": {
-                "text": "...",
-                "data": {...}
-            }
-        }
+        "partials": [
+            { "kp": "keypath", "text": "...", "data": {...}, "filename": "..." }
+        ]
     }
+    Legacy: partials may be object { "keypath": { "text", "data", "filename" } }.
     */
 
     if (!content || typeof content !== "object" || !content.base || !content.base.data) {
@@ -766,20 +777,58 @@ async function afterLoadingRepo(content) {
     }
 
     var base = content.base.data;
-    var partialsList = [];
-    var partialKeys = [];
-    if (content.partials && typeof content.partials === "object") {
-        partialKeys = Object.keys(content.partials);
-        for (var i = 0; i < partialKeys.length; i++) {
-            var kp = partialKeys[i];
-            var entry = content.partials[kp];
-            partialsList.push({
+    var partialCount = 0;
+    var partialsForPd = [];
+
+    if (Array.isArray(content.partials)) {
+        partialCount = content.partials.length;
+        partialsForPd = content.partials.map(function (p) {
+            var kp = (p && (p.kp != null ? p.kp : p.keypath)) || "";
+            var loaded = p && typeof p === "object" && p.data !== undefined ? p.data : undefined;
+            return {
                 keypath: kp,
                 url: "",
-                loaded: entry && typeof entry === "object" && entry.data !== undefined ? entry.data : undefined
-            });
-        }
+                loaded: loaded,
+                onChange: function (changedKp, changedSubtree) {
+                    editorOnChange(repoSourceType, window.pd || null, "partial", changedKp, changedSubtree);
+                }
+            };
+        });
+    } else if (content.partials && typeof content.partials === "object") {
+        var partialKeys = Object.keys(content.partials);
+        partialCount = partialKeys.length;
+        partialsForPd = partialKeys.map(function (kp) {
+            var entry = content.partials[kp];
+            var loaded = entry && typeof entry === "object" && entry.data !== undefined ? entry.data : undefined;
+            return {
+                keypath: kp,
+                url: "",
+                loaded: loaded,
+                onChange: function (changedKp, changedSubtree) {
+                    editorOnChange(repoSourceType, window.pd || null, "partial", changedKp, changedSubtree);
+                }
+            };
+        });
     }
+
+    function getRepoSourceType() {
+        if (!content || typeof content !== "object") return "unknown";
+        if (content.type === "local") return "local";
+        if (content.type === "fetched") return "fetched";
+        if (content.type === "api") return "api";
+        return "unknown";
+    }
+
+    var repoSourceType = getRepoSourceType();
+    window.repoSourceType = repoSourceType;
+
+    function makeBaseOnChange() {
+        return function (kp, changedSubtree) {
+            editorOnChange(repoSourceType, window.pd || null, "base", kp, changedSubtree);
+        };
+    }
+
+    window.pd = new PartialDataClass(base, partialsForPd, makeBaseOnChange());
 
     // Update loaded files text
     var loadedTextEl = document.getElementById("editor-loaded-files-text");
@@ -792,8 +841,8 @@ async function afterLoadingRepo(content) {
             baseFilename = baseFilename.slice(0, 12) + "...";
         }
         var suffix = "";
-        if (partialKeys.length > 0) {
-            suffix = " (+" + partialKeys.length + " partials)";
+        if (partialCount > 0) {
+            suffix = " (+" + partialCount + " partials)";
         }
         loadedTextEl.textContent = "Loaded: " + baseFilename;
         var existingPartialsSpan = document.getElementById("editor-loaded-files-text-partials");
@@ -807,41 +856,6 @@ async function afterLoadingRepo(content) {
             loadedTextEl.appendChild(span);
         }
     }
-
-    function getRepoSourceType() {
-        if (!content || typeof content !== "object") return "unknown";
-        if (content.type === "local") return "local";
-        if (content.type === "fetched") return "fetched";
-        if (content.type === "api") return "api";
-        return "unknown";
-    }
-
-    function makeBaseOnChange() {
-        var repoSourceType = getRepoSourceType();
-        return function (kp, changedSubtree) {
-            editorOnChange(repoSourceType, window.pd || null, "base", kp, changedSubtree);
-        };
-    }
-
-    var repoSourceType = getRepoSourceType();
-    window.repoSourceType = repoSourceType;
-
-    var wiredPartialsList = [];
-    for (var j = 0; j < partialsList.length; j++) {
-        (function () {
-            var p = partialsList[j];
-            wiredPartialsList.push({
-                keypath: p.keypath,
-                url: p.url,
-                loaded: p.loaded,
-                onChange: function (kp, changedSubtree) {
-                    editorOnChange(repoSourceType, window.pd || null, "partial", kp, changedSubtree);
-                }
-            });
-        })();
-    }
-
-    window.pd = new PartialDataClass(base, wiredPartialsList, makeBaseOnChange());
 
     // Call subscribers
     onPdLoadedSubscribers.forEach(callback => callback(window.pd));
@@ -959,13 +973,23 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                     })();
 
                     // Partials
-                    if (loaded.partials && typeof loaded.partials === "object") {
+                    if (Array.isArray(loaded.partials)) {
+                        loaded.partials.forEach(function (p, idx) {
+                            if (!p || typeof p !== "object") return;
+                            var kp = (p.kp != null ? p.kp : p.keypath) || ("partial-" + idx);
+                            var pText = typeof p.text === "string" ? p.text : JSON.stringify(p.data || {}, null, 2);
+                            var safeKey = String(kp).replace(/[^a-z0-9_\-]+/gi, "_");
+                            var pFilename = (p.filename != null && p.filename !== "") ? p.filename : ("partial-" + safeKey + ".json");
+                            filesToDownload.push({
+                                filename: pFilename,
+                                text: pText
+                            });
+                        });
+                    } else if (loaded.partials && typeof loaded.partials === "object") {
                         var partialKeysForSave = Object.keys(loaded.partials);
                         partialKeysForSave.forEach(function (kp) {
                             var entry = loaded.partials[kp];
-                            if (!entry || typeof entry !== "object") {
-                                return;
-                            }
+                            if (!entry || typeof entry !== "object") return;
                             var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 2);
                             var safeKey = kp.replace(/[^a-z0-9_\-]+/gi, "_");
                             var pFilename = entry.filename || ("partial-" + safeKey + ".json");
@@ -1080,13 +1104,23 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                         });
                     })();
 
-                    if (loadedLocal.partials && typeof loadedLocal.partials === "object") {
+                    if (Array.isArray(loadedLocal.partials)) {
+                        loadedLocal.partials.forEach(function (p, idx) {
+                            if (!p || typeof p !== "object") return;
+                            var kp = (p.kp != null ? p.kp : p.keypath) || ("partial-" + idx);
+                            var pText = typeof p.text === "string" ? p.text : JSON.stringify(p.data || {}, null, 2);
+                            var safeKey = String(kp).replace(/[^a-z0-9_\-]+/gi, "_");
+                            var pFilename = (p.filename != null && p.filename !== "") ? p.filename : ("partial-" + safeKey + ".json");
+                            filesToWrite.push({
+                                filename: pFilename,
+                                text: pText
+                            });
+                        });
+                    } else if (loadedLocal.partials && typeof loadedLocal.partials === "object") {
                         var partialKeysLocal = Object.keys(loadedLocal.partials);
                         partialKeysLocal.forEach(function (kp) {
                             var entry = loadedLocal.partials[kp];
-                            if (!entry || typeof entry !== "object") {
-                                return;
-                            }
+                            if (!entry || typeof entry !== "object") return;
                             var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 2);
                             var safeKey = kp.replace(/[^a-z0-9_\-]+/gi, "_");
                             var pFilename = entry.filename || ("partial-" + safeKey + ".json");
@@ -1265,6 +1299,8 @@ async function renderViewTab() {
     }
 }
 //endregion: ViewHelpers
+
+var loadedEditors = [];
 
 var onRawTabChangeSubscribers = [];
 

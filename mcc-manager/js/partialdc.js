@@ -427,4 +427,26 @@ class PartialDataClass {
             }))
         };
     }
+
+    async setPartialData(partialIndex, data) {
+        // if partialIndex < 0 its base, else index in partials array, updates text and data/loaded and calls onChange if defined
+        if (partialIndex < 0) {
+            this.base = data;
+            // if this.onChange is defined and a function call it like onChange("base", structuredClone(this.base));
+            if (typeof this.onChange === "function") {
+                this.onChange("base", structuredClone(this.base));
+            }
+        } else {
+            if (partialIndex < this.partials.length) {
+                this.partials[partialIndex].loaded = data;
+                if (typeof this.partials[partialIndex].onChange === "function") {
+                    // Call like onChange(this.partials[partialIndex].keypath, structuredClone(this.partials[partialIndex].loaded));
+                    this.partials[partialIndex].onChange(this.partials[partialIndex].keypath, structuredClone(this.partials[partialIndex].loaded));
+                }
+
+            } else {
+                console.error("PartialDataClass.setPartialData: partialIndex out of bounds", partialIndex);
+            }
+        }
+    }
 }

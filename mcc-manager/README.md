@@ -40,3 +40,4 @@ Code should use indentation of four spaces.
 | TabChange | `onEditorTabChange` | No |
 | OnChange | `editorOnChange` | Yes `window.unSubscribeOnEditorChange` |
 | OnSave | `editorOnSave` | Yes `window.subscribeOnEditorSave` |
+| RawTabChange | `onRawTabChange` | Yes `window.subscribeOnRawTabChange` |

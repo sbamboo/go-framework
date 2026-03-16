@@ -477,14 +477,14 @@ document.addEventListener("DOMContentLoaded", function () {
                         } else {
                             saveAndRedirectToEditor({
                                 base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
-                                partials: {},
+                                partials: [],
                                 type: "fetched"
                             });
                         }
                     } else {
                         saveAndRedirectToEditor({
                             base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
-                            partials: {},
+                            partials: [],
                             type: "fetched"
                         });
                     }
@@ -587,14 +587,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 } else {
                     saveAndRedirectToEditor({
                         base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
-                        partials: {},
+                        partials: [],
                         type: "local"
                     });
                 }
             } else {
                 saveAndRedirectToEditor({
                     base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
-                    partials: {},
+                    partials: [],
                     type: "local"
                 });
             }
@@ -614,7 +614,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             var rows = partialsTableBody.querySelectorAll("tr");
             var keys = Object.keys(currentPartials);
-            var result = {};
+            var result = [];
 
             try {
                 for (var i = 0; i < keys.length; i++) {
@@ -633,6 +633,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
 
                     var mode = toggle.textContent.trim().toLowerCase();
+                    var item = null;
 
                     if (mode === "file" && select && currentPartialsFolderHandle) {
                         var fileName = select.value;
@@ -640,16 +641,20 @@ document.addEventListener("DOMContentLoaded", function () {
                             throw new Error('No file selected for partial "' + key + '".');
                         }
                         var folderResult = await readPartialFromFolder(key, currentPartialsFolderHandle, fileName);
-                        result[key] = folderResult;
+                        item = { kp: key, text: folderResult.text, data: folderResult.data, filename: folderResult.filename };
                     } else if (mode === "local" && input) {
                         var fileResult = await readPartialFromFile(key, input);
-                        result[key] = fileResult;
+                        item = { kp: key, text: fileResult.text, data: fileResult.data, filename: fileResult.filename };
                     } else if ((mode === "url" || !mode) && input) {
                         if (!isValidUrl(input.value)) {
                             throw new Error('Invalid URL for partial "' + key + '".');
                         }
                         var urlResult = await fetchPartialFromUrl(key, input.value);
-                        result[key] = urlResult;
+                        item = { kp: key, text: urlResult.text, data: urlResult.data, filename: urlResult.filename };
+                    }
+
+                    if (item) {
+                        result.push(item);
                     }
                 }
             } catch (e) {
