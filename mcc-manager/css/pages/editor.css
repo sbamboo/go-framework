@@ -300,3 +300,72 @@ main.editor-no-repo {
 .node-graph .node-type-null {
     color: var(--node-type-null);
 }
+
+/* RAW MODE TABS */
+
+#editor-mode-raw-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid var(--editor-button-border);
+    border-top: none;
+}
+
+#editor-mode-raw-nav-left,
+#editor-mode-raw-nav-right {
+    height: 1.75rem;
+    width: 1.75rem;
+    background: transparent;
+    color: var(--text-color);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+#editor-mode-raw-nav-left:disabled,
+#editor-mode-raw-nav-right:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+#editor-mode-raw-nav-tabs {
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    border-left: 1px solid var(--editor-button-border);
+    border-right: 1px solid var(--editor-button-border);
+}
+
+.editor-raw-tab-strip {
+    display: inline-flex;
+    align-items: stretch;
+    white-space: nowrap;
+    transition: transform 120ms ease-out;
+}
+
+.editor-raw-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    height: 1.9rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+    color: var(--text-color);
+    background: transparent;
+}
+
+.editor-raw-tab:not(.is-active) {
+    border-left: 1px solid var(--editor-button-border);
+}
+.editor-raw-tab:not(.is-active):first-child {
+    border-left: none;
+}
+
+.editor-raw-tab.is-active {
+    border-color: var(--editor-button-border);
+    background: var(--editor-button-bg);
+}

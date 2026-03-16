@@ -141,6 +141,8 @@ main {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    max-height: 80vh;
+    overflow-y: auto;
 }
 
 .partials-table-wrap {

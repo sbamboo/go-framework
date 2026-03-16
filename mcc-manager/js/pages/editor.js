@@ -7,6 +7,23 @@ var ISMODIFIED_KEY = "ismodified";
 var viewTabInitialized = false;
 var viewTabChangeUnsubscribe = null;
 
+// region: RawTab
+/* ========================================================================================== */
+var rawTabInitialized = false;
+var rawTabChangeUnsubscribe = null;
+var rawTabPdLoadedUnsubscribe = null;
+
+var rawTabNavLeftButton = null;
+var rawTabNavRightButton = null;
+var rawTabNavTabsContainer = null;
+var rawTabStripEl = null;
+
+var rawTabDescriptors = [];
+var rawActiveTabId = null;
+var rawScrollIndex = 0;
+/* ========================================================================================== */
+//endregion: RawTab
+
 // Holds descriptions for the repo schema
 //   keypaths are split by "."; literal dots in keys are escaped as \.
 //   [] means its an array matching any index [1] would be specifically that index
@@ -196,7 +213,251 @@ window.onEditorTabChange = function (fromMode, toMode) {
             });
         }
     }
+
+    if (toMode === "raw" && !rawTabInitialized) {
+        rawTabInitialized = true;
+
+        if (!rawTabNavLeftButton || !rawTabNavRightButton || !rawTabNavTabsContainer) {
+            rawTabNavLeftButton = document.getElementById("editor-mode-raw-nav-left");
+            rawTabNavRightButton = document.getElementById("editor-mode-raw-nav-right");
+            rawTabNavTabsContainer = document.getElementById("editor-mode-raw-nav-tabs");
+        }
+
+        if (rawTabNavTabsContainer && !rawTabStripEl) {
+            rawTabStripEl = document.createElement("div");
+            rawTabStripEl.className = "editor-raw-tab-strip";
+            rawTabNavTabsContainer.appendChild(rawTabStripEl);
+
+            rawTabStripEl.addEventListener("click", function (e) {
+                var target = e.target;
+                while (target && target !== rawTabStripEl && !target.classList.contains("editor-raw-tab")) {
+                    target = target.parentElement;
+                }
+                if (!target || target === rawTabStripEl) return;
+                var tabId = target.getAttribute("data-tab-id");
+                if (!tabId) return;
+                var previousId = rawActiveTabId || "unknown";
+            if (previousId === tabId) return;
+                rawActiveTabId = tabId;
+                renderRawTabs();
+                rawUpdateTabQueryParam();
+                if (typeof window.onRawTabChange === "function") {
+                    window.onRawTabChange(previousId, tabId);
+                }
+            });
+        }
+
+        if (rawTabNavLeftButton && !rawTabNavLeftButton._rawNavBound) {
+            rawTabNavLeftButton._rawNavBound = true;
+            rawTabNavLeftButton.addEventListener("click", function () {
+                rawScrollOneStep(-1);
+            });
+        }
+        if (rawTabNavRightButton && !rawTabNavRightButton._rawNavBound) {
+            rawTabNavRightButton._rawNavBound = true;
+            rawTabNavRightButton.addEventListener("click", function () {
+                rawScrollOneStep(1);
+            });
+        }
+
+        function buildWhenPdReady() {
+            buildRawTabsFromLoadedRepo();
+            if (typeof window.subscribeOnEditorChange === "function" && !rawTabChangeUnsubscribe) {
+                rawTabChangeUnsubscribe = window.subscribeOnEditorChange(function () {
+                    buildRawTabsFromLoadedRepo();
+                });
+            }
+        }
+
+        if (window.pd && typeof window.pd.getStatic === "function") {
+            buildWhenPdReady();
+        } else if (typeof window.subscribeOnPdLoaded === "function" && !rawTabPdLoadedUnsubscribe) {
+            rawTabPdLoadedUnsubscribe = window.subscribeOnPdLoaded(function () {
+                buildWhenPdReady();
+            });
+        }
+    }
 };
+
+function buildRawTabsFromLoadedRepo() {
+    var storage = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
+    if (!storage || typeof storage.get !== "function") {
+        return;
+    }
+
+    storage.get("loadedRepo").then(function (loaded) {
+        if (!loaded || typeof loaded !== "object" || !loaded.base) {
+            return;
+        }
+
+        var tabs = [];
+
+        var baseFilename = loaded.base && typeof loaded.base === "object" ? loaded.base.filename : null;
+        if (!baseFilename) {
+            baseFilename = "base.json";
+        }
+        tabs.push({
+            id: "base-0",
+            label: baseFilename,
+            type: "base"
+        });
+
+        if (loaded.partials && typeof loaded.partials === "object") {
+            var partialKeysForTabs = Object.keys(loaded.partials);
+            for (var i = 0; i < partialKeysForTabs.length; i++) {
+                var kp = partialKeysForTabs[i];
+                var entry = loaded.partials[kp];
+                if (!entry || typeof entry !== "object") continue;
+                var pFilename = entry.filename;
+                if (!pFilename) {
+                    pFilename = kp;
+                }
+                tabs.push({
+                    id: "partial-" + i,
+                    label: pFilename,
+                    type: "partial",
+                    keypath: kp
+                });
+            }
+        }
+
+        rawTabDescriptors = tabs;
+        if (rawTabDescriptors.length > 0) {
+            var desiredIndex = -1;
+            try {
+                var url = new URL(window.location.href);
+                var qsTab = url.searchParams.get("tab");
+                if (qsTab != null) {
+                    var parsed = parseInt(qsTab, 10);
+                    if (!isNaN(parsed) && parsed >= 0 && parsed < rawTabDescriptors.length) {
+                        desiredIndex = parsed;
+                    }
+                }
+            } catch (e) {
+                // Ignore URL issues, fall back to default
+            }
+
+            if (desiredIndex >= 0) {
+                rawActiveTabId = rawTabDescriptors[desiredIndex].id;
+            } else if (!rawActiveTabId) {
+                rawActiveTabId = rawTabDescriptors[0].id;
+            }
+        }
+        rawScrollIndex = 0;
+        renderRawTabs();
+        rawUpdateTabQueryParam();
+    }).catch(function () {
+        /* ignore */
+    });
+}
+
+function renderRawTabs() {
+    if (!rawTabStripEl || !rawTabNavTabsContainer) {
+        return;
+    }
+
+    rawTabStripEl.innerHTML = "";
+    for (var i = 0; i < rawTabDescriptors.length; i++) {
+        var tab = rawTabDescriptors[i];
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "editor-raw-tab";
+        if (tab.id === rawActiveTabId) {
+            btn.classList.add("is-active");
+        }
+        btn.setAttribute("data-tab-id", tab.id);
+        if (tab.type === "partial" && tab.keypath) {
+            btn.setAttribute("data-keypath", tab.keypath);
+        }
+        btn.textContent = tab.label;
+        rawTabStripEl.appendChild(btn);
+    }
+
+    updateRawNavState();
+}
+
+function rawComputePrefixWidth(count) {
+    if (!rawTabStripEl) return 0;
+    var total = 0;
+    var children = rawTabStripEl.children;
+    for (var i = 0; i < count && i < children.length; i++) {
+        total += children[i].offsetWidth;
+    }
+    return total;
+}
+
+function updateRawNavState() {
+    if (!rawTabStripEl || !rawTabNavTabsContainer) return;
+
+    var containerWidth = rawTabNavTabsContainer.clientWidth;
+    var stripWidth = rawTabStripEl.scrollWidth;
+
+    if (!rawTabNavLeftButton || !rawTabNavRightButton) {
+        return;
+    }
+
+    if (stripWidth <= containerWidth + 1) {
+        rawScrollIndex = 0;
+        rawTabStripEl.style.transform = "translateX(0px)";
+        rawTabNavLeftButton.disabled = true;
+        rawTabNavRightButton.disabled = true;
+        return;
+    }
+
+    var maxIndex = Math.max(0, rawTabStripEl.children.length - 1);
+    if (rawScrollIndex < 0) rawScrollIndex = 0;
+    if (rawScrollIndex > maxIndex) rawScrollIndex = maxIndex;
+
+    var offset = -rawComputePrefixWidth(rawScrollIndex);
+    rawTabStripEl.style.transform = "translateX(" + offset + "px)";
+
+    rawTabNavLeftButton.disabled = rawScrollIndex <= 0;
+
+    var visibleEnd = containerWidth - offset;
+    var atEnd = visibleEnd >= stripWidth - 1;
+    rawTabNavRightButton.disabled = atEnd;
+}
+
+function rawScrollOneStep(direction) {
+    if (!rawTabStripEl) return;
+    var children = rawTabStripEl.children;
+    if (!children || !children.length) return;
+
+    var maxIndex = Math.max(0, children.length - 1);
+    if (direction > 0 && rawScrollIndex < maxIndex) {
+        rawScrollIndex += 1;
+    } else if (direction < 0 && rawScrollIndex > 0) {
+        rawScrollIndex -= 1;
+    }
+    updateRawNavState();
+}
+
+function rawUpdateTabQueryParam() {
+    try {
+        if (!rawTabDescriptors || !rawTabDescriptors.length) {
+            var urlClear = new URL(window.location.href);
+            urlClear.searchParams.delete("tab");
+            window.history.replaceState({}, "", urlClear.toString());
+            return;
+        }
+        var index = -1;
+        for (var i = 0; i < rawTabDescriptors.length; i++) {
+            if (rawTabDescriptors[i].id === rawActiveTabId) {
+                index = i;
+                break;
+            }
+        }
+        var url = new URL(window.location.href);
+        if (index >= 0) {
+            url.searchParams.set("tab", String(index));
+        } else {
+            url.searchParams.delete("tab");
+        }
+        window.history.replaceState({}, "", url.toString());
+    } catch (e) {
+        // Ignore URL issues
+    }
+}
 
 /** Split keypath by "."; literal dots in keys are escaped as \. */
 function keypathSegments(keypath) {
@@ -1004,3 +1265,73 @@ async function renderViewTab() {
     }
 }
 //endregion: ViewHelpers
+
+var onRawTabChangeSubscribers = [];
+
+window.subscribeOnRawTabChange = function (callback) {
+    if (typeof callback === "function") {
+        onRawTabChangeSubscribers.push(callback);
+    }
+    return () => onRawTabChangeSubscribers.splice(onRawTabChangeSubscribers.indexOf(callback), 1);
+}
+
+window.unSubscribeOnRawTabChange = function (callback) {
+    if (typeof callback === "function") {
+        onRawTabChangeSubscribers.splice(onRawTabChangeSubscribers.indexOf(callback), 1);
+    }
+}
+
+window.onRawTabChange = function (from="unknown", to="unknown") {
+    // from / to : data-tab-id
+
+    // call all subscribers
+    onRawTabChangeSubscribers.forEach(callback => callback(from, to));
+
+    // Log
+    console.log(`[Editor.Event] Raw tab changed from '${from}' to '${to}'`);
+
+    // Get the data from PartialDataClass (window.pd)
+    let obj = {"to": to};
+    let missingPartial = false;
+    try {
+        if (window.pd) {
+            if (typeof to === "string" && to.indexOf("base-") === 0) {
+                obj.type = "base";
+                obj.data = window.pd.base;
+            }
+
+            if (typeof to === "string" && to.indexOf("partial-") === 0) {
+                var idx = parseInt(to.slice("partial-".length), 10);
+                if (isNaN(idx) || idx < 0 || !window.pd.partials || !window.pd.partials[idx]) {
+                    obj.type = "partial.missing";
+                    obj.partialIndex = idx;
+                    missingPartial = true;
+                }
+                var p = window.pd.partials[idx];
+                obj = {
+                    type: "partial",
+                    partialIndex: idx,
+                    keypath: p.keypath,
+                    data: p.loaded
+                };
+            }
+        }
+    } catch (e) {
+        console.warn("[Editor.Event] Failed to retrive raw tab data", e);
+    }
+
+    // Log the data in PartialDataClass (window.pd)
+    if (!window.pd) {
+        console.log("[Editor.Event] Raw tab data (pd not ready)", obj);
+    } else {
+        if (typeof to === "string" && to.indexOf("base-") === 0) {
+            console.log("[Editor.Event] Raw tab data", obj);
+        } else if (typeof to === "string" && to.indexOf("partial-") === 0) {
+            if (missingPartial) {
+                console.log("[Editor.Event] Raw tab data (partial not found)", obj);
+            } else {
+                console.log("[Editor.Event] Raw tab data", obj);
+            }
+        }
+    }
+}

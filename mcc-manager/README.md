@@ -31,3 +31,12 @@ if any colors are needed they should be definded under both `[data-theme="dark"]
 
 # Formatting
 Code should use indentation of four spaces.
+
+
+# Editor Events
+| Name | Calls | Can subscribe |
+|-|-|-|
+| RepoLoaded | `afterLoadingRepo` | Yes `window.subscribeOnPdLoaded` |
+| TabChange | `onEditorTabChange` | No |
+| OnChange | `editorOnChange` | Yes `window.unSubscribeOnEditorChange` |
+| OnSave | `editorOnSave` | Yes `window.subscribeOnEditorSave` |
