@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var currentPartials = null;
     var currentBaseText = null;
     var currentBaseData = null;
+    var currentBaseFilename = null;
     var currentFolderHandle = null;
     var currentFolderFileNames = [];
     var currentPartialsFolderHandle = null;
@@ -288,9 +289,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 data = null;
             }
 
+            var filename = null;
+            try {
+                var urlObj = new URL(url, window.location.origin);
+                var parts = urlObj.pathname.split("/").filter(Boolean);
+                filename = parts.length > 0 ? parts[parts.length - 1] : urlObj.href;
+            } catch (e) {
+                filename = url;
+            }
+
             return {
                 text: text,
-                data: data
+                data: data,
+                filename: filename
             };
         } catch (e) {
             throw new Error('Failed to fetch partial "' + key + '": ' + (e && e.message ? e.message : String(e)));
@@ -319,7 +330,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 resolve({
                     text: text,
-                    data: data
+                    data: data,
+                    filename: file && file.name ? file.name : null
                 });
             };
 
@@ -343,7 +355,7 @@ document.addEventListener("DOMContentLoaded", function () {
             } catch (e) {
                 data = null;
             }
-            return { text: text, data: data };
+            return { text: text, data: data, filename: fileName };
         }).catch(function (e) {
             throw new Error('Failed to read partial "' + key + '" from folder: ' + (e && e.message ? e.message : String(e)));
         });
@@ -414,6 +426,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                     currentBaseText = textContent;
                     currentBaseData = data;
+                    currentBaseFilename = file && file.name ? file.name : null;
 
                     if (data && typeof data === "object" && data.partials && typeof data.partials === "object") {
                         var partialKeys = Object.keys(data.partials);
@@ -432,14 +445,14 @@ document.addEventListener("DOMContentLoaded", function () {
                             }
                         } else {
                             saveAndRedirectToEditor({
-                                base: { text: currentBaseText, data: currentBaseData },
+                                base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
                                 partials: {},
                                 type: "fetched"
                             });
                         }
                     } else {
                         saveAndRedirectToEditor({
-                            base: { text: currentBaseText, data: currentBaseData },
+                            base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
                             partials: {},
                             type: "fetched"
                         });
@@ -513,6 +526,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         setRepoError("");
         var fileName = selectEl.value;
+        currentBaseFilename = fileName;
         currentFolderHandle.getFileHandle(fileName).then(function (fileHandle) {
             return fileHandle.getFile();
         }).then(function (file) {
@@ -540,14 +554,14 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                 } else {
                     saveAndRedirectToEditor({
-                        base: { text: currentBaseText, data: currentBaseData },
+                        base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
                         partials: {},
                         type: "local"
                     });
                 }
             } else {
                 saveAndRedirectToEditor({
-                    base: { text: currentBaseText, data: currentBaseData },
+                    base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
                     partials: {},
                     type: "local"
                 });
@@ -616,7 +630,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             saveAndRedirectToEditor({
-                base: { text: currentBaseText, data: currentBaseData },
+                base: { text: currentBaseText, data: currentBaseData, filename: currentBaseFilename },
                 partials: result,
                 type: currentSaveType
             });
