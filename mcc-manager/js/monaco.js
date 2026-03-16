@@ -179,7 +179,9 @@ class MonacoEditor {
             value: options.value || "",
             language: options.language,
             theme: "monacoSurfaceTheme",
-            automaticLayout: true
+            automaticLayout: true,
+            tabSize: options.tabSize != null ? options.tabSize : 4,
+            insertSpaces: options.insertSpaces != null ? options.insertSpaces : true
         });
 
         this.onEnter = options.onEnter || null;

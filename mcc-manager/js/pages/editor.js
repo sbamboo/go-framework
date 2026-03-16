@@ -237,10 +237,12 @@ window.onEditorTabChange = function (fromMode, toMode) {
                 var tabId = target.getAttribute("data-tab-id");
                 if (!tabId) return;
                 var previousId = rawActiveTabId || "unknown";
-            if (previousId === tabId) return;
+                if (previousId === tabId) return;
                 rawActiveTabId = tabId;
                 renderRawTabs();
                 rawUpdateTabQueryParam();
+                ensureRawEditor(rawActiveTabId);
+                updateRawEditorVisibility();
                 if (typeof window.onRawTabChange === "function") {
                     window.onRawTabChange(previousId, tabId);
                 }
@@ -263,8 +265,9 @@ window.onEditorTabChange = function (fromMode, toMode) {
         function buildWhenPdReady() {
             buildRawTabsFromLoadedRepo();
             if (typeof window.subscribeOnEditorChange === "function" && !rawTabChangeUnsubscribe) {
-                rawTabChangeUnsubscribe = window.subscribeOnEditorChange(function () {
+                rawTabChangeUnsubscribe = window.subscribeOnEditorChange(function (repoSourceType, partialDataClass, changeIn, keypath, changedData, partialIndex) {
                     buildRawTabsFromLoadedRepo();
+                    rawEditorSyncFromChange(repoSourceType, partialDataClass, changeIn, keypath, changedData, partialIndex);
                 });
             }
         }
@@ -359,6 +362,8 @@ function buildRawTabsFromLoadedRepo() {
         rawScrollIndex = 0;
         renderRawTabs();
         rawUpdateTabQueryParam();
+        ensureRawEditor(rawActiveTabId);
+        updateRawEditorVisibility();
     }).catch(function () {
         /* ignore */
     });
@@ -469,6 +474,107 @@ function rawUpdateTabQueryParam() {
         window.history.replaceState({}, "", url.toString());
     } catch (e) {
         // Ignore URL issues
+    }
+}
+
+/** base-0 -> -1, partial-0 -> 0, partial-1 -> 1 */
+function getRawPartialIndexFromTabId(tabId) {
+    if (!tabId || typeof tabId !== "string") return null;
+    if (tabId.indexOf("base-") === 0) return -1;
+    if (tabId.indexOf("partial-") === 0) {
+        var idx = parseInt(tabId.slice("partial-".length), 10);
+        return isNaN(idx) || idx < 0 ? null : idx;
+    }
+    return null;
+}
+
+function ensureRawEditor(tabId) {
+    if (!tabId || loadedEditors[tabId]) return loadedEditors[tabId] || null;
+
+    var container = document.getElementById("editor-mode-raw-content");
+    if (!container) return null;
+
+    var pd = window.pd;
+    if (!pd) return null;
+
+    var partialIndex = getRawPartialIndexFromTabId(tabId);
+    if (partialIndex === null) return null;
+
+    var initialData = partialIndex < 0 ? pd.base : (pd.partials[partialIndex] && pd.partials[partialIndex].loaded);
+    var initialText = "";
+    try {
+        initialText = typeof initialData !== "undefined" && initialData !== null
+            ? JSON.stringify(initialData, null, 4)
+            : (partialIndex < 0 ? "{}" : "{}");
+    } catch (e) {
+        initialText = "{}";
+    }
+
+    var wrapper = document.createElement("div");
+    wrapper.className = "editor-raw-editor-panel";
+    wrapper.setAttribute("data-tab-id", tabId);
+    container.appendChild(wrapper);
+
+    var MonacoEditorClass = typeof MonacoEditor !== "undefined" ? MonacoEditor : (window.MonacoEditor || null);
+    if (!MonacoEditorClass) return null;
+
+    var editor = new MonacoEditorClass(wrapper, {
+        value: initialText,
+        language: "json_custom",
+        theme: "auto",
+        onChange: function (value, editorInstance) {
+            var data;
+            try {
+                data = JSON.parse(value);
+            } catch (e) {
+                return;
+            }
+            if (window.pd && editorInstance._rawPartialIndex !== undefined) {
+                window.pd.setPartialData(editorInstance._rawPartialIndex, data);
+                window.setRepoIsModified(true);
+            }
+        }
+    });
+
+    editor._rawTabId = tabId;
+    editor._rawPartialIndex = partialIndex;
+    loadedEditors[tabId] = editor;
+    return editor;
+}
+
+function updateRawEditorVisibility() {
+    var container = document.getElementById("editor-mode-raw-content");
+    if (!container) return;
+    var panels = container.querySelectorAll(".editor-raw-editor-panel");
+    for (var i = 0; i < panels.length; i++) {
+        var panel = panels[i];
+        var tabId = panel.getAttribute("data-tab-id");
+        panel.classList.toggle("is-active", tabId === rawActiveTabId);
+    }
+}
+
+function rawEditorSyncFromChange(repoSourceType, partialDataClass, changeIn, keypath, changedData, partialIndex) {
+    var newText = "";
+    try {
+        newText = JSON.stringify(changedData, null, 4);
+    } catch (e) {
+        return;
+    }
+
+    if (changeIn === "base") {
+        var baseEditor = loadedEditors["base-0"];
+        if (baseEditor && baseEditor.getValue() !== newText) {
+            baseEditor.setValue(newText);
+        }
+        return;
+    }
+
+    if (changeIn === "partial" && typeof partialIndex === "number" && partialIndex >= 0) {
+        var tabId = "partial-" + partialIndex;
+        var partialEditor = loadedEditors[tabId];
+        if (partialEditor && partialEditor.getValue() !== newText) {
+            partialEditor.setValue(newText);
+        }
     }
 }
 
@@ -776,13 +882,20 @@ async function afterLoadingRepo(content) {
         return;
     }
 
+    // Clear raw mode editors when repo is replaced (new pd instance)
+    var rawContainer = document.getElementById("editor-mode-raw-content");
+    if (rawContainer) {
+        rawContainer.innerHTML = "";
+    }
+    loadedEditors = {};
+
     var base = content.base.data;
     var partialCount = 0;
     var partialsForPd = [];
 
     if (Array.isArray(content.partials)) {
         partialCount = content.partials.length;
-        partialsForPd = content.partials.map(function (p) {
+        partialsForPd = content.partials.map(function (p, idx) {
             var kp = (p && (p.kp != null ? p.kp : p.keypath)) || "";
             var loaded = p && typeof p === "object" && p.data !== undefined ? p.data : undefined;
             return {
@@ -790,14 +903,14 @@ async function afterLoadingRepo(content) {
                 url: "",
                 loaded: loaded,
                 onChange: function (changedKp, changedSubtree) {
-                    editorOnChange(repoSourceType, window.pd || null, "partial", changedKp, changedSubtree);
+                    editorOnChange(repoSourceType, window.pd || null, "partial", changedKp, changedSubtree, idx);
                 }
             };
         });
     } else if (content.partials && typeof content.partials === "object") {
         var partialKeys = Object.keys(content.partials);
         partialCount = partialKeys.length;
-        partialsForPd = partialKeys.map(function (kp) {
+        partialsForPd = partialKeys.map(function (kp, idx) {
             var entry = content.partials[kp];
             var loaded = entry && typeof entry === "object" && entry.data !== undefined ? entry.data : undefined;
             return {
@@ -805,7 +918,7 @@ async function afterLoadingRepo(content) {
                 url: "",
                 loaded: loaded,
                 onChange: function (changedKp, changedSubtree) {
-                    editorOnChange(repoSourceType, window.pd || null, "partial", changedKp, changedSubtree);
+                    editorOnChange(repoSourceType, window.pd || null, "partial", changedKp, changedSubtree, idx);
                 }
             };
         });
@@ -905,12 +1018,13 @@ window.unSubscribeOnPdLoaded = function (callback) {
     }
 }
 
-async function editorOnChange(repoSourceType="unknown", partialDataClass=null, changeIn="unknown", keypath=null, changedData={}) {
+async function editorOnChange(repoSourceType="unknown", partialDataClass=null, changeIn="unknown", keypath=null, changedData={}, partialIndex=undefined) {
     // repoSourceType: "fetched" (url or local file path uploaded) | "local" (a local folder is selected and file is from it, reuse handle) | "api" (api was used) | "unknown" ISSUE
     // partialDataClass: PartialDataClass instance, if null tries window.pd
     // changeIn: "base" | "partial" | "unknown" ISSUE
     // keypath: keypath of the change
     // changedData: data from that keypath and down, after the change
+    // partialIndex: when changeIn==="partial", index in pd.partials (for raw editor sync)
 
     // This function is called when a change is made to the repository.
 
@@ -920,7 +1034,7 @@ async function editorOnChange(repoSourceType="unknown", partialDataClass=null, c
     console.log("[Editor.Event] Repo changed", repoSourceType, partialDataClass, changeIn, keypath, changedData, window.isRepoModified());
 
     // Call subscribers
-    onChangeSubscribers.forEach(callback => callback(repoSourceType, partialDataClass, changeIn, keypath, changedData));
+    onChangeSubscribers.forEach(callback => callback(repoSourceType, partialDataClass, changeIn, keypath, changedData, partialIndex));
 
     // Is ismodified still true?
     if (window.isRepoModified()) {
@@ -964,7 +1078,7 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                     // Base file
                     (function () {
                         var baseObj = loaded.base || {};
-                        var baseText = typeof baseObj.text === "string" ? baseObj.text : JSON.stringify(baseObj.data || {}, null, 2);
+                        var baseText = typeof baseObj.text === "string" ? baseObj.text : JSON.stringify(baseObj.data || {}, null, 4);
                         var baseFilename = baseObj.filename || "repository.json";
                         filesToDownload.push({
                             filename: baseFilename,
@@ -977,7 +1091,7 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                         loaded.partials.forEach(function (p, idx) {
                             if (!p || typeof p !== "object") return;
                             var kp = (p.kp != null ? p.kp : p.keypath) || ("partial-" + idx);
-                            var pText = typeof p.text === "string" ? p.text : JSON.stringify(p.data || {}, null, 2);
+                            var pText = typeof p.text === "string" ? p.text : JSON.stringify(p.data || {}, null, 4);
                             var safeKey = String(kp).replace(/[^a-z0-9_\-]+/gi, "_");
                             var pFilename = (p.filename != null && p.filename !== "") ? p.filename : ("partial-" + safeKey + ".json");
                             filesToDownload.push({
@@ -990,7 +1104,7 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                         partialKeysForSave.forEach(function (kp) {
                             var entry = loaded.partials[kp];
                             if (!entry || typeof entry !== "object") return;
-                            var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 2);
+                            var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 4);
                             var safeKey = kp.replace(/[^a-z0-9_\-]+/gi, "_");
                             var pFilename = entry.filename || ("partial-" + safeKey + ".json");
                             filesToDownload.push({
@@ -1096,7 +1210,7 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
 
                     (function () {
                         var baseObj = loadedLocal.base || {};
-                        var baseText = typeof baseObj.text === "string" ? baseObj.text : JSON.stringify(baseObj.data || {}, null, 2);
+                        var baseText = typeof baseObj.text === "string" ? baseObj.text : JSON.stringify(baseObj.data || {}, null, 4);
                         var baseFilename = baseObj.filename || "repository.json";
                         filesToWrite.push({
                             filename: baseFilename,
@@ -1108,7 +1222,7 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                         loadedLocal.partials.forEach(function (p, idx) {
                             if (!p || typeof p !== "object") return;
                             var kp = (p.kp != null ? p.kp : p.keypath) || ("partial-" + idx);
-                            var pText = typeof p.text === "string" ? p.text : JSON.stringify(p.data || {}, null, 2);
+                            var pText = typeof p.text === "string" ? p.text : JSON.stringify(p.data || {}, null, 4);
                             var safeKey = String(kp).replace(/[^a-z0-9_\-]+/gi, "_");
                             var pFilename = (p.filename != null && p.filename !== "") ? p.filename : ("partial-" + safeKey + ".json");
                             filesToWrite.push({
@@ -1121,7 +1235,7 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                         partialKeysLocal.forEach(function (kp) {
                             var entry = loadedLocal.partials[kp];
                             if (!entry || typeof entry !== "object") return;
-                            var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 2);
+                            var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 4);
                             var safeKey = kp.replace(/[^a-z0-9_\-]+/gi, "_");
                             var pFilename = entry.filename || ("partial-" + safeKey + ".json");
                             filesToWrite.push({
@@ -1300,7 +1414,7 @@ async function renderViewTab() {
 }
 //endregion: ViewHelpers
 
-var loadedEditors = [];
+var loadedEditors = {};
 
 var onRawTabChangeSubscribers = [];
 

@@ -303,6 +303,12 @@ main.editor-no-repo {
 
 /* RAW MODE TABS */
 
+#editor-mode-raw {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
 #editor-mode-raw-nav {
     display: flex;
     align-items: center;
@@ -368,4 +374,36 @@ main.editor-no-repo {
 .editor-raw-tab.is-active {
     border-color: var(--editor-button-border);
     background: var(--editor-button-bg);
+}
+
+.editor-raw-editors-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--editor-button-border);
+    border-top: none;
+}
+
+.editor-raw-editors-container .editor-raw-editor-panel {
+    display: none;
+    flex: 1 1 auto;
+    min-height: 200px;
+}
+
+.editor-raw-editors-container .editor-raw-editor-panel.is-active {
+    display: block;
+}
+
+.editor-raw-editors-container .editor-raw-editor-panel.is-active .monaco-surface {
+    height: 100%;
+    min-height: 200px;
+}
+
+#editor-main-content:has(#editor-mode-raw-content .monaco-surface),
+#editor-mode-raw:has(.monaco-surface) {
+    height: 100%;
+}
+#editor-mode-raw-content:has(.monaco-surface) {
+    height: calc(100% - (1.9rem + 2px)); /* Nav is height:1.9rem + 2px border */
 }
