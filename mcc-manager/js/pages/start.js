@@ -161,13 +161,6 @@ document.addEventListener("DOMContentLoaded", function () {
             var toggleButton = document.createElement("button");
             toggleButton.type = "button";
             toggleButton.className = "start-toggle partials-source-toggle";
-            if (hasFolder) {
-                toggleButton.textContent = "File";
-                toggleButton.setAttribute("aria-pressed", "true");
-            } else {
-                toggleButton.textContent = "Url";
-                toggleButton.setAttribute("aria-pressed", "true");
-            }
 
             var inputWrap = document.createElement("div");
             inputWrap.className = "start-input-wrap";
@@ -202,9 +195,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 inputWrap.appendChild(selectEl);
             }
             inputWrap.appendChild(input);
-            if (hasFolder) {
-                input.style.display = "none";
-            }
 
             sourceCell.appendChild(fieldRow);
             row.appendChild(sourceCell);
@@ -231,6 +221,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 toggleButton.textContent = isFile ? "File" : (isLocal ? "Local" : "Url");
             }
+
+            var hasUrl = typeof partialUrl === "string" && partialUrl.length > 0;
+            var initialMode;
+            if (hasUrl) {
+                initialMode = "url";
+            } else if (hasFolder) {
+                initialMode = "file";
+            } else {
+                initialMode = "local";
+            }
+
+            setMode(initialMode);
 
             toggleButton.addEventListener("click", function () {
                 var label = toggleButton.textContent.trim().toLowerCase();
