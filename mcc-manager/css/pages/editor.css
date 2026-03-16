@@ -65,3 +65,34 @@ main.editor-no-repo {
 .editor-back-button:hover {
     background: var(--editor-button-bg-hover);
 }
+
+#editor-loaded-files-text {
+    margin-left: 0.9rem;
+    opacity: 0.85;
+}
+
+@media (max-width: 1032px) {
+    #editor-loaded-files-text-partials {
+        display: none;
+    }
+}
+
+.editor-header-left {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.editor-header-left .theme-toggle {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.editor-ismodified-saved {
+    color: #22c55e;
+}
+
+.editor-ismodified-unsaved {
+    color: #f97316;
+}

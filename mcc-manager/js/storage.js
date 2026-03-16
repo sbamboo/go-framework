@@ -200,6 +200,8 @@ class StorageHandler {
     constructor() {
         this.persistenceAllowed = false
         this.backend = null
+        this.isinited = false
+        this.initStarted = false
     }
 
     _backendName(backend) {
@@ -216,80 +218,109 @@ class StorageHandler {
     }
 
     async init() {
-        const oldBackend = this.backend
-        const oldName = this._backendName(oldBackend)
-        let oldData = {}
-        if (oldBackend) {
-            try {
-                oldData = await oldBackend.getAll()
-            } catch (e) {
-                /* ignore */
-            }
-        }
+        try {
+            this.initStarted = true;
 
-        if (!this.persistenceAllowed) {
-            this.backend = new SessionStorageBackend()
-        } else {
-            try {
-                const idb = new IndexedDBBackend()
-                await idb.init()
-                this.backend = idb
-            } catch (e) {
-                this.backend = new LocalStorageBackend()
-            }
-        }
-
-        const newName = this.getBackendName()
-        if (oldName && oldName !== newName && Object.keys(oldData).length > 0) {
-            try {
-                for (const [key, value] of Object.entries(oldData)) {
-                    await this.backend.set(key, value)
-                }
+            const oldBackend = this.backend;
+            const oldName = this._backendName(oldBackend);
+            let oldData = {};
+            if (oldBackend) {
                 try {
-                    await oldBackend.clearAll()
+                    oldData = await oldBackend.getAll();
                 } catch (e) {
                     /* ignore */
                 }
-            } catch (e) {
-                const isQuota = e && (e.name === "QuotaExceededError" || e.code === 22)
-                if (isQuota) {
-                    console.error("Migration skipped: quota exceeded (data larger than allowed).", e)
-                } else {
-                    throw e
+            }
+
+            if (!this.persistenceAllowed) {
+                this.backend = new SessionStorageBackend();
+            } else {
+                try {
+                    const idb = new IndexedDBBackend();
+                    await idb.init();
+                    this.backend = idb;
+                } catch (e) {
+                    this.backend = new LocalStorageBackend();
                 }
             }
+
+            const newName = this.getBackendName();
+            if (oldName && oldName !== newName && Object.keys(oldData).length > 0) {
+                try {
+                    for (const [key, value] of Object.entries(oldData)) {
+                        await this.backend.set(key, value);
+                    }
+                    try {
+                        await oldBackend.clearAll();
+                    } catch (e) {
+                        /* ignore */
+                    }
+                } catch (e) {
+                    const isQuota = e && (e.name === "QuotaExceededError" || e.code === 22)
+                    if (isQuota) {
+                        console.error("Migration skipped: quota exceeded (data larger than allowed).", e);
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+
+            this.initStarted = false;
+            this.isinited = true;
+        } catch (e) {
+            this.initStarted = false;
+            this.isinited = false;
+            console.error("StorageHandler initialization failed:", e);
         }
     }
 
+    async waitIfInitStarted() {
+        // If !isinited and initStarted, wait for init to complete
+        if (!this.isinited && this.initStarted) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            return this.waitIfInitStarted();
+        }
+
+        return true;
+    }
+
     async get(key) {
-        return this.backend.get(key)
+        await this.waitIfInitStarted();
+        return this.backend.get(key);
     }
 
     async set(key, value) {
+        await this.waitIfInitStarted();
         return this.backend.set(key, value)
     }
 
     async keys() {
+        await this.waitIfInitStarted();
         return this.backend.keys()
     }
 
     async values() {
+        await this.waitIfInitStarted();
         return this.backend.values()
     }
 
     async isset(key) {
+        await this.waitIfInitStarted();
         return this.backend.isset(key)
     }
 
     async unset(key) {
+        await this.waitIfInitStarted();
         return this.backend.unset(key)
     }
 
     async clearAll() {
+        await this.waitIfInitStarted();
         return this.backend.clearAll()
     }
 
     async getAll() {
+        await this.waitIfInitStarted();
         return this.backend.getAll()
     }
 

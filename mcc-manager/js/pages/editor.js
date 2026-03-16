@@ -2,12 +2,24 @@
 
 var ISMODIFIED_KEY = "ismodified";
 
+function updateRepoModifiedUI() {
+    var el = document.getElementById("editor-ismodified-text");
+    if (!el) {
+        return;
+    }
+    var isModified = window.isRepoModified();
+    el.textContent = isModified ? "● Unsaved changes" : "● All saved";
+    el.classList.remove("editor-ismodified-saved", "editor-ismodified-unsaved");
+    el.classList.add(isModified ? "editor-ismodified-unsaved" : "editor-ismodified-saved");
+}
+
 window.setRepoIsModified = function (value) {
     try {
         window.localStorage.setItem(ISMODIFIED_KEY, value ? "true" : "false");
     } catch (err) {
         /* ignore */
     }
+    updateRepoModifiedUI();
 };
 
 window.resetRepoIsModified = function () {
@@ -16,7 +28,8 @@ window.resetRepoIsModified = function () {
 
 window.isRepoModified = function () {
     try {
-        return window.localStorage.getItem(ISMODIFIED_KEY) === "true";
+        lev = window.localStorage.getItem(ISMODIFIED_KEY);
+        return lev === "true" || lev === true || lev === "1" || lev === 1;
     } catch (err) {
         return false;
     }
@@ -31,6 +44,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (storage && typeof hasAcceptedStorage === "function") {
         storage.setPersistenceAllowed(hasAcceptedStorage());
     }
+    updateRepoModifiedUI();
 
     function buildIndexHref() {
         var href = "../index.html";
@@ -173,10 +187,11 @@ async function afterLoadingRepo(content) {
 
     var base = content.base.data;
     var partialsList = [];
+    var partialKeys = [];
     if (content.partials && typeof content.partials === "object") {
-        var keypaths = Object.keys(content.partials);
-        for (var i = 0; i < keypaths.length; i++) {
-            var kp = keypaths[i];
+        partialKeys = Object.keys(content.partials);
+        for (var i = 0; i < partialKeys.length; i++) {
+            var kp = partialKeys[i];
             var entry = content.partials[kp];
             partialsList.push({
                 keypath: kp,
@@ -186,7 +201,32 @@ async function afterLoadingRepo(content) {
         }
     }
 
-    window.pd = new PartialDataClass(base, partialsList, null);
+    // Update loaded files text
+    var loadedTextEl = document.getElementById("editor-loaded-files-text");
+    if (loadedTextEl) {
+        var baseFilename = content.base && typeof content.base === "object" ? content.base.filename : null;
+        if (!baseFilename) {
+            baseFilename = "repository (json)";
+        }
+        if (baseFilename.length > 15) {
+            baseFilename = baseFilename.slice(0, 12) + "...";
+        }
+        var suffix = "";
+        if (partialKeys.length > 0) {
+            suffix = " (+" + partialKeys.length + " partials)";
+        }
+        loadedTextEl.textContent = "Loaded: " + baseFilename;
+        var existingPartialsSpan = document.getElementById("editor-loaded-files-text-partials");
+        if (existingPartialsSpan) {
+            existingPartialsSpan.remove();
+        }
+        if (suffix) {
+            var span = document.createElement("span");
+            span.id = "editor-loaded-files-text-partials";
+            span.textContent = suffix;
+            loadedTextEl.appendChild(span);
+        }
+    }
 
-    console.log("Loaded repo data into a PartialDataClass instance: ", window.pd);
+    window.pd = new PartialDataClass(base, partialsList, null);
 }

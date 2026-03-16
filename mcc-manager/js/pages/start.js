@@ -267,10 +267,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             });
 
-            if (hasFolder) {
-                setMode("file");
-            }
-
             partialsTableBody.appendChild(row);
         });
     }
