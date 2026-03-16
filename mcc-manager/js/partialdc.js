@@ -428,18 +428,18 @@ class PartialDataClass {
         };
     }
 
-    async setPartialData(partialIndex, data) {
+    async setPartialData(partialIndex, data, noOnChange=false) {
         // if partialIndex < 0 its base, else index in partials array, updates text and data/loaded and calls onChange if defined
         if (partialIndex < 0) {
             this.base = data;
             // if this.onChange is defined and a function call it like onChange("base", structuredClone(this.base));
-            if (typeof this.onChange === "function") {
+            if (typeof this.onChange === "function" && !noOnChange) {
                 this.onChange("base", structuredClone(this.base));
             }
         } else {
             if (partialIndex < this.partials.length) {
                 this.partials[partialIndex].loaded = data;
-                if (typeof this.partials[partialIndex].onChange === "function") {
+                if (typeof this.partials[partialIndex].onChange === "function" && !noOnChange) {
                     // Call like onChange(this.partials[partialIndex].keypath, structuredClone(this.partials[partialIndex].loaded));
                     this.partials[partialIndex].onChange(this.partials[partialIndex].keypath, structuredClone(this.partials[partialIndex].loaded));
                 }

@@ -1058,18 +1058,57 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
 
     // Is ismodified still true?
     if (window.isRepoModified()) {
+        var storageForSave = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
+        if (!storageForSave || typeof storageForSave.get !== "function") {
+            console.error("StorageHandler is not available for saving.");
+        } else {
+            var loaded = await storageForSave.get("loadedRepo");
+            var pd = partialDataClass || window.pd;
+            if (loaded && typeof loaded === "object" && loaded.base && pd && typeof pd.getAll === "function") {
+                var all = pd.getAll();
+                var updatedPayload = {
+                    type: loaded.type || "unknown",
+                    base: {
+                        data: all.base,
+                        text: JSON.stringify(all.base, null, 4),
+                        filename: (loaded.base && loaded.base.filename) || "repository.json"
+                    },
+                    partials: all.partials.map(function (p, i) {
+                        var kp = p.keypath || ("partial-" + i);
+                        var data = p.loaded !== undefined ? p.loaded : {};
+                        var existing = Array.isArray(loaded.partials) && loaded.partials[i]
+                            ? loaded.partials[i]
+                            : (loaded.partials && typeof loaded.partials === "object" ? loaded.partials[kp] : null);
+                        var filename = (existing && (existing.filename != null && existing.filename !== ""))
+                            ? existing.filename
+                            : ("partial-" + String(kp).replace(/[^a-z0-9_\-]+/gi, "_") + ".json");
+                        return {
+                            kp: kp,
+                            data: data,
+                            text: JSON.stringify(data, null, 4),
+                            filename: filename
+                        };
+                    })
+                };
+                await storageForSave.set("loadedRepo", updatedPayload);
+                loaded = updatedPayload;
+            }
+        }
+
         // Switch case the repoSourceType
         switch (repoSourceType) {
             case "fetched":
                 // Download all the files current data as JSON
                 try {
-                    var storageForSave = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
-                    if (!storageForSave || typeof storageForSave.get !== "function") {
+                    var storageFetched = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
+                    if (!storageFetched || typeof storageFetched.get !== "function") {
                         throw new Error("StorageHandler is not available for saving.");
                     }
 
-                    var loaded = await storageForSave.get("loadedRepo");
-                    if (!loaded || typeof loaded !== "object" || !loaded.base) {
+                    var loadedForFetch = loaded != null && typeof loaded === "object" && loaded.base
+                        ? loaded
+                        : await storageFetched.get("loadedRepo");
+                    if (!loadedForFetch || typeof loadedForFetch !== "object" || !loadedForFetch.base) {
                         throw new Error("No loadedRepo found in storage.");
                     }
 
@@ -1077,7 +1116,7 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
 
                     // Base file
                     (function () {
-                        var baseObj = loaded.base || {};
+                        var baseObj = loadedForFetch.base || {};
                         var baseText = typeof baseObj.text === "string" ? baseObj.text : JSON.stringify(baseObj.data || {}, null, 4);
                         var baseFilename = baseObj.filename || "repository.json";
                         filesToDownload.push({
@@ -1087,8 +1126,8 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                     })();
 
                     // Partials
-                    if (Array.isArray(loaded.partials)) {
-                        loaded.partials.forEach(function (p, idx) {
+                    if (Array.isArray(loadedForFetch.partials)) {
+                        loadedForFetch.partials.forEach(function (p, idx) {
                             if (!p || typeof p !== "object") return;
                             var kp = (p.kp != null ? p.kp : p.keypath) || ("partial-" + idx);
                             var pText = typeof p.text === "string" ? p.text : JSON.stringify(p.data || {}, null, 4);
@@ -1099,10 +1138,10 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                                 text: pText
                             });
                         });
-                    } else if (loaded.partials && typeof loaded.partials === "object") {
-                        var partialKeysForSave = Object.keys(loaded.partials);
+                    } else if (loadedForFetch.partials && typeof loadedForFetch.partials === "object") {
+                        var partialKeysForSave = Object.keys(loadedForFetch.partials);
                         partialKeysForSave.forEach(function (kp) {
-                            var entry = loaded.partials[kp];
+                            var entry = loadedForFetch.partials[kp];
                             if (!entry || typeof entry !== "object") return;
                             var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 4);
                             var safeKey = kp.replace(/[^a-z0-9_\-]+/gi, "_");
@@ -1201,7 +1240,9 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                         throw new Error("StorageHandler is not available for saving.");
                     }
 
-                    var loadedLocal = await storageForLocalSave.get("loadedRepo");
+                    var loadedLocal = (loaded && typeof loaded === "object" && loaded.base)
+                        ? loaded
+                        : await storageForLocalSave.get("loadedRepo");
                     if (!loadedLocal || typeof loadedLocal !== "object" || !loadedLocal.base) {
                         throw new Error("No loadedRepo found in storage.");
                     }
