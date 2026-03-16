@@ -643,6 +643,8 @@ window.isRepoModified = function () {
     }
 };
 
+var hasRepoAvaliable = true;
+
 document.addEventListener("DOMContentLoaded", function () {
     var storage = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
     var popupsInstance = window.popupsInstance || (typeof Popups !== "undefined" ? new Popups() : null);
@@ -663,9 +665,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function showNoRepoMessage() {
+        hasRepoAvaliable = false;
         var mainEl = document.getElementById("editor-main");
         var noRepoEl = document.getElementById("editor-no-repo");
         var linkEl = document.getElementById("editor-no-repo-link");
+        var mainContent = document.getElementById("editor-main-content");
+        var guiSection = document.getElementById("editor-mode-gui");
+        var rawSection = document.getElementById("editor-mode-raw");
+        var viewSection = document.getElementById("editor-mode-view");
         if (mainEl) {
             mainEl.classList.add("editor-no-repo");
         }
@@ -675,16 +682,48 @@ document.addEventListener("DOMContentLoaded", function () {
         if (linkEl) {
             linkEl.href = buildIndexHref();
         }
+        if (mainContent) {
+            mainContent.style.display = "none";
+        }
+        if (guiSection) {
+            guiSection.style.display = "none";
+        }
+        if (rawSection) {
+            rawSection.style.display = "none";
+        }
+        if (viewSection) {
+            viewSection.style.display = "none";
+        }
     }
 
     function hideNoRepoMessage() {
         var mainEl = document.getElementById("editor-main");
         var noRepoEl = document.getElementById("editor-no-repo");
+        var mainContent = document.getElementById("editor-main-content");
+        var guiSection = document.getElementById("editor-mode-gui");
+        var rawSection = document.getElementById("editor-mode-raw");
+        var viewSection = document.getElementById("editor-mode-view");
         if (mainEl) {
             mainEl.classList.remove("editor-no-repo");
         }
         if (noRepoEl) {
             noRepoEl.style.display = "none";
+        }
+        if (mainContent) {
+            mainContent.style.display = "block";
+        }
+        var mode = currentEditorMode;
+        if (mode !== "gui" && mode !== "raw" && mode !== "view") {
+            mode = "gui";
+        }
+        if (guiSection) {
+            guiSection.style.display = mode === "gui" ? "block" : "none";
+        }
+        if (rawSection) {
+            rawSection.style.display = mode === "raw" ? "block" : "none";
+        }
+        if (viewSection) {
+            viewSection.style.display = mode === "view" ? "block" : "none";
         }
     }
 
@@ -745,6 +784,10 @@ document.addEventListener("DOMContentLoaded", function () {
         var modes = ["gui", "raw", "view"];
         if (modes.indexOf(mode) === -1) {
             mode = "gui";
+        }
+
+        if (!hasRepoAvaliable) {
+            return;
         }
 
         var mainContent = document.getElementById("editor-main-content");
