@@ -31,6 +31,39 @@ document.addEventListener("DOMContentLoaded", function () {
         storage.setPersistenceAllowed(hasAcceptedStorage());
     }
 
+    function saveFolderHandleIfAllowed(dirHandle) {
+        if (typeof hasAcceptedStorage !== "function" || !hasAcceptedStorage()) {
+            return;
+        }
+        if (!dirHandle || typeof indexedDB === "undefined") {
+            return;
+        }
+        try {
+            var request = indexedDB.open("sharedHandles", 1);
+            request.onupgradeneeded = function (event) {
+                var db = event.target.result;
+                if (!db.objectStoreNames.contains("handles")) {
+                    db.createObjectStore("handles");
+                }
+            };
+            request.onsuccess = function (event) {
+                try {
+                    var db = event.target.result;
+                    var tx = db.transaction("handles", "readwrite");
+                    var store = tx.objectStore("handles");
+                    store.put(dirHandle, "localFolder");
+                } catch (e) {
+                    console.error("Failed to save folder handle", e);
+                }
+            };
+            request.onerror = function () {
+                console.error("Failed to open sharedHandles database");
+            };
+        } catch (e) {
+            console.error("Error while saving folder handle", e);
+        }
+    }
+
     function buildEditorHref() {
         var href = "./pages/editor.html";
         if (window.location.href.indexOf("ls-declined") !== -1) {
@@ -476,6 +509,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         window.showDirectoryPicker().then(function (dirHandle) {
             currentFolderHandle = dirHandle;
+            saveFolderHandleIfAllowed(dirHandle);
             return (async function () {
                 var list = [];
                 var iter = dirHandle.values();

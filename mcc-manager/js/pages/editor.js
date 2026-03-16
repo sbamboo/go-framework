@@ -2,6 +2,162 @@
 
 var ISMODIFIED_KEY = "ismodified";
 
+// region: ViewTab
+/* ========================================================================================== */
+var viewTabInitialized = false;
+var viewTabChangeUnsubscribe = null;
+
+// Holds descriptions for the repo schema
+//   keypaths are split by "."; literal dots in keys are escaped as \.
+//   [] means its an array matching any index [1] would be specifically that index
+//   * means any value in that slot
+const REPO_KEYPATH_SCHEMA = {
+    "format": {
+        type: "property",
+        info: "V3 Formats begin at 3, as of now 3 is the only V3 format number but future changes may introduce V3 format:4 etc."
+    },
+    "name": {
+        type: "property",
+        info: "Display name (Optional)"
+    },
+    "author": {
+        type: "property",
+        info: "Display author (Optional)"
+    },
+    "version": {
+        type: "property",
+        info: "Display version (Optional)"
+    },
+    "created": {
+        type: "property",
+        info: "When this file was created"
+    },
+    "last_updated": {
+        type: "property",
+        info: "When this file was last updated"
+    },
+
+    "resources.sources.*": {
+        type: "property",
+        info: "Resource source URL or string override (all fields optional)"
+    },
+
+    "resources.runtimes.[]": {
+        type: "array",
+        info: "Runtime resource with id and versions"
+    },
+    "resources.runtimes.[].id": {
+        type: "id",
+        info: "Runtime identifier (e.g., 'jdk')"
+    },
+    "resources.runtimes.[].versions.*.created": {
+        type: "property",
+        info: "When this runtime version entry was created"
+    },
+    "resources.runtimes.[].versions.*.sources.[]": {
+        type: "array",
+        info: "Sources for the runtime version"
+    },
+    "resources.runtimes.[].versions.*.sources.[].type": {
+        type: "property",
+        info: "Type of source (e.g., builtin.java)"
+    },
+    "resources.runtimes.[].versions.*.sources.[].platforms.[]": {
+        type: "array",
+        info: "Platform identifiers for the source"
+    },
+    "resources.runtimes.[].versions.*.sources.[].source": {
+        type: "property",
+        info: "Download URL or resource key for the source"
+    },
+
+    "resources.loaders.[]": {
+        type: "array",
+        info: "Loader resource with id, name, description, and versions"
+    },
+    "resources.loaders.[].id": {
+        type: "id",
+        info: "Loader identifier (e.g., 'fabric')"
+    },
+    "resources.loaders.[].versions.*.sources.[]": {
+        type: "array",
+        info: "Sources for a loader version"
+    },
+    "resources.loaders.[].versions.*.sources.[].depends.[]": {
+        type: "array",
+        info: "Dependency keypaths this source depends on"
+    },
+
+    "resources.mods.[]": {
+        type: "array",
+        info: "Mod resource"
+    },
+    "resources.mods.[].id": {
+        type: "id",
+        info: "Mod identifier"
+    },
+    "resources.mods.[].hidden": {
+        type: "bool",
+        info: "Mark mod as hidden?"
+    },
+    "resources.mods.[].versions.*.sources.[]": {
+        type: "array",
+        info: "Sources for a mod version"
+    },
+
+    "resources.resourcepacks.[]": {
+        type: "array",
+        info: "Resourcepack resource"
+    },
+    "resources.resourcepacks.[].id": {
+        type: "id",
+        info: "Resourcepack identifier"
+    },
+    "resources.resourcepacks.[].hidden": {
+        type: "bool",
+        info: "Mark resourcepack as hidden?"
+    },
+    "resources.resourcepacks.[].versions.*.sources.[]": {
+        type: "array",
+        info: "Sources for a resourcepack version"
+    },
+
+    "resources.modpacks.[]": {
+        type: "array",
+        info: "Modpack resource with type, format, and versions"
+    },
+    "resources.modpacks.[].id": {
+        type: "id",
+        info: "Modpack identifier"
+    },
+    "resources.modpacks.[].hidden": {
+        type: "bool",
+        info: "Mark modpack as hidden?"
+    },
+    "resources.modpacks.[].versions.*.depends.[]": {
+        type: "array",
+        info: "Dependencies for the modpack version"
+    },
+    "resources.modpacks.[].versions.*.resources.*.[]": {
+        type: "array",
+        info: "Resources inside modpack version (mods/resourcepacks)"
+    },
+    "resources.modpacks.[].versions.*.variants.*": {
+        type: "object",
+        info: "Variant resources inside a modpack version"
+    },
+    "resources.modpacks.[].versions.*.overrides": {
+        type: "object",
+        info: "Overrides for the modpack version"
+    },
+    "resources.modpacks.[].versions.*.overrides.source": {
+        type: "property",
+        info: "URL, base64, or relative path of the override"
+    }
+};
+/* ========================================================================================== */
+//endregion: ViewTab
+
 function updateRepoModifiedUI() {
     var el = document.getElementById("editor-ismodified-text");
     if (!el) {
@@ -11,6 +167,78 @@ function updateRepoModifiedUI() {
     el.textContent = isModified ? "● Unsaved changes" : "● All saved";
     el.classList.remove("editor-ismodified-saved", "editor-ismodified-unsaved");
     el.classList.add(isModified ? "editor-ismodified-unsaved" : "editor-ismodified-saved");
+}
+
+window.onEditorTabChange = function (fromMode, toMode) {
+    // Hook for external listeners; currently just logs and initializes view tab on first entry.
+    console.log("[Editor.Event] Tab changed", { fromMode, toMode });
+
+    if (toMode === "view" && !viewTabInitialized) {
+        viewTabInitialized = true;
+
+        function attachViewChangeSubscriber() {
+            if (typeof window.subscribeOnEditorChange === "function" && !viewTabChangeUnsubscribe) {
+                viewTabChangeUnsubscribe = window.subscribeOnEditorChange(function (repoSourceType, partialDataClass, changeIn, keypath, changedData) {
+                    renderViewTab();
+                });
+            }
+        }
+
+        // If pd is already ready, render immediately and subscribe to changes
+        if (window.pd && typeof window.pd.getStatic === "function") {
+            renderViewTab();
+            attachViewChangeSubscriber();
+        } else if (typeof window.subscribeOnPdLoaded === "function") {
+            // Defer initialization until pd is loaded
+            window.subscribeOnPdLoaded(function () {
+                renderViewTab();
+                attachViewChangeSubscriber();
+            });
+        }
+    }
+};
+
+/** Split keypath by "."; literal dots in keys are escaped as \. */
+function keypathSegments(keypath) {
+    var s = String(keypath).replace(/\\\./g, "\u0001");
+    return s.split(".").map(function (seg) {
+        return seg.replace(/\u0001/g, ".");
+    });
+}
+
+/** Path is array of segments (key strings and numeric indices). Normalize to comparable form: numbers -> "[]". */
+function pathToMatchSegments(path) {
+    return path.map(function (p) {
+        return typeof p === "number" ? "[]" : p;
+    });
+}
+
+/** True if schema segments (may contain [] and *) match path segments. */
+function schemaKeyMatchesPath(schemaSegs, pathSegs) {
+    if (schemaSegs.length !== pathSegs.length) return false;
+    for (var i = 0; i < schemaSegs.length; i++) {
+        var s = schemaSegs[i];
+        var p = pathSegs[i];
+        if (s === "[]" && p === "[]") continue;
+        if (s === "[]" || s === "*") continue;
+        if (s !== p) return false;
+    }
+    return true;
+}
+
+/** Find best (longest) matching schema entry for path. Path = array of key/index segments. */
+function getSchemaForPath(path) {
+    var matchSegs = pathToMatchSegments(path);
+    var best = null;
+    var bestLen = -1;
+    for (var key in REPO_KEYPATH_SCHEMA) {
+        var segs = keypathSegments(key);
+        if (schemaKeyMatchesPath(segs, matchSegs) && segs.length > bestLen) {
+            best = REPO_KEYPATH_SCHEMA[key];
+            bestLen = segs.length;
+        }
+    }
+    return best;
 }
 
 window.setRepoIsModified = function (value) {
@@ -127,6 +355,87 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    // Editor mode toggle
+    var modeToggle = document.getElementById("editor-mode-toggle");
+    var modeButtons = modeToggle ? modeToggle.querySelectorAll(".editor-mode-toggle-button") : [];
+
+    var currentEditorMode = "unknown";
+
+    function setEditorMode(mode) {
+        var modes = ["gui", "raw", "view"];
+        if (modes.indexOf(mode) === -1) {
+            mode = "gui";
+        }
+
+        var mainContent = document.getElementById("editor-main-content");
+        var guiSection = document.getElementById("editor-mode-gui");
+        var rawSection = document.getElementById("editor-mode-raw");
+        var viewSection = document.getElementById("editor-mode-view");
+
+        if (mainContent) {
+            mainContent.style.display = "block";
+        }
+        if (guiSection) {
+            guiSection.style.display = mode === "gui" ? "block" : "none";
+        }
+        if (rawSection) {
+            rawSection.style.display = mode === "raw" ? "block" : "none";
+        }
+        if (viewSection) {
+            viewSection.style.display = mode === "view" ? "block" : "none";
+        }
+
+        if (modeToggle) {
+            modeToggle.classList.remove("mode-gui", "mode-raw", "mode-view");
+            modeToggle.classList.add("mode-" + mode);
+        }
+
+        if (modeButtons && modeButtons.length) {
+            modeButtons.forEach(function (btn) {
+                var btnMode = btn.getAttribute("data-mode");
+                var isActive = btnMode === mode;
+                btn.classList.toggle("is-active", isActive);
+                btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+            });
+        }
+
+        if (typeof window.onEditorTabChange === "function") {
+            window.onEditorTabChange(currentEditorMode, mode);
+        }
+        currentEditorMode = mode;
+
+        // Persist mode in URL (?mode=gui|raw|view) without reloading
+        try {
+            var url = new URL(window.location.href);
+            url.searchParams.set("mode", mode);
+            window.history.replaceState({}, "", url.toString());
+        } catch (e) {
+            // Ignore URL issues
+        }
+    }
+
+    if (modeButtons && modeButtons.length) {
+        modeButtons.forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                var mode = btn.getAttribute("data-mode");
+                setEditorMode(mode);
+            });
+        });
+
+        // Pick initial mode from ?mode=url param if valid; default to "gui"
+        var initialMode = "gui";
+        try {
+            var initUrl = new URL(window.location.href);
+            var qsMode = initUrl.searchParams.get("mode");
+            if (qsMode === "gui" || qsMode === "raw" || qsMode === "view") {
+                initialMode = qsMode;
+            }
+        } catch (e) {
+            // Ignore parsing issues, fall back to default
+        }
+        setEditorMode(initialMode);
+    }
+
     function clearAndGoBack() {
         if (storage && typeof storage.unsetFromAllBackends === "function") {
             storage.unsetFromAllBackends("loadedRepo").then(function () {
@@ -149,6 +458,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (confirmBtn) {
                 confirmBtn.onclick = function () {
                     popupsInstance.hideAsOverlay("is-modified-warn");
+                    window.resetRepoIsModified();
                     clearAndGoBack();
                 };
             }
@@ -158,8 +468,17 @@ document.addEventListener("DOMContentLoaded", function () {
                 };
             }
         } else {
+            window.resetRepoIsModified();
             clearAndGoBack();
         }
+    });
+
+    // Save button click
+    document.addEventListener("click", function (e) {
+        if (!e.target || e.target.id !== "editor-save") {
+            return;
+        }
+        editorOnSave(window.repoSourceType || "unknown", window.pd || null);
     });
 });
 
@@ -228,5 +547,460 @@ async function afterLoadingRepo(content) {
         }
     }
 
-    window.pd = new PartialDataClass(base, partialsList, null);
+    function getRepoSourceType() {
+        if (!content || typeof content !== "object") return "unknown";
+        if (content.type === "local") return "local";
+        if (content.type === "fetched") return "fetched";
+        if (content.type === "api") return "api";
+        return "unknown";
+    }
+
+    function makeBaseOnChange() {
+        var repoSourceType = getRepoSourceType();
+        return function (kp, changedSubtree) {
+            editorOnChange(repoSourceType, window.pd || null, "base", kp, changedSubtree);
+        };
+    }
+
+    var repoSourceType = getRepoSourceType();
+    window.repoSourceType = repoSourceType;
+
+    var wiredPartialsList = [];
+    for (var j = 0; j < partialsList.length; j++) {
+        (function () {
+            var p = partialsList[j];
+            wiredPartialsList.push({
+                keypath: p.keypath,
+                url: p.url,
+                loaded: p.loaded,
+                onChange: function (kp, changedSubtree) {
+                    editorOnChange(repoSourceType, window.pd || null, "partial", kp, changedSubtree);
+                }
+            });
+        })();
+    }
+
+    window.pd = new PartialDataClass(base, wiredPartialsList, makeBaseOnChange());
+
+    // Call subscribers
+    onPdLoadedSubscribers.forEach(callback => callback(window.pd));
 }
+
+
+var onChangeSubscribers = []; // Contains f(repoSourceType="unknown", partialDataClass=null, changeIn="unknown", keypath=null, changedData={})
+var onSaveSubscribers = [];   // Contains f(repoSourceType="unknown", partialDataClass=null)
+var onPdLoadedSubscribers = []; // Contains f(partialDataClass=null)
+
+window.subscribeOnEditorChange = function (callback) {
+    if (typeof callback === "function") {
+        onChangeSubscribers.push(callback);
+    }
+    return () => onChangeSubscribers.splice(onChangeSubscribers.indexOf(callback), 1);
+}
+
+window.unSubscribeOnEditorChange = function (callback) {
+    if (typeof callback === "function") {
+        onChangeSubscribers.splice(onChangeSubscribers.indexOf(callback), 1);
+    }
+}
+
+window.subscribeOnEditorSave = function (callback) {
+    if (typeof callback === "function") {
+        onSaveSubscribers.push(callback);
+    }
+    return () => onSaveSubscribers.splice(onSaveSubscribers.indexOf(callback), 1);
+}
+
+window.unSubscribeOnEditorSave = function (callback) {
+    if (typeof callback === "function") {
+        onSaveSubscribers.splice(onSaveSubscribers.indexOf(callback), 1);
+    }
+}
+
+window.subscribeOnPdLoaded = function (callback) {
+    if (typeof callback === "function") {
+        onPdLoadedSubscribers.push(callback);
+    }
+    return () => onPdLoadedSubscribers.splice(onPdLoadedSubscribers.indexOf(callback), 1);
+}
+
+window.unSubscribeOnPdLoaded = function (callback) {
+    if (typeof callback === "function") {
+        onPdLoadedSubscribers.splice(onPdLoadedSubscribers.indexOf(callback), 1);
+    }
+}
+
+async function editorOnChange(repoSourceType="unknown", partialDataClass=null, changeIn="unknown", keypath=null, changedData={}) {
+    // repoSourceType: "fetched" (url or local file path uploaded) | "local" (a local folder is selected and file is from it, reuse handle) | "api" (api was used) | "unknown" ISSUE
+    // partialDataClass: PartialDataClass instance, if null tries window.pd
+    // changeIn: "base" | "partial" | "unknown" ISSUE
+    // keypath: keypath of the change
+    // changedData: data from that keypath and down, after the change
+
+    // This function is called when a change is made to the repository.
+
+    window.setRepoIsModified(true);
+
+    // For now we log
+    console.log("[Editor.Event] Repo changed", repoSourceType, partialDataClass, changeIn, keypath, changedData, window.isRepoModified());
+
+    // Call subscribers
+    onChangeSubscribers.forEach(callback => callback(repoSourceType, partialDataClass, changeIn, keypath, changedData));
+
+    // Is ismodified still true?
+    if (window.isRepoModified()) {
+
+    } else {
+        console.log("[Editor.Event] Repo is no longer modified, subscribers handled it.");
+    }
+}
+
+async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
+    // repoSourceType: "fetched" (url or local file path uploaded) | "local" (a local folder is selected and file is from it, reuse handle) | "api" (api was used) | "unknown" ISSUE
+    // partialDataClass: PartialDataClass instance, if null tries window.pd
+    
+    // This function is called when the user saves the repository.
+
+    // For now we log
+    console.log("[Editor.Event] Repo saved", repoSourceType, partialDataClass);
+
+    // Call subscribers
+    onSaveSubscribers.forEach(callback => callback(repoSourceType, partialDataClass));
+
+    // Is ismodified still true?
+    if (window.isRepoModified()) {
+        // Switch case the repoSourceType
+        switch (repoSourceType) {
+            case "fetched":
+                // Download all the files current data as JSON
+                try {
+                    var storageForSave = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
+                    if (!storageForSave || typeof storageForSave.get !== "function") {
+                        throw new Error("StorageHandler is not available for saving.");
+                    }
+
+                    var loaded = await storageForSave.get("loadedRepo");
+                    if (!loaded || typeof loaded !== "object" || !loaded.base) {
+                        throw new Error("No loadedRepo found in storage.");
+                    }
+
+                    var filesToDownload = [];
+
+                    // Base file
+                    (function () {
+                        var baseObj = loaded.base || {};
+                        var baseText = typeof baseObj.text === "string" ? baseObj.text : JSON.stringify(baseObj.data || {}, null, 2);
+                        var baseFilename = baseObj.filename || "repository.json";
+                        filesToDownload.push({
+                            filename: baseFilename,
+                            text: baseText
+                        });
+                    })();
+
+                    // Partials
+                    if (loaded.partials && typeof loaded.partials === "object") {
+                        var partialKeysForSave = Object.keys(loaded.partials);
+                        partialKeysForSave.forEach(function (kp) {
+                            var entry = loaded.partials[kp];
+                            if (!entry || typeof entry !== "object") {
+                                return;
+                            }
+                            var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 2);
+                            var safeKey = kp.replace(/[^a-z0-9_\-]+/gi, "_");
+                            var pFilename = entry.filename || ("partial-" + safeKey + ".json");
+                            filesToDownload.push({
+                                filename: pFilename,
+                                text: pText
+                            });
+                        });
+                    }
+
+                    // Trigger downloads
+                    filesToDownload.forEach(function (file) {
+                        try {
+                            var blob = new Blob([file.text], { type: "application/json" });
+                            var url = URL.createObjectURL(blob);
+                            var a = document.createElement("a");
+                            a.href = url;
+                            a.download = file.filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        } catch (downloadErr) {
+                            console.error("[Editor.Event] Error downloading file", file.filename, downloadErr);
+                        }
+                    });
+
+                    // set ismodified to false
+                    window.setRepoIsModified(false);
+                } catch (e) {
+                    console.error("[Editor.Event] Error saving repo to fetched source", e);
+                    break;
+                }
+                break;
+            case "local":
+                // Save the repo to the local file system in the already selected folder
+                try {
+                    var dirHandle = null;
+                    if (typeof hasAcceptedStorage === "function" && hasAcceptedStorage() && typeof indexedDB !== "undefined") {
+                        try {
+                            dirHandle = await new Promise(function (resolve) {
+                                var request = indexedDB.open("sharedHandles", 1);
+                                request.onupgradeneeded = function (event) {
+                                    var db = event.target.result;
+                                    if (!db.objectStoreNames.contains("handles")) {
+                                        db.createObjectStore("handles");
+                                    }
+                                };
+                                request.onsuccess = function (event) {
+                                    try {
+                                        var db = event.target.result;
+                                        var tx = db.transaction("handles", "readonly");
+                                        var store = tx.objectStore("handles");
+                                        var getReq = store.get("localFolder");
+                                        getReq.onsuccess = function () {
+                                            resolve(getReq.result || null);
+                                        };
+                                        getReq.onerror = function () {
+                                            resolve(null);
+                                        };
+                                    } catch (e) {
+                                        console.error("Failed to read folder handle", e);
+                                        resolve(null);
+                                    }
+                                };
+                                request.onerror = function () {
+                                    resolve(null);
+                                };
+                            });
+                        } catch (e) {
+                            console.error("Error accessing sharedHandles database", e);
+                            dirHandle = null;
+                        }
+                    }
+
+                    if (!dirHandle || typeof dirHandle.requestPermission !== "function") {
+                        dirHandle = await window.showDirectoryPicker();
+                    } else {
+                        try {
+                            var perm = await dirHandle.queryPermission ? await dirHandle.queryPermission({ mode: "readwrite" }) : "prompt";
+                            if (perm !== "granted") {
+                                perm = await dirHandle.requestPermission({ mode: "readwrite" });
+                            }
+                            if (perm !== "granted") {
+                                dirHandle = await window.showDirectoryPicker();
+                            }
+                        } catch (e) {
+                            console.warn("Permission issue for existing handle, re-prompting", e);
+                            dirHandle = await window.showDirectoryPicker();
+                        }
+                    }
+
+                    var storageForLocalSave = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
+                    if (!storageForLocalSave || typeof storageForLocalSave.get !== "function") {
+                        throw new Error("StorageHandler is not available for saving.");
+                    }
+
+                    var loadedLocal = await storageForLocalSave.get("loadedRepo");
+                    if (!loadedLocal || typeof loadedLocal !== "object" || !loadedLocal.base) {
+                        throw new Error("No loadedRepo found in storage.");
+                    }
+
+                    var filesToWrite = [];
+
+                    (function () {
+                        var baseObj = loadedLocal.base || {};
+                        var baseText = typeof baseObj.text === "string" ? baseObj.text : JSON.stringify(baseObj.data || {}, null, 2);
+                        var baseFilename = baseObj.filename || "repository.json";
+                        filesToWrite.push({
+                            filename: baseFilename,
+                            text: baseText
+                        });
+                    })();
+
+                    if (loadedLocal.partials && typeof loadedLocal.partials === "object") {
+                        var partialKeysLocal = Object.keys(loadedLocal.partials);
+                        partialKeysLocal.forEach(function (kp) {
+                            var entry = loadedLocal.partials[kp];
+                            if (!entry || typeof entry !== "object") {
+                                return;
+                            }
+                            var pText = typeof entry.text === "string" ? entry.text : JSON.stringify(entry.data || {}, null, 2);
+                            var safeKey = kp.replace(/[^a-z0-9_\-]+/gi, "_");
+                            var pFilename = entry.filename || ("partial-" + safeKey + ".json");
+                            filesToWrite.push({
+                                filename: pFilename,
+                                text: pText
+                            });
+                        });
+                    }
+
+                    for (var iFile = 0; iFile < filesToWrite.length; iFile++) {
+                        var f = filesToWrite[iFile];
+                        try {
+                            var fileHandle = await dirHandle.getFileHandle(f.filename, { create: true });
+                            var writable = await fileHandle.createWritable();
+                            await writable.write(f.text);
+                            await writable.close();
+                        } catch (writeErr) {
+                            console.error("[Editor.Event] Error writing file to local folder", f.filename, writeErr);
+                        }
+                    }
+
+                    window.setRepoIsModified(false);
+                } catch (e) {
+                    console.error("[Editor.Event] Error saving repo to LOCAL source", e);
+                    break;
+                }
+                break;
+            case "api":
+                // Call the save endpoint of the api, for base and partials
+                throw new Error("Saving to API is not implemented");
+                break;
+            case "unknown":
+                throw new Error("Unknown repo source type");
+                break;
+        }
+    } else {
+        console.log("[Editor.Event] Repo is no longer modified, subscribers handled it.");
+    }
+}
+
+async function onEditorTabChange(fromMode="unknown", toMode="unknown") {
+    // fromMode: "gui" | "raw" | "view" | "unknown" ISSUE
+    // toMode: "gui" | "raw" | "view" | "unknown" ISSUE
+
+    // This function is called when the user changes the tab of the editor.
+
+    // For now we log
+    console.log("[Editor.Event] Editor tab changed from", fromMode, "to", toMode);
+}
+
+
+//region: ViewHelpers
+/**
+ * Builds a node graph by recursively walking the JSON object, for use with showNodeGraph.
+ * Matches keypaths to REPO_KEYPATH_SCHEMA for type, info, showUnder, collapsed.
+ * Primitive values appear as a child node with type property-value, bool-value, or number-value.
+ * @param {any} rootValue - Root JSON value
+ * @param {string} [rootName="Root"] - Name for the root node
+ * @param {boolean} [flattenArrays=false] - If true, array index nodes are skipped; array elements become direct children
+ * @returns {Array} Array of node objects (single root)
+ */
+function getNodeGraphOf(rootValue, rootName, flattenArrays) {
+    var name = rootName != null ? String(rootName) : "Root";
+
+    var walk = function (value, nodeName, path) {
+        if (!path) path = [];
+        var schema = getSchemaForPath(path);
+        var applySchema = function (node) {
+            if (!schema) return node;
+            if (schema.type != null) node.type = schema.type;
+            if (schema.info != null) node.info = schema.info;
+            if (schema.showUnder != null) node.showUnder = schema.showUnder;
+            if (schema.collapsed != null) node.collapsed = schema.collapsed;
+            return node;
+        };
+
+        if (value === null) {
+            var nullNode = applySchema({
+                name: nodeName,
+                type: "property",
+                children: [{ name: "null", type: "null" }]
+            });
+            return nullNode;
+        }
+        if (Array.isArray(value)) {
+            var arrChildren = [];
+            for (var i = 0; i < value.length; i++) {
+                arrChildren.push(walk(value[i], String(i), path.concat(i)));
+            }
+            return applySchema({ name: nodeName, type: "array", children: arrChildren });
+        }
+        if (typeof value === "object") {
+            var objChildren = [];
+            for (var key in value) {
+                if (Object.prototype.hasOwnProperty.call(value, key)) {
+                    objChildren.push(walk(value[key], key, path.concat(key)));
+                }
+            }
+            return applySchema({ name: nodeName, type: "object", children: objChildren });
+        }
+        if (value === "") {
+            return applySchema({ name: nodeName, type: "property", children: [] });
+        }
+        var valueType = typeof value === "boolean"
+            ? "bool-value"
+            : typeof value === "number"
+                ? "number-value"
+                : "property-value";
+        var valueNode = { name: String(value), type: valueType };
+        return applySchema({
+            name: nodeName,
+            type: "property",
+            children: [valueNode]
+        });
+    };
+
+    var graph = [walk(rootValue, name, [])];
+
+    if (flattenArrays) {
+        var flatten = function (nodes) {
+            if (!nodes || !Array.isArray(nodes)) return;
+            for (var i = 0; i < nodes.length; i++) {
+                var node = nodes[i];
+                if (node.type === "array" && node.children && node.children.length > 0) {
+                    node.children = node.children.flatMap(function (indexNode) {
+                        return indexNode.children ? indexNode.children : [indexNode];
+                    });
+                    flatten(node.children);
+                } else if (node.children) {
+                    flatten(node.children);
+                }
+            }
+        };
+        flatten(graph);
+    }
+
+    return graph;
+}
+
+async function renderViewTab() {
+    try {
+        if (!window.pd || typeof window.pd.getStatic !== "function") {
+            console.warn("[Editor.View] PartialDataClass is not ready");
+            return;
+        }
+        var container = document.getElementById("editor-mode-view-graph");
+        if (!container) {
+            console.warn("[Editor.View] View container not found");
+            return;
+        }
+        var data = await window.pd.getStatic(".");
+        // Use filename as root name when available; fallback to a generic label
+        var rootName = "Repository";
+        try {
+            var storageForName = typeof window.StorageHandler !== "undefined" ? window.StorageHandler : null;
+            if (storageForName && typeof storageForName.get === "function") {
+                var loaded = await storageForName.get("loadedRepo");
+                if (loaded && loaded.base && typeof loaded.base.filename === "string" && loaded.base.filename.length > 0) {
+                    rootName = loaded.base.filename;
+                }
+            }
+        } catch (e) {
+            // Ignore name lookup issues
+        }
+        var graph = getNodeGraphOf(data, rootName, true);
+        // Re-render entire graph for root
+        if (typeof updateNodeGraph === "function") {
+            updateNodeGraph(".", graph, container);
+        } else if (typeof showNodeGraph === "function") {
+            container.innerHTML = "";
+            showNodeGraph(graph, container);
+        }
+    } catch (e) {
+        console.error("[Editor.View] Failed to render view tab", e);
+    }
+}
+//endregion: ViewHelpers

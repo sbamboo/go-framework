@@ -66,10 +66,27 @@
 
         <p id="editor-loaded-files-text"></p>
 
-        <div class="editor-header-centered">CENTERED</div>
+        <div class="editor-header-centered">
+            <nav class="editor-mode-toggle" aria-label="Editor mode" id="editor-mode-toggle">
+                <div class="editor-mode-toggle-indicator" aria-hidden="true"></div>
+                <button type="button" class="editor-mode-toggle-button" data-mode="gui">
+                    GUI
+                </button>
+                <button type="button" class="editor-mode-toggle-button" data-mode="raw">
+                    Raw
+                </button>
+                <button type="button" class="editor-mode-toggle-button" data-mode="view">
+                    View
+                </button>
+            </nav>
+        </div>
 
         <div class="editor-header-left">
             <p id="editor-ismodified-text"></p>
+
+            <button type="button" class="editor-save-button" id="editor-save">
+                Save
+            </button>
 
             <div class="header-vertical-separator"></div>
 
@@ -91,6 +108,28 @@
     <main id="editor-main">
         <div id="editor-no-repo" class="editor-no-repo-message" style="display: none;">
             No repository loaded, choose one on the <a id="editor-no-repo-link" href="../index.html">start page</a>.
+        </div>
+
+        <div id="editor-main-content">
+            <section id="editor-mode-gui" style="display: none;">$mccman.editor.mode.gui</section>
+            <section id="editor-mode-raw" style="display: none;">
+                <nav id="editor-mode-raw-nav">
+                    <button id="editor-mode-raw-nav-left">&lt;</button>
+                    <div id="editor-mode-raw-nav-tabs"></div>
+                    <button id="editor-mode-raw-nav-right">&gt;</button>
+                </nav>
+            </section>
+            <section id="editor-mode-view" style="display: none;">
+                <div id="editor-mode-view-view">
+                    <details>
+                        <summary>Viewer</summary>
+                        <div id="editor-mode-view-viewer">
+                            Comming soon...
+                        </div>
+                    </details>
+                </div>
+                <div id="editor-mode-view-graph"></div>
+            </section>
         </div>
     </main>
 </body>

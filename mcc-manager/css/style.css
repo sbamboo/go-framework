@@ -41,13 +41,33 @@ html {
     --shadow-color: rgba(0, 0, 0, 0.1);
 }
 
+html, body {
+    height: 100%;
+    margin: 0;
+}
+  
+body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden; /* prevent body scroll */
+}
+  
+header {
+    flex: 0 0 auto; /* fixed height */
+}
+  
+main {
+    flex: 1 1 auto; 
+    overflow-y: auto; /* only main scrolls */
+}
+
 .page-header {
     height: var(--header-height);   
     display: flex;
     align-items: center;
     box-shadow: 0 2px 4px var(--shadow-color);
 }
-
 
 .page-header .theme-toggle {
     margin-left: auto;

@@ -72,6 +72,25 @@ main.editor-no-repo {
     background: var(--editor-button-bg-hover);
 }
 
+.editor-save-button {
+    height: var(--editor-button-height);
+    padding: 0 var(--editor-button-padding-x);
+    border-radius: var(--editor-button-radius);
+    color: var(--text-color);
+    background: var(--editor-button-bg);
+    border: 1px solid var(--editor-button-border);
+    font-size: var(--editor-button-font-size);
+    flex: 0 0 auto;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.editor-save-button:hover {
+    background: var(--editor-button-bg-hover);
+}
+
 #editor-loaded-files-text {
     margin-left: 0.9rem;
     opacity: 0.85;
@@ -118,4 +137,166 @@ main.editor-no-repo {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
+}
+
+.editor-mode-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem;
+    border-radius: 9999px;
+    background-color: var(--start-button-bg, rgba(255, 255, 255, 0.06));
+    box-shadow: 0 0 0 1px var(--start-input-border, rgba(255, 255, 255, 0.12));
+    gap: 0;
+}
+
+.editor-mode-toggle-button {
+    position: relative;
+    z-index: 1;
+    border: none;
+    background: transparent;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.8rem;
+    color: var(--text-color);
+    cursor: pointer;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+.editor-mode-toggle-indicator {
+    position: absolute;
+    top: 0.15rem;
+    left: 0.15rem;
+    width: calc((100% - 0.45rem) / 3);
+    height: calc(100% - 0.3rem);
+    border-radius: 9999px;
+    background-color: var(--editor-button-bg, rgba(255, 255, 255, 0.12));
+    transition: transform 150ms ease, background-color 150ms ease;
+}
+
+[data-theme="light"] .editor-mode-toggle {
+    background-color: rgba(0, 0, 0, 0.04);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10);
+}
+
+[data-theme="light"] .editor-mode-toggle-indicator {
+    background-color: rgba(0, 0, 0, 0.10);
+}
+
+.editor-mode-toggle.mode-gui .editor-mode-toggle-indicator {
+    transform: translateX(0%);
+}
+
+.editor-mode-toggle.mode-raw .editor-mode-toggle-indicator {
+    transform: translateX(100%);
+}
+
+.editor-mode-toggle.mode-view .editor-mode-toggle-indicator {
+    transform: translateX(200%);
+}
+
+.editor-mode-toggle-button.is-active {
+    font-weight: 600;
+}
+
+.popup-footer .start-primary,
+.popup-footer .start-secondary {
+    height: var(--editor-button-height);
+    padding: 0 var(--editor-button-padding-x);
+    border-radius: var(--editor-button-radius);
+    font-size: var(--editor-button-font-size);
+    cursor: pointer;
+}
+
+.popup-footer .start-primary {
+    color: var(--text-color);
+    background: var(--editor-button-bg);
+    border: 1px solid var(--editor-button-border);
+}
+
+.popup-footer .start-primary:hover {
+    background: var(--editor-button-bg-hover);
+}
+
+.popup-footer .start-secondary {
+    color: var(--text-color);
+    background: transparent;
+    border: 1px solid var(--editor-button-border);
+    opacity: 0.9;
+}
+
+.popup-footer .start-secondary:hover {
+    background: var(--editor-button-bg-hover);
+}
+
+/* VIEW MODE - Node graph colors */
+[data-theme="light"] {
+    --graph-background: #fbfbfb;
+    --graph-border: #e0e0e0;
+    /* Node graph types - high saturation */
+    --node-type-property: #22c55e;
+    --node-type-array: #7dc8f0;
+    --node-type-object: #e8c45c;
+    --node-type-id: #f0a078;
+    --node-type-bool: #d89cf0;
+    --node-type-property-value: #a0a0a0;
+    --node-type-bool-value: #d89cf0;
+    --node-type-number-value: #6ec9e0;
+    --node-type-null: #808080;
+}
+
+[data-theme="dark"] {
+    --graph-background: #252424;
+    --graph-border: #404040;
+    /* Node graph types */
+    --node-type-property: #7dd87d;
+    --node-type-array: #7dc8f0;
+    --node-type-object: #e8c45c;
+    --node-type-id: #f0a078;
+    --node-type-bool: #d89cf0;
+    --node-type-property-value: #a0a0a0;
+    --node-type-bool-value: #d89cf0;
+    --node-type-number-value: #6ec9e0;
+    --node-type-null: #808080;
+}
+
+#editor-mode-view {
+    margin-bottom: 2.5rem;
+}
+#editor-mode-view > #editor-mode-view-graph,
+#editor-mode-view > #editor-mode-view-view {
+    padding: 0.5rem;
+    background-color: var(--graph-background);
+    border-radius: 0.5rem;
+    border: 1px solid var(--graph-border);
+    box-shadow: 0 0 0.5rem 0 rgba(0, 0, 0, 0.1);
+    margin: 1.5rem;
+}
+
+.node-graph .node-type-property {
+    color: var(--node-type-property);
+}
+.node-graph .node-type-array {
+    color: var(--node-type-array);
+}
+.node-graph .node-type-object {
+    color: var(--node-type-object);
+}
+.node-graph .node-type-id {
+    color: var(--node-type-id);
+}
+.node-graph .node-type-bool {
+    color: var(--node-type-bool);
+}
+.node-graph .node-type-property-value {
+    color: var(--node-type-property-value);
+}
+.node-graph .node-type-bool-value {
+    color: var(--node-type-bool-value);
+}
+.node-graph .node-type-number-value {
+    color: var(--node-type-number-value);
+}
+.node-graph .node-type-null {
+    color: var(--node-type-null);
 }
