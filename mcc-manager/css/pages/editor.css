@@ -45,7 +45,13 @@ main.editor-no-repo {
     width: 0.175rem;
     height: 70%;
     border-radius: 0.25rem;
+}
+
+[data-theme="dark"] .header-vertical-separator {
     background-color: var(--shadow-i-1);
+}
+[data-theme="light"] .header-vertical-separator {
+    background-color: var(--shadow-1);
 }
 
 .editor-back-button {
@@ -86,7 +92,14 @@ main.editor-no-repo {
 
 .editor-header-left .theme-toggle {
     margin-left: 0;
-    margin-right: 0;
+}
+
+.editor-header-left {
+    height: 100%;
+}
+
+#editor-ismodified-text {
+    margin-right: 0.5rem;
 }
 
 .editor-ismodified-saved {
@@ -95,4 +108,14 @@ main.editor-no-repo {
 
 .editor-ismodified-unsaved {
     color: #f97316;
+}
+
+.editor-page-header {
+    position: relative;
+}
+
+.editor-page-header .editor-header-centered {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
