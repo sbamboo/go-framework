@@ -6,6 +6,8 @@ var ISMODIFIED_KEY = "ismodified";
 /* ========================================================================================== */
 var viewTabInitialized = false;
 var viewTabChangeUnsubscribe = null;
+var viewTabNavBound = false;
+var viewActiveSubTab = "viewer"; // "viewer" | "tree"
 
 // region: RawTab
 /* ========================================================================================== */
@@ -193,6 +195,83 @@ window.onEditorTabChange = function (fromMode, toMode) {
     if (toMode === "view" && !viewTabInitialized) {
         viewTabInitialized = true;
 
+        function setViewTabQueryParam(subTab) {
+            try {
+                var url = new URL(window.location.href);
+                if (subTab === "viewer" || subTab === "tree") {
+                    url.searchParams.set("vt", subTab);
+                } else {
+                    url.searchParams.delete("vt");
+                }
+                window.history.replaceState({}, "", url.toString());
+            } catch (e) {
+                // Ignore URL issues
+            }
+        }
+
+        function getInitialViewSubTabFromUrl() {
+            try {
+                var url = new URL(window.location.href);
+                var vt = url.searchParams.get("vt");
+                if (vt === "viewer" || vt === "tree") {
+                    return vt;
+                }
+            } catch (e) {
+                // Ignore URL issues
+            }
+            return "viewer";
+        }
+
+        function setViewSubTab(subTab) {
+            if (subTab !== "viewer" && subTab !== "tree") {
+                subTab = "viewer";
+            }
+            viewActiveSubTab = subTab;
+
+            var viewerPanel = document.getElementById("editor-mode-view-view");
+            var treePanel = document.getElementById("editor-mode-view-graph");
+            if (viewerPanel) {
+                viewerPanel.classList.toggle("is-active", viewActiveSubTab === "viewer");
+            }
+            if (treePanel) {
+                treePanel.classList.toggle("is-active", viewActiveSubTab === "tree");
+            }
+
+            var nav = document.getElementById("editor-mode-view-nav");
+            if (nav) {
+                var buttons = nav.querySelectorAll(".editor-view-toggle-button");
+                buttons.forEach(function (btn) {
+                    var v = btn.getAttribute("data-view");
+                    var isActive = v === viewActiveSubTab;
+                    btn.classList.toggle("is-active", isActive);
+                    btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+                });
+            }
+
+            setViewTabQueryParam(viewActiveSubTab);
+        }
+
+        function bindViewNavOnce() {
+            if (viewTabNavBound) {
+                return;
+            }
+            var nav = document.getElementById("editor-mode-view-nav");
+            if (!nav) {
+                return;
+            }
+            viewTabNavBound = true;
+
+            nav.addEventListener("click", function (e) {
+                var target = e.target;
+                while (target && target !== nav && !(target.classList && target.classList.contains("editor-view-toggle-button"))) {
+                    target = target.parentElement;
+                }
+                if (!target || target === nav) return;
+                var subTab = target.getAttribute("data-view");
+                setViewSubTab(subTab);
+            });
+        }
+
         function attachViewChangeSubscriber() {
             if (typeof window.subscribeOnEditorChange === "function" && !viewTabChangeUnsubscribe) {
                 viewTabChangeUnsubscribe = window.subscribeOnEditorChange(function (repoSourceType, partialDataClass, changeIn, keypath, changedData) {
@@ -200,6 +279,11 @@ window.onEditorTabChange = function (fromMode, toMode) {
                 });
             }
         }
+
+        // Set initial sub-tab and bind nav
+        bindViewNavOnce();
+        viewActiveSubTab = getInitialViewSubTabFromUrl();
+        setViewSubTab(viewActiveSubTab);
 
         // If pd is already ready, render immediately and subscribe to changes
         if (window.pd && typeof window.pd.getStatic === "function") {
@@ -655,6 +739,206 @@ document.addEventListener("DOMContentLoaded", function () {
         storage.setPersistenceAllowed(hasAcceptedStorage());
     }
     updateRepoModifiedUI();
+
+    function parseGuiSidebarWidthFromUrl() {
+        try {
+            var url = new URL(window.location.href);
+            var v = url.searchParams.get("gsw");
+            if (!v) return null;
+            v = String(v).trim();
+            if (!v) return null;
+            // Accept explicit CSS units, otherwise treat as px number
+            if (/[a-z%]+$/i.test(v)) {
+                return v;
+            }
+            var n = parseFloat(v);
+            if (isNaN(n)) return null;
+            return String(Math.round(n)) + "px";
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function setGuiSidebarWidthCssValue(cssValue) {
+        try {
+            document.documentElement.style.setProperty("--gui-sidebar-width", cssValue);
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function setGuiSidebarWidthQueryParam(cssValue) {
+        try {
+            var url = new URL(window.location.href);
+            url.searchParams.set("gsw", String(cssValue));
+            window.history.replaceState({}, "", url.toString());
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function initGuiSidebarResize() {
+        var sidebar = document.getElementById("editor-mode-gui-sidebar");
+        var resizer = document.getElementById("editor-mode-gui-resizer");
+        if (!sidebar || !resizer) {
+            return;
+        }
+
+        // Apply initial width from ?gsw=... if present; otherwise leave CSS default (20vw)
+        var initial = parseGuiSidebarWidthFromUrl();
+        if (initial) {
+            setGuiSidebarWidthCssValue(initial);
+        }
+
+        var dragging = false;
+        var startX = 0;
+        var startWidth = 0;
+
+        function clamp(n, min, max) {
+            return Math.max(min, Math.min(max, n));
+        }
+
+        function pxWidthFromSidebar() {
+            try {
+                var rect = sidebar.getBoundingClientRect();
+                return rect.width;
+            } catch (e) {
+                return startWidth || 0;
+            }
+        }
+
+        function onPointerMove(e) {
+            if (!dragging) return;
+            var dx = e.clientX - startX;
+            var container = document.getElementById("editor-mode-gui-container");
+            var maxW = container ? Math.floor(container.getBoundingClientRect().width * 0.7) : Math.floor(window.innerWidth * 0.7);
+            var newW = clamp(startWidth + dx, 0, Math.max(180, maxW));
+            var cssValue = String(Math.round(newW)) + "px";
+            setGuiSidebarWidthCssValue(cssValue);
+            setGuiSidebarWidthQueryParam(cssValue);
+        }
+
+        function stopDragging() {
+            if (!dragging) return;
+            dragging = false;
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            try {
+                window.removeEventListener("pointermove", onPointerMove);
+                window.removeEventListener("pointerup", stopDragging);
+                window.removeEventListener("pointercancel", stopDragging);
+            } catch (e) {
+                /* ignore */
+            }
+        }
+
+        if (!resizer._guiResizeBound) {
+            resizer._guiResizeBound = true;
+            resizer.addEventListener("pointerdown", function (e) {
+                // Left mouse / primary pointer only
+                if (e.button != null && e.button !== 0) return;
+                dragging = true;
+                startX = e.clientX;
+                startWidth = pxWidthFromSidebar();
+                document.body.style.cursor = "col-resize";
+                document.body.style.userSelect = "none";
+                try {
+                    resizer.setPointerCapture(e.pointerId);
+                } catch (err) {
+                    /* ignore */
+                }
+                window.addEventListener("pointermove", onPointerMove);
+                window.addEventListener("pointerup", stopDragging);
+                window.addEventListener("pointercancel", stopDragging);
+                e.preventDefault();
+            });
+
+            // Keyboard accessibility: arrow keys adjust by 16px (shift: 48px)
+            resizer.addEventListener("keydown", function (e) {
+                var step = e.shiftKey ? 48 : 16;
+                if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                var cur = pxWidthFromSidebar();
+                var next = cur + (e.key === "ArrowRight" ? step : -step);
+                var container = document.getElementById("editor-mode-gui-container");
+                var maxW = container ? Math.floor(container.getBoundingClientRect().width * 0.7) : Math.floor(window.innerWidth * 0.7);
+                next = clamp(next, 180, Math.max(180, maxW));
+                var cssValue = String(Math.round(next)) + "px";
+                setGuiSidebarWidthCssValue(cssValue);
+                setGuiSidebarWidthQueryParam(cssValue);
+                e.preventDefault();
+            });
+        }
+    }
+
+    function initGuiSidebarCollapse() {
+        var container = document.getElementById("editor-mode-gui-container");
+        var sidebar = document.getElementById("editor-mode-gui-sidebar");
+        var resizer = document.getElementById("editor-mode-gui-resizer");
+        var collapseBtn = document.getElementById("editor-mode-gui-sidebar-collapse");
+        var expandBtn = document.getElementById("editor-mode-gui-sidebar-expand");
+        var tab = document.getElementById("editor-mode-gui-sidebar-collapsed-tab");
+
+        if (!container || !sidebar || !resizer || !collapseBtn || !expandBtn || !tab) {
+            return;
+        }
+
+        function hasGscFlag() {
+            try {
+                // URLSearchParams normalizes "gsc" as "gsc="; treat both as present.
+                var url = new URL(window.location.href);
+                if (url.searchParams.has("gsc")) return true;
+                return /(?:\?|&)gsc(?:&|$)/.test(url.search);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function setGscFlag(collapsed) {
+            try {
+                var url = new URL(window.location.href);
+                if (collapsed) {
+                    // We'll normalize gsc= -> gsc after serialization.
+                    url.searchParams.set("gsc", "");
+                } else {
+                    url.searchParams.delete("gsc");
+                }
+                var s = url.toString();
+                // Normalize to "gsc" without "=" for display.
+                s = s.replace(/([?&])gsc=(?=&|$)/g, "$1gsc");
+                window.history.replaceState({}, "", s);
+            } catch (e) {
+                /* ignore */
+            }
+        }
+
+        function setCollapsed(collapsed) {
+            container.classList.toggle("gui-sidebar-collapsed", !!collapsed);
+            tab.setAttribute("aria-hidden", collapsed ? "false" : "true");
+            collapseBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            expandBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            setGscFlag(!!collapsed);
+        }
+
+        if (!collapseBtn._guiCollapseBound) {
+            collapseBtn._guiCollapseBound = true;
+            collapseBtn.addEventListener("click", function () {
+                setCollapsed(true);
+            });
+        }
+
+        if (!expandBtn._guiExpandBound) {
+            expandBtn._guiExpandBound = true;
+            expandBtn.addEventListener("click", function () {
+                setCollapsed(false);
+            });
+        }
+
+        // Default based on ?gsc flag
+        setCollapsed(hasGscFlag());
+    }
+
+    initGuiSidebarResize();
+    initGuiSidebarCollapse();
 
     function buildIndexHref() {
         var href = "../index.html";

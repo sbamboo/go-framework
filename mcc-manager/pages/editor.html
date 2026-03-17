@@ -111,7 +111,26 @@
         </div>
 
         <div id="editor-main-content">
-            <section id="editor-mode-gui" style="display: none;">$mccman.editor.mode.gui</section>
+            <section id="editor-mode-gui" style="display: none;">
+                <div id="editor-mode-gui-container">
+                    <aside id="editor-mode-gui-sidebar">
+                        <div id="editor-mode-gui-sidebar-header">
+                            <button type="button" id="editor-mode-gui-sidebar-collapse" aria-label="Collapse sidebar" aria-controls="editor-mode-gui-sidebar" aria-expanded="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M660-320v-320L500-480l160 160ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm120-80v-560H200v560h120Zm80 0h360v-560H400v560Zm-80 0H200h120Z"/></svg>
+                            </button>
+                        </div>
+                        <div id="editor-mode-gui-sidebar-content"><div></div></div>
+                    </aside>
+                    <div id="editor-mode-gui-sidebar-collapsed-tab" aria-hidden="true">
+                        <button type="button" id="editor-mode-gui-sidebar-expand" aria-label="Expand sidebar" aria-controls="editor-mode-gui-sidebar" aria-expanded="false">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="currentColor"><path d="M500-640v320l160-160-160-160ZM200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm120-80v-560H200v560h120Zm80 0h360v-560H400v560Zm-80 0H200h120Z"/></svg>
+                        </button>
+                    </div>
+                    <div id="editor-mode-gui-resizer" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Resize sidebar"></div>
+                    <div id="editor-mode-gui-main"><div></div></div>
+                </div>
+            </section>
+
             <section id="editor-mode-raw" style="display: none;">
                 <nav id="editor-mode-raw-nav">
                     <button id="editor-mode-raw-nav-left">&lt;</button>
@@ -120,16 +139,23 @@
                 </nav>
                 <div id="editor-mode-raw-content" class="editor-raw-editors-container"></div>
             </section>
+
             <section id="editor-mode-view" style="display: none;">
-                <div id="editor-mode-view-view">
-                    <details>
-                        <summary>Viewer</summary>
-                        <div id="editor-mode-view-viewer">
-                            Comming soon...
-                        </div>
-                    </details>
+                <nav id="editor-mode-view-nav" aria-label="View mode">
+                    <button type="button" class="editor-view-toggle-button" data-view="viewer">
+                        Viewer
+                    </button>
+                    <button type="button" class="editor-view-toggle-button" data-view="tree">
+                        Tree
+                    </button>
+                </nav>
+
+                <div id="editor-mode-view-view" class="editor-view-panel">
+                    <div id="editor-mode-view-viewer">
+                        Comming soon...
+                    </div>
                 </div>
-                <div id="editor-mode-view-graph"></div>
+                <div id="editor-mode-view-graph" class="editor-view-panel"></div>
             </section>
         </div>
     </main>
