@@ -505,10 +505,23 @@ main.editor-no-repo {
     height: var(--gui-sidebar-header-height);
     min-height: var(--gui-sidebar-header-height);
     border-bottom: 1px solid var(--sidebar-border);
-    display: flex;
+    display: grid;
+    grid-template-columns: 2rem 1fr 2rem;
     align-items: center;
-    justify-content: flex-start;
     padding: 0 0.2rem;
+}
+
+#editor-mode-gui-sidebar-header::after {
+    content: "";
+    width: 2rem;
+    height: 2rem;
+}
+
+#editor-mode-gui-sidebar-title {
+    margin: 0;
+    line-height: 1;
+    justify-self: center;
+    text-align: center;
 }
 
 #editor-mode-gui-sidebar-collapse,
