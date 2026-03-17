@@ -177,6 +177,16 @@ const REPO_KEYPATH_SCHEMA = {
 /* ========================================================================================== */
 //endregion: ViewTab
 
+window.evOutEnabled = false;
+window.setEvOutEnabled = function (enabled) {
+    window.evOutEnabled = enabled;
+}
+window.logIfEvOutEnabled = function (...data) {
+    if (window.evOutEnabled) {
+        console.log(...data);
+    }
+};
+
 function updateRepoModifiedUI() {
     var el = document.getElementById("editor-ismodified-text");
     if (!el) {
@@ -190,7 +200,7 @@ function updateRepoModifiedUI() {
 
 window.onEditorTabChange = function (fromMode, toMode) {
     // Hook for external listeners; currently just logs and initializes view tab on first entry.
-    console.log("[Editor.Event] Tab changed", { fromMode, toMode });
+    window.logIfEvOutEnabled("[Editor.Event] Tab changed", { fromMode, toMode });
 
     if (toMode === "view" && !viewTabInitialized) {
         viewTabInitialized = true;
@@ -362,6 +372,12 @@ window.onEditorTabChange = function (fromMode, toMode) {
             rawTabPdLoadedUnsubscribe = window.subscribeOnPdLoaded(function () {
                 buildWhenPdReady();
             });
+        }
+    }
+
+    if (toMode === "gui") {
+        if (typeof onChangeToGuiTab === "function") {
+            onChangeToGuiTab();
         }
     }
 };
@@ -1640,7 +1656,7 @@ async function editorOnSave(repoSourceType="unknown", partialDataClass=null) {
                 break;
         }
     } else {
-        console.log("[Editor.Event] Repo is no longer modified, subscribers handled it.");
+        window.logIfEvOutEnabled("[Editor.Event] Repo is no longer modified, subscribers handled it.");
     }
 }
 
@@ -1651,7 +1667,7 @@ async function onEditorTabChange(fromMode="unknown", toMode="unknown") {
     // This function is called when the user changes the tab of the editor.
 
     // For now we log
-    console.log("[Editor.Event] Editor tab changed from", fromMode, "to", toMode);
+    window.logIfEvOutEnabled("[Editor.Event] Editor tab changed from", fromMode, "to", toMode);
 }
 
 
@@ -1806,7 +1822,7 @@ window.onRawTabChange = function (from="unknown", to="unknown") {
     onRawTabChangeSubscribers.forEach(callback => callback(from, to));
 
     // Log
-    console.log(`[Editor.Event] Raw tab changed from '${from}' to '${to}'`);
+    window.logIfEvOutEnabled(`[Editor.Event] Raw tab changed from '${from}' to '${to}'`);
 
     // Get the data from PartialDataClass (window.pd)
     let obj = {"to": to};
@@ -1840,15 +1856,15 @@ window.onRawTabChange = function (from="unknown", to="unknown") {
 
     // Log the data in PartialDataClass (window.pd)
     if (!window.pd) {
-        console.log("[Editor.Event] Raw tab data (pd not ready)", obj);
+        window.logIfEvOutEnabled("[Editor.Event] Raw tab data (pd not ready)", obj);
     } else {
         if (typeof to === "string" && to.indexOf("base-") === 0) {
-            console.log("[Editor.Event] Raw tab data", obj);
+            window.logIfEvOutEnabled("[Editor.Event] Raw tab data", obj);
         } else if (typeof to === "string" && to.indexOf("partial-") === 0) {
             if (missingPartial) {
-                console.log("[Editor.Event] Raw tab data (partial not found)", obj);
+                window.logIfEvOutEnabled("[Editor.Event] Raw tab data (partial not found)", obj);
             } else {
-                console.log("[Editor.Event] Raw tab data", obj);
+                window.logIfEvOutEnabled("[Editor.Event] Raw tab data", obj);
             }
         }
     }
