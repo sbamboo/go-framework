@@ -52,8 +52,43 @@ onChangeToGuiTab = async ()=>{
     await onPdReady(async ()=>{
         await onDocReady(async ()=>{
             await onEventsAvaliable(async ()=>{
-                log("[Editor.GUI] GUI tab loaded! (DOC+PD+Events)");
+                main();
             });
         });
     });
 };
+
+async function main() {
+    log("[Editor.GUI] GUI tab loaded! (DOC+PD+Events)");
+
+    document.getElementById("editor-mode-gui-sidebar-title").textContent = "Sidebar Title";
+    document.getElementById("editor-mode-gui-sidebar-content").innerHTML = `
+    <div>
+        <pre>
+        <p>This is the sidebar content.</p>
+        <button>Click me</button>
+        <input type="text" placeholder="Enter text">
+        <select>
+            <option value="1">Option 1</option>
+            <option value="2">Option 2</option>
+            <option value="3">Option 3</option>
+        </select>
+        </pre>
+    </div>
+    `;
+
+    document.getElementById("editor-mode-gui-main").innerHTML = `
+    <div>
+        <pre>
+        <p>This is the main content.</p>
+        <button>Click me</button>
+        <input type="text" placeholder="Enter text">
+        <select>
+            <option value="1">Option 1</option>
+            <option value="2">Option 2</option>
+            <option value="3">Option 3</option>
+        </select>
+        </pre>
+    </div>
+    `;
+}
