@@ -2,7 +2,10 @@ module mcc-app
 
 go 1.24.4
 
-require github.com/sbamboo/goframework v0.0.0
+require (
+	github.com/sbamboo/goframework v0.0.0
+	github.com/sbamboo/mcc-lib v0.0.0-00010101000000-000000000000
+)
 
 require (
 	github.com/ebitengine/purego v0.9.1 // indirect

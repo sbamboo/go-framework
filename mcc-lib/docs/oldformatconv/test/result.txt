@@ -1,0 +1,21 @@
+Processed 72/72 flavors
+
+Conversion finished: 55/72 flavors converted successfully, 17 failed.
+Failed entries:
+  - b70cd434-e240-4873-b8d9-38d358eb780f: File is not a zip file
+  - 8cc1a548-4bec-4a17-8949-d7e1fd1c4ee4: File is not a zip file
+  - ea241f91-5087-4b88-a052-d8d21d8e7d54: File is not a zip file
+  - 2d3e56ec-9d92-4e3a-b6d5-d7e3c2467519: File is not a zip file
+  - 7789b8a9-dca1-4309-bdc5-0c164cf5054c: File is not a zip file
+  - 6b43f94f-d76d-4583-9c16-be52cff7a3cb: listing.json not found in archive
+  - 501030c4-ad40-4bf8-a540-db24c065ca46: listing.json not found in archive
+  - cb07c5b9-ec3a-4a7c-91da-65341b7eed87: listing.json not found in archive
+  - 419ea627-9984-440e-8df0-b6fd207f9141: listing.json not found in archive
+  - 153b3cbc-6d13-4d7d-ad7a-4d8027897aec: listing.json not found in archive
+  - 59a92e04-2a7a-4f69-b7d5-14919eec2c44: listing.json not found in archive
+  - af1d51c4-29fa-47e9-9b7c-02204f18bf2d: listing.json not found in archive
+  - 1c60ac9e-131e-462c-a382-e441dc03a015: listing.json not found in archive
+  - a6b26798-343e-4ff9-8698-2adaac61896f: listing.json not found in archive
+  - 84545270-e762-4a6e-8a9b-45df72ed35d8: listing.json not found in archive
+  - 664876de-7cf7-45b3-88d8-5c7ff668f8fd: listing.json not found in archive
+  - 1d5ba7f6-33fd-41ea-a69b-e88ab151a281: listing.json not found in archive
