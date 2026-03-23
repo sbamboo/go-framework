@@ -53,6 +53,12 @@ func mergeMaps(dst, src map[string]any) { // mergeMaps merges src into dst (both
 					continue
 				}
 			}
+			if ev, ok1 := existing.([]any); ok1 {
+				if sv, ok2 := v.([]any); ok2 {
+					dst[k] = append(ev, sv...)
+					continue
+				}
+			}
 		}
 		dst[k] = v
 	}
@@ -100,6 +106,12 @@ func mergeOverAtKeypath(data map[string]any, keypath string, subdata any) error 
 					} else {
 						arr[idx] = m
 					}
+				} else if arrSrc, ok := subdata.([]any); ok {
+					if existing, ok := arr[idx].([]any); ok {
+						arr[idx] = append(existing, arrSrc...)
+					} else {
+						arr[idx] = arrSrc
+					}
 				} else {
 					arr[idx] = subdata
 				}
@@ -121,6 +133,12 @@ func mergeOverAtKeypath(data map[string]any, keypath string, subdata any) error 
 					} else {
 						current[part] = m
 					}
+				} else if arrSrc, ok := subdata.([]any); ok {
+					if existing, ok := current[part].([]any); ok {
+						current[part] = append(existing, arrSrc...)
+					} else {
+						current[part] = arrSrc
+					}
 				} else {
 					current[part] = subdata
 				}
@@ -141,23 +159,23 @@ func mergeOverAtKeypath(data map[string]any, keypath string, subdata any) error 
 	return nil
 }
 
-func fromJSON(b []byte) (map[string]any, error) {
-    var data map[string]any
-    if err := json.Unmarshal(b, &data); err != nil {
-        return nil, err
-    }
-    return data, nil
+func fromJSON(b []byte) (any, error) {
+	var data any
+	if err := json.Unmarshal(b, &data); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
-func toJSON(data map[string]any) (string, error) {
-    b, err := json.MarshalIndent(data, "", "  ")
-    if err != nil {
-        return "", err
-    }
-    return string(b), nil
+func toJSON(data any) (string, error) {
+	b, err := json.MarshalIndent(data, "", "    ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
-func (m *MCCLib) fetchJson(url string) (map[string]any, error) {
+func (m *MCCLib) fetchJson(url string) (any, error) {
 	// Implementation to fetch and parse the repository from the given URL
 	nh, err := m.fw.Net.GET(url, false, false, nil)
 	if err != nil {
@@ -170,20 +188,26 @@ func (m *MCCLib) fetchJson(url string) (map[string]any, error) {
 		return nil, fmt.Errorf("Failed to fetch repository content from URL: %s", url)
 	}
 
-	// Unmarshal the JSON content into a map
-    data, err := fromJSON([]byte(*content))
-    if err != nil {
-        return nil, fmt.Errorf("Failed to unmarshal repository JSON: %v", err)
-    }
+	// Unmarshal the JSON content (accepts both object and array at root)
+	data, err := fromJSON([]byte(*content))
+	if err != nil {
+		return nil, fmt.Errorf("Failed to unmarshal repository JSON: %v", err)
+	}
 
 	return data, nil
 }
 
 func (m *MCCLib) GetRepo(url string) (Repo, error) {
 	// Fetch the JSON data
-	data, err := m.fetchJson(url)
+	rawData, err := m.fetchJson(url)
 	if err != nil {
 		return Repo{}, err
+	}
+
+	// Root must be an object for repo structure (partials key, etc.)
+	data, ok := rawData.(map[string]any)
+	if !ok {
+		return Repo{}, fmt.Errorf("repo root must be a JSON object, got %T", rawData)
 	}
 
 	// Apply partials
