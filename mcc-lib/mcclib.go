@@ -44,63 +44,101 @@ func parseKeypath(kp string) []string {
     return parts
 }
 
-func mergeOverAtKeypath(data map[string]any, keypath []string, subdata any) error {
-    if len(keypath) == 0 {
-        return fmt.Errorf("Empty keypath")
-    }
+func mergeMaps(dst, src map[string]any) { // mergeMaps merges src into dst (both map[string]any)
+	for k, v := range src {
+		if existing, ok := dst[k]; ok {
+			if ev, ok1 := existing.(map[string]any); ok1 {
+				if sv, ok2 := v.(map[string]any); ok2 {
+					mergeMaps(ev, sv)
+					continue
+				}
+			}
+		}
+		dst[k] = v
+	}
+}
 
-    current := data
-    for i, k := range keypath[:len(keypath)-1] {
-        // Handle array index
-        if strings.HasPrefix(k, "[") && strings.HasSuffix(k, "]") {
-            idxStr := k[1 : len(k)-1]
-            idx, err := strconv.Atoi(idxStr)
-            if err != nil {
-                return fmt.Errorf("Invalid array index in keypath: %s", k)
-            }
+func mergeOverAtKeypath(data map[string]any, keypath string, subdata any) error { // mergeOverAtKeypath merges subdata at the target keypath
+	keyparts := parseKeypath(keypath)
+	if len(keyparts) == 0 || (len(keyparts) == 1 && (keyparts[0] == "" || keyparts[0] == ".")) {
+		// Merge at the root
+		if m, ok := subdata.(map[string]any); ok {
+			mergeMaps(data, m)
+		} else {
+			return fmt.Errorf("cannot merge non-map at root")
+		}
+		return nil
+	}
 
-            arr, ok := current[keypath[i-1]].([]any)
-            if !ok {
-                return fmt.Errorf("Expected array at %s", keypath[i-1])
-            }
+	current := data
+	for i, part := range keyparts {
+		isLast := i == len(keyparts)-1
 
-            if idx >= len(arr) {
-                return fmt.Errorf("Index out of range at %s", k)
-            }
+		// Handle array index
+		if strings.HasPrefix(part, "[") && strings.HasSuffix(part, "]") {
+			idxStr := part[1 : len(part)-1]
+			idx, err := strconv.Atoi(idxStr)
+			if err != nil {
+				return fmt.Errorf("invalid index %s", idxStr)
+			}
 
-            // If last element, replace
-            if i == len(keypath)-2 {
-                arr[idx] = subdata
-                return nil
-            }
+			// Convert current into []any if needed
+			arr, ok := current["_array"].([]any)
+			if !ok {
+				arr = []any{}
+			}
 
-            // Drill down
-            nested, ok := arr[idx].(map[string]any)
-            if !ok {
-                return fmt.Errorf("Expected object at array index %d", idx)
-            }
-            current = nested
-            continue
-        }
+			// Expand slice if needed
+			for len(arr) <= idx {
+				arr = append(arr, map[string]any{})
+			}
 
-        // Normal key
-        next, exists := current[k]
-        if !exists {
-            next = make(map[string]any)
-            current[k] = next
-        }
+			if isLast {
+				if m, ok := subdata.(map[string]any); ok {
+					if existing, ok := arr[idx].(map[string]any); ok {
+						mergeMaps(existing, m)
+					} else {
+						arr[idx] = m
+					}
+				} else {
+					arr[idx] = subdata
+				}
+			} else {
+				// Ensure the next level is a map
+				if _, ok := arr[idx].(map[string]any); !ok {
+					arr[idx] = map[string]any{}
+				}
+				current = arr[idx].(map[string]any)
+			}
 
-        nested, ok := next.(map[string]any)
-        if !ok {
-            return fmt.Errorf("Expected map at keypath %v", keypath[:i+1])
-        }
-        current = nested
-    }
+			current["_array"] = arr
+		} else {
+			// Regular map key
+			if isLast {
+				if m, ok := subdata.(map[string]any); ok {
+					if existing, ok := current[part].(map[string]any); ok {
+						mergeMaps(existing, m)
+					} else {
+						current[part] = m
+					}
+				} else {
+					current[part] = subdata
+				}
+			} else {
+				// Traverse or create map
+				if _, ok := current[part]; !ok {
+					current[part] = map[string]any{}
+				}
+				next, ok := current[part].(map[string]any)
+				if !ok {
+					return fmt.Errorf("expected map at %s", part)
+				}
+				current = next
+			}
+		}
+	}
 
-    // Set the final value
-    lastKey := keypath[len(keypath)-1]
-    current[lastKey] = subdata
-    return nil
+	return nil
 }
 
 func fromJSON(b []byte) (map[string]any, error) {
@@ -165,8 +203,7 @@ func (m *MCCLib) GetRepo(url string) (Repo, error) {
 						return Repo{}, fmt.Errorf("Failed to fetch partial from %s: %v", urlStr, err)
 					}
 
-					keypath := parseKeypath(kp)
-					if err := mergeOverAtKeypath(data, keypath, subdata); err != nil {
+					if err := mergeOverAtKeypath(data, kp, subdata); err != nil {
 						return Repo{}, fmt.Errorf("Failed to merge partial at %s: %v", kp, err)
 					}
 				}
@@ -203,8 +240,7 @@ func (m *MCCLib) GetRepo(url string) (Repo, error) {
 						return Repo{}, fmt.Errorf("Failed to fetch partial from %s: %v", urlStr, err)
 					}
 
-					keypath := parseKeypath(kp)
-					if err := mergeOverAtKeypath(data, keypath, subdata); err != nil {
+					if err := mergeOverAtKeypath(data, kp, subdata); err != nil {
 						return Repo{}, fmt.Errorf("Failed to merge partial at %s: %v", kp, err)
 					}
 				}

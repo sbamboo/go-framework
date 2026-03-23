@@ -1,56 +1,48 @@
-{
-    "modpacks": [
-      {
-        "type": "inline",
-        "format": 3,
-        "id": "partial-modpack",
-        "uuid": "modpack-partial-9999-aaaa-bbbb-ccccdddddddd",
-        "name": "Partial Modpack Example",
-        "description": "This modpack is only in the partial file.",
-        "author": "Partial Creator",
-        "icon": "https://example.com/icons/partial-modpack.png",
-        "group": "examples",
-        "hidden": false,
-        "meta": {
-          "side": "client",
-          "supported": true,
-          "icon_rendering": "pixelated"
-        },
-        "versions": {
-          "0.0.1-1.21.11": {
+[{
+    "type": "inline",
+    "format": 3,
+    "id": "partial-modpack",
+    "uuid": "modpack-partial-9999-aaaa-bbbb-ccccdddddddd",
+    "name": "Partial Modpack Example",
+    "description": "This modpack is only in the partial file.",
+    "author": "Partial Creator",
+    "icon": "https://example.com/icons/partial-modpack.png",
+    "group": "examples",
+    "hidden": false,
+    "meta": {
+        "side": "client",
+        "supported": true,
+        "icon_rendering": "pixelated"
+    },
+    "versions": {
+        "0.0.1-1.21.11": {
             "created": "2026-03-23",
             "mcver": "1.21.11",
             "depends": ["loaders:fabric:*"],
             "resources": {
-              "mods": [
-                {
-                  "id": "partial-mod",
-                  "optional": false,
-                  "disabled": false,
-                  "meta": {},
-                  "sources": [
-                    {
-                      "type": "url",
-                      "platforms": ["*"],
-                      "source": "https://example.com/downloads/partial-mod.jar"
-                    }
-                  ],
-                  "depends": [],
-                  "conflicts": []
-                }
-              ],
-              "resourcepacks": []
+                "mods": [{
+                    "id": "partial-mod",
+                    "optional": false,
+                    "disabled": false,
+                    "meta": {},
+                    "sources": [{
+                        "type": "url",
+                        "platforms": ["*"],
+                        "source": "https://example.com/downloads/partial-mod.jar"
+                    }],
+                    "depends": [],
+                    "conflicts": []
+                }],
+                "resourcepacks": []
             },
             "resource_counts": {
-              "mods": 1,
-              "resourcepacks": 0
+                "mods": 1,
+                "resourcepacks": 0
             },
             "overrides": {
-              "type": "url",
-              "source": "https://example.com/overrides/partial-modpack.zip"
+                "type": "url",
+                "source": "https://example.com/overrides/partial-modpack.zip"
             }
-          }
         }
-      }
-    ]
-  }
+    }
+}]

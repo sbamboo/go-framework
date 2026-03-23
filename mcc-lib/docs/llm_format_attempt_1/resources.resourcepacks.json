@@ -1,31 +1,25 @@
-{
-    "resourcepacks": [
-      {
-        "id": "extra-resourcepack",
-        "uuid": "rsp-partial-5555-6666-7777-888888888888",
-        "name": "Extra Resourcepack",
-        "description": "A resourcepack included in the partial file.",
-        "author": "Partial Creator",
-        "icon": "https://example.com/icons/extra-rsp.png",
-        "hidden": false,
-        "group": "examples",
-        "meta": {
-          "supported": true
-        },
-        "versions": {
-          "extra-1.21.11": {
+[{
+    "id": "extra-resourcepack",
+    "uuid": "rsp-partial-5555-6666-7777-888888888888",
+    "name": "Extra Resourcepack",
+    "description": "A resourcepack included in the partial file.",
+    "author": "Partial Creator",
+    "icon": "https://example.com/icons/extra-rsp.png",
+    "hidden": false,
+    "group": "examples",
+    "meta": {
+        "supported": true
+    },
+    "versions": {
+        "extra-1.21.11": {
             "created": "2026-03-23",
             "mcver": "1.21.11",
-            "sources": [
-              {
+            "sources": [{
                 "type": "url",
                 "source": "https://example.com/downloads/extra-rsp.zip"
-              }
-            ],
+            }],
             "depends": [],
             "conflicts": []
-          }
         }
-      }
-    ]
-  }
+    }
+}]

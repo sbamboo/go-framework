@@ -4,8 +4,8 @@
     "name": "Official MCC Root Partial",
     "created": "2026-03-23",
     "resources": {
-      "sources": {
-        "extra_source": "https://example.com/extra_source.json"
-      }
+        "sources": {
+            "extra_source": "https://example.com/extra_source.json"
+        }
     }
-  }
+}
