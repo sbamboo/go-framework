@@ -119,46 +119,67 @@ func toJSON(data map[string]any) (string, error) {
     return string(b), nil
 }
 
-func (m *MCCLib) GetRepo(url string) (Repo, error) {
-
+func (m *MCCLib) fetchJson(url string) (map[string]any, error) {
 	// Implementation to fetch and parse the repository from the given URL
 	nh, err := m.fw.Net.GET(url, false, false, nil)
 	if err != nil {
-		return Repo{}, fmt.Errorf("Failed to fetch repository from URL: %s, error: %v", url, err)
+		return nil, fmt.Errorf("Failed to fetch repository from URL: %s, error: %v", url, err)
 	}
 
 	// Get the content
 	content := nh.GetNonStreamContent()
 	if content == nil {
-		return Repo{}, fmt.Errorf("Failed to fetch repository content from URL: %s", url)
+		return nil, fmt.Errorf("Failed to fetch repository content from URL: %s", url)
 	}
 
 	// Unmarshal the JSON content into a map
     data, err := fromJSON([]byte(*content))
     if err != nil {
-        return Repo{}, fmt.Errorf("Failed to unmarshal repository JSON: %v", err)
+        return nil, fmt.Errorf("Failed to unmarshal repository JSON: %v", err)
     }
+
+	return data, nil
+}
+
+func (m *MCCLib) GetRepo(url string) (Repo, error) {
+	// Fetch the JSON data
+	data, err := m.fetchJson(url)
+	if err != nil {
+		return Repo{}, err
+	}
 
 	// Apply partials
 	if partialsRaw, ok := data["partials"]; ok {
 		switch partials := partialsRaw.(type) {
 			case map[string]any:
-				// Existing behavior: map[keypath] = value
-				for kp, subdata := range partials {
+				// partials is a map of keypath -> url
+				for kp, urlRaw := range partials {
+					urlStr, ok := urlRaw.(string)
+					if !ok {
+						return Repo{}, fmt.Errorf("Partial URL at keypath %s is not a string", kp)
+					}
+
+					// Fetch JSON from URL
+					subdata, err := m.fetchJson(urlStr)
+					if err != nil {
+						return Repo{}, fmt.Errorf("Failed to fetch partial from %s: %v", urlStr, err)
+					}
+
 					keypath := parseKeypath(kp)
 					if err := mergeOverAtKeypath(data, keypath, subdata); err != nil {
 						return Repo{}, fmt.Errorf("Failed to merge partial at %s: %v", kp, err)
 					}
 				}
+
 			case []any:
-				// Array of objects [{keypath, data}]
+				// partials is an array of {keypath, url}
 				for i, item := range partials {
-					m, ok := item.(map[string]any)
+					mItem, ok := item.(map[string]any)
 					if !ok {
 						return Repo{}, fmt.Errorf("Partial at index %d is not an object", i)
 					}
 
-					kpRaw, ok := m["keypath"]
+					kpRaw, ok := mItem["keypath"]
 					if !ok {
 						return Repo{}, fmt.Errorf("Partial at index %d missing keypath", i)
 					}
@@ -167,9 +188,19 @@ func (m *MCCLib) GetRepo(url string) (Repo, error) {
 						return Repo{}, fmt.Errorf("Partial keypath at index %d is not a string", i)
 					}
 
-					subdata, ok := m["data"]
+					urlRaw, ok := mItem["url"]
 					if !ok {
-						return Repo{}, fmt.Errorf("Partial at index %d missing data", i)
+						return Repo{}, fmt.Errorf("Partial at index %d missing url", i)
+					}
+					urlStr, ok := urlRaw.(string)
+					if !ok {
+						return Repo{}, fmt.Errorf("Partial url at index %d is not a string", i)
+					}
+
+					// Fetch JSON from URL
+					subdata, err := m.fetchJson(urlStr)
+					if err != nil {
+						return Repo{}, fmt.Errorf("Failed to fetch partial from %s: %v", urlStr, err)
 					}
 
 					keypath := parseKeypath(kp)
@@ -177,9 +208,10 @@ func (m *MCCLib) GetRepo(url string) (Repo, error) {
 						return Repo{}, fmt.Errorf("Failed to merge partial at %s: %v", kp, err)
 					}
 				}
+
 			default:
-				return Repo{}, fmt.Errorf("partials should be either a map or an array of objects")
-		}
+				return Repo{}, fmt.Errorf("partials should be either a map of keypath->url or an array of objects")
+			}
 	}
 	
 	// For now log the content
