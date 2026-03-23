@@ -1,0 +1,25 @@
+{
+    "runtimes": [
+      {
+        "id": "jdk",
+        "uuid": "runtime-partial-aaaa-bbbb-cccc-111122223333",
+        "versions": {
+          "20": {
+            "created": "2026-03-23",
+            "sources": [
+              {
+                "type": "builtin.java",
+                "platforms": ["win"],
+                "source": "https://aka.ms/download-jdk/microsoft-jdk-20-windows-x64.zip"
+              },
+              {
+                "type": "builtin.java",
+                "platforms": ["lnx"],
+                "source": "https://aka.ms/download-jdk/microsoft-jdk-20-linux-x64.tar.gz"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }

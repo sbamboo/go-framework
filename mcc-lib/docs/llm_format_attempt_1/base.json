@@ -7,11 +7,11 @@
     "created": "2026-02-22",
     "last_updated": "2026-03-23",
     "partials": {
-      ".": "https://example.com/repo/official_v3_root.json",
-      "resources.mods": "https://example.com/repo/official_v3_mods.json",
-      "resources.resourcepacks": "https://example.com/repo/official_v3_resourcepacks.json",
-      "resources.modpacks": "https://example.com/repo/official_v3_modpacks.json",
-      "resources.runtimes": "https://example.com/repo/official_v3_runtimes.json"
+      ".": "https://github.com/sbamboo/go-framework/raw/refs/heads/apps/mcc-lib/docs/llm_format_attempt_1/..json",
+      "resources.mods": "https://github.com/sbamboo/go-framework/raw/refs/heads/apps/mcc-lib/docs/llm_format_attempt_1/resources.mods.json",
+      "resources.resourcepacks": "https://github.com/sbamboo/go-framework/raw/refs/heads/apps/mcc-lib/docs/llm_format_attempt_1/resources.resourcepacks.json",
+      "resources.modpacks": "https://github.com/sbamboo/go-framework/raw/refs/heads/apps/mcc-lib/docs/llm_format_attempt_1/resources.modpacks.json",
+      "resources.runtimes": "https://github.com/sbamboo/go-framework/raw/refs/heads/apps/mcc-lib/docs/llm_format_attempt_1/resources.runtimes.json"
     },
     "resources": {
       "sources": {

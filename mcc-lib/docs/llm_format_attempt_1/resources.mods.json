@@ -1,0 +1,34 @@
+{
+    "mods": [
+      {
+        "id": "example-extra-mod",
+        "uuid": "mod-partial-1111-2222-3333-444444444444",
+        "name": "Extra Example Mod",
+        "description": "A mod included in the mods partial.",
+        "author": "Partial Creator",
+        "icon": "https://example.com/icons/extra-mod.png",
+        "hidden": false,
+        "group": "examples",
+        "meta": {
+          "side": "both",
+          "supported": true
+        },
+        "library": false,
+        "versions": {
+          "extra-1.21.11": {
+            "created": "2026-03-23",
+            "mcver": "1.21.11",
+            "sources": [
+              {
+                "type": "url",
+                "platforms": ["*"],
+                "source": "https://example.com/downloads/extra-mod.jar"
+              }
+            ],
+            "depends": ["loaders:fabric:*"],
+            "conflicts": []
+          }
+        }
+      }
+    ]
+  }

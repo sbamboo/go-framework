@@ -1,0 +1,11 @@
+{
+    "format": 3,
+    "uuid": "root-partial-0000-0000-0000-000000000000",
+    "name": "Official MCC Root Partial",
+    "created": "2026-03-23",
+    "resources": {
+      "sources": {
+        "extra_source": "https://example.com/extra_source.json"
+      }
+    }
+  }
