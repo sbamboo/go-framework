@@ -30,6 +30,15 @@ const (
 	RepoResTypeResourcepacks RepoResourceType = "Resourcepacks"
 	RepoResTypeModpacks RepoResourceType = "Modpacks"
 )
+
+type RepoResourceSourceType string
+const (
+	RepoResSourceTypeInline RepoResourceSourceType = "inline"
+	RepoResSourceTypeURL RepoResourceSourceType = "url"
+	RepoResSourceTypeArchive RepoResourceSourceType = "archive"
+	RepoResSourceTypeArchiveB64 RepoResourceSourceType = "archive.b64"
+)
+
 //endregion
 
 //region: Types
@@ -133,13 +142,21 @@ func (r *ResourceVer) GetCounts() map[string]any {
 }
 
 type Resource struct {
+	SourceType *RepoResourceSourceType
 	Format   int
 	Id       string
 	UUID     string
 	Meta     Meta
 	FMeta    FMeta
-	Versions map[string]ResourceVer
+	Versions map[string]ResourceVer // When source is used this is empty until get:ted
+	Source   string // Used with url or b64 string instead of versions
 }
+
+func (r *Resource) FetchVersions(id string) {
+	// Is source not empty then check if its an url or base64 string, if url fetch and parse, if b64 decode and parse, then fill Versions map
+	//   SourceType may be set and may be used to determine how to fetch and parse the source
+}
+
 
 type RepoResources struct {
 	Sources       map[string]string // key => value

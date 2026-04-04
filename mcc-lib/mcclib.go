@@ -161,7 +161,7 @@ func mergeOverAtKeypath(data map[string]any, keypath string, subdata any) error 
 	return nil
 }
 
-func fromJSON(b []byte) (any, error) {
+func FromJSON(b []byte) (any, error) {
 	var data any
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func fromJSON(b []byte) (any, error) {
 	return data, nil
 }
 
-func toJSON(data any) (string, error) {
+func ToJSON(data any) (string, error) {
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
 		return "", err
@@ -191,7 +191,7 @@ func (m *MCCLib) fetchJson(url string) (any, error) {
 	}
 
 	// Unmarshal the JSON content (accepts both object and array at root)
-	data, err := fromJSON([]byte(*content))
+	data, err := FromJSON([]byte(*content))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to unmarshal repository JSON: %v", err)
 	}
@@ -277,7 +277,7 @@ func (m *MCCLib) GetRepo(url string) (Repo, error) {
 	}
 	
 	// For now log the content
-	finalJSON, err := toJSON(data)
+	finalJSON, err := ToJSON(data)
     if err != nil {
         return Repo{}, fmt.Errorf("Failed to marshal final JSON: %v", err)
     }
