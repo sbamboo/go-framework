@@ -44,7 +44,8 @@ func parseKeypath(kp string) []string {
     return parts
 }
 
-func mergeMaps(dst, src map[string]any) { // mergeMaps merges src into dst (both map[string]any)
+// mergeMaps merges src into dst (both map[string]any)
+func mergeMaps(dst, src map[string]any) { 
 	for k, v := range src {
 		if existing, ok := dst[k]; ok {
 			if ev, ok1 := existing.(map[string]any); ok1 {
@@ -64,7 +65,8 @@ func mergeMaps(dst, src map[string]any) { // mergeMaps merges src into dst (both
 	}
 }
 
-func mergeOverAtKeypath(data map[string]any, keypath string, subdata any) error { // mergeOverAtKeypath merges subdata at the target keypath
+// mergeMaps merges src into dst (both map[string]any)
+func mergeOverAtKeypath(data map[string]any, keypath string, subdata any) error {
 	keyparts := parseKeypath(keypath)
 	if len(keyparts) == 0 || (len(keyparts) == 1 && (keyparts[0] == "" || keyparts[0] == ".")) {
 		// Merge at the root

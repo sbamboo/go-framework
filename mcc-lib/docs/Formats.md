@@ -180,6 +180,24 @@
                         "conflicts": []
                     }
                 }
+            },
+            // Mods can also be external json file
+            {
+                "id": "example-json",
+                "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
+                "name": "Example mod!",
+                "description": "This is a beautiful description of things",
+                "author": "MinecraftCustomClient / Axo",
+                "icon": "https://example.com/example.png", // Either an url, base64-URI or resourcekey (resourcekeys are named resources that are handled by reader of repo)
+                "hidden": false, // Mark as hidden?
+                "group": "examples", // Optional group this resource is part of, just a categorization
+                // Meta contains any further metadata, good for future expansion
+                "meta": {
+                    "side": "client", // "client" | "server" | "both"
+                    "supported": true
+                },
+                "library": false, // Library mod
+                "source": "https://example.com/example.json"
             }
         ],
 
@@ -219,6 +237,22 @@
                         "conflicts": []
                     }
                 }
+            },
+            // Resourcepacks can also be external json file
+            {
+                "id": "example-json",
+                "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
+                "name": "Example resourcepack!",
+                "description": "This is a beautiful description of things",
+                "author": "MinecraftCustomClient / Axo",
+                "icon": "https://example.com/resourcepack.png", // Either an url, base64-URI or resourcekey
+                "hidden": false, // Mark as hidden?
+                "group": "examples", // Optional group this resource is part of, just a categorization
+                // Meta contains any further metadata
+                "meta": {
+                    "supported": true
+                },
+                "source": "https://example.com/resourcepack.json"
             }
         ],
 
@@ -350,6 +384,26 @@
                         }
                     }
                 }
+            },
+            {
+                "type": "json", // "inline" | "json" | "archive" | "archive.b64"
+                "format": 3, // V3 Formats begin at 3, as of now 3 is the only V3 format number but future changes will increase it so we might get V3 format:4 etc.
+                "id": "example-repo-json",
+                "uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", // optional unique identifier
+                "name": "Example repo json",
+                "description": "This is a beautiful description of things",
+                "author": "MinecraftCustomClient / Axo",
+                "icon": "https://example.com/example-repo-json.png", // Either an url, base64-URI or resourcekey 
+                "group": "examples", // Optional group this resource is part of, just a categorization
+                "hidden": false, // Mark as hidden?
+                // Meta contains any further metadata, good for future expansion
+                "meta": {
+                    "side": "client", // "client" | "server" | "both"
+                    "supported": true,
+                    "icon_rendering": "pixelated" // meta.icon_rendering is allowed in all places where "meta" field is sibling to "icon" field.
+                },
+                // For non inline packs we link here
+                "source": "https://example.com/example-repo-json.json" // could also be archive file for "archive" type or string of base64 for "archive.b64"
             }
         ],
 
