@@ -1,8 +1,0 @@
-{
-  "grand": {
-    "child": {
-      "foo": 1,
-      "bar": "from-sub1-partial"
-    }
-  }
-}
